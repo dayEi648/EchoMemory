@@ -23,6 +23,7 @@ from echomemory_backend.db.base import Base
 
 if TYPE_CHECKING:
     from echomemory_backend.models.comment import Comment
+    from echomemory_backend.models.dictionary import City
     from echomemory_backend.models.music import Music
     from echomemory_backend.models.play_history import PlayHistory
     from echomemory_backend.models.playlist import Playlist

@@ -1,7 +1,13 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import BigInteger, Index, Integer, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from echomemory_backend.db.base import Base
+
+if TYPE_CHECKING:
+    from echomemory_backend.models.music import Music, MusicInstrument
+    from echomemory_backend.models.user import User
 
 
 class LevelConfig(Base):
