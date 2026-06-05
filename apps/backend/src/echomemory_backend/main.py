@@ -7,6 +7,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 
+from echomemory_backend.api.v1.router import router as api_v1_router
 from echomemory_backend.core.config import settings
 from echomemory_backend.models import Base  # noqa: F401
 
@@ -24,3 +25,4 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="echomemory backend", lifespan=lifespan)
+app.include_router(api_v1_router, prefix="/api")
