@@ -69,7 +69,12 @@ class Music(Base):
         Index("idx_musics_created_at", desc("created_at")),
         Index("idx_musics_style_id", "style_id"),
         Index("idx_musics_language_id", "language_id"),
-        Index("idx_musics_title_trgm", "title", postgresql_using="gin"),
+        Index(
+            "idx_musics_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
     )
 
     style: Mapped["Style | None"] = relationship("Style", back_populates="musics")

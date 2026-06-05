@@ -57,8 +57,8 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
 
     __table_args__ = (
@@ -97,8 +97,18 @@ class User(Base):
         Index(
             "idx_users_banned_at", "banned_at", postgresql_where=banned_at.is_not(None)
         ),
-        Index("idx_users_nickname_trgm", "nickname", postgresql_using="gin"),
-        Index("idx_users_username_trgm", "username", postgresql_using="gin"),
+        Index(
+            "idx_users_nickname_trgm",
+            "nickname",
+            postgresql_using="gin",
+            postgresql_ops={"nickname": "gin_trgm_ops"},
+        ),
+        Index(
+            "idx_users_username_trgm",
+            "username",
+            postgresql_using="gin",
+            postgresql_ops={"username": "gin_trgm_ops"},
+        ),
     )
 
     city: Mapped["City | None"] = relationship("City", back_populates="users")

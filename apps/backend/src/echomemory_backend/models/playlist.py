@@ -68,7 +68,12 @@ class Playlist(Base):
         Index("idx_playlists_play_count", desc("play_count")),
         Index("idx_playlists_collect_count", desc("collect_count")),
         Index("idx_playlists_created_at", desc("created_at")),
-        Index("idx_playlists_title_trgm", "title", postgresql_using="gin"),
+        Index(
+            "idx_playlists_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
     )
 
     user: Mapped["User"] = relationship("User", back_populates="playlists")

@@ -70,6 +70,7 @@ class Album(Base):
             "idx_albums_title_trgm",
             "title",
             postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
             postgresql_where=is_deleted.is_(False),
         ),
     )

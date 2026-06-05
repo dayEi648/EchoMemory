@@ -84,7 +84,9 @@ class SpacePostImage(Base):
         BigInteger, ForeignKey("space_posts.id", ondelete="CASCADE"), primary_key=True
     )
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    ordinal: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
+    ordinal: Mapped[int] = mapped_column(
+        SmallInteger, default=0, nullable=False, primary_key=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
