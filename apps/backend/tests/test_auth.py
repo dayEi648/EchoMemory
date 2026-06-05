@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from echomemory_backend.core import redis_client as rc
 from echomemory_backend.core.security import decode_access_token
+from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -50,7 +51,7 @@ class TestRegister:
         assert me_data["username"] == "alice"
         assert me_data["nickname"] == "Alice"
         assert "id" in me_data
-        assert me_data["role"] == 0
+        assert me_data["role"] == UserRole.USER.value
 
     def test_register_duplicate_username(self, client: TestClient):
         client.post(
@@ -144,13 +145,21 @@ class TestRefresh:
 
 class TestLogout:
     def test_logout_success(self, client: TestClient, db_session: Session):
+        from echomemory_backend.core.security import create_access_token
+
         user = _create_user_directly(db_session, username="logout_user", password="secret")
         rc.store_refresh_token("logout_rt", user.id)
+        token = create_access_token(subject=user.id)
 
-        resp = client.post(LOGOUT_URL, json={"refresh_token": "logout_rt"})
+        resp = client.post(
+            LOGOUT_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"refresh_token": "logout_rt"},
+        )
         assert resp.status_code == 204
 
         assert rc.get_refresh_token_user_id("logout_rt") is None
+        assert rc.is_access_token_blacklisted(token) is True
 
 
 class TestGetMe:
@@ -173,7 +182,7 @@ class TestGetMe:
         from sqlalchemy import func
 
         user = _create_user_directly(db_session, username="banned", password="secret")
-        user.status = 3  # banned
+        user.status = UserStatus.BANNED.value
         user.banned_at = func.now()
         db_session.commit()
         from echomemory_backend.core.security import create_access_token

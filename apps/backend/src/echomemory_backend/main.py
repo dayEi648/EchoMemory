@@ -14,6 +14,7 @@ from echomemory_backend.models import Base  # noqa: F401
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan: run Alembic migrations on startup."""
     base_dir = Path(__file__).resolve().parent.parent.parent
     alembic_cfg = Config(str(base_dir / "alembic.ini"))
     alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)

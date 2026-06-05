@@ -1,3 +1,10 @@
+import os
+
+# Ensure required env vars are set before any imports trigger Settings() instantiation.
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://postgres:131420@localhost:5432/echomemory_test")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
 from contextlib import asynccontextmanager
 
 import pytest
@@ -12,7 +19,7 @@ from echomemory_backend.db.base import Base
 from echomemory_backend.main import app
 
 # PostgreSQL test database
-TEST_DATABASE_URL = "postgresql+psycopg2://postgres:131420@localhost:5432/echomemory_test"
+TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

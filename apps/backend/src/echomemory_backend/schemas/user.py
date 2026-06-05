@@ -1,7 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
+
+from echomemory_backend.core.utils import timedelta_to_iso8601_duration
 
 
 class UserBase(BaseModel):
@@ -81,6 +83,10 @@ class UserMeOut(UserOut):
     last_login_at: datetime | None = None
     banned_at: datetime | None = None
     ban_duration: str | None = None
+
+    @field_serializer("ban_duration")
+    def serialize_ban_duration(self, value: timedelta | None) -> str | None:
+        return timedelta_to_iso8601_duration(value)
 
 
 class UserPublicOut(UserOut):

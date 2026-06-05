@@ -1,13 +1,16 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg2://user:password@localhost:5432/echomemory"
-    redis_url: str = "redis://localhost:6379/0"
-    secret_key: str = "change-me-in-production"
+    """Application settings loaded from environment variables and .env file."""
 
-    class Config:
-        env_file = ".env"
+    database_url: str
+    redis_url: str = "redis://localhost:6379/0"
+    secret_key: str
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 1440
+
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()

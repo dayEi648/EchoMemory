@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 from echomemory_backend.core.redis_client import is_access_token_blacklisted
 from echomemory_backend.core.security import decode_access_token
 from echomemory_backend.db.session import SessionLocal
+from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def get_db() -> Session:
+    """Yield a SQLAlchemy session and close it after use."""
     db = SessionLocal()
     try:
         yield db
@@ -25,6 +27,11 @@ TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 
 def get_current_user(db: SessionDep, token: TokenDep) -> User:
+    """Resolve the current user from the JWT access token.
+
+    Validates token blacklist status, decodes the token, and checks
+    that the user exists and has not been soft-deleted.
+    """
     if is_access_token_blacklisted(token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -46,7 +53,15 @@ def get_current_user(db: SessionDep, token: TokenDep) -> User:
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = db.get(User, int(user_id))
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = db.get(User, user_id_int)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -66,7 +81,8 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def get_current_active_user(current_user: CurrentUser) -> User:
-    if current_user.status == 3:  # 封号
+    """Ensure the current user account is active (not banned)."""
+    if current_user.status == UserStatus.BANNED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is banned",
@@ -78,7 +94,8 @@ ActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 
 def require_admin(current_user: ActiveUser) -> User:
-    if current_user.role not in (2, 3):
+    """Require that the current user has admin or super-admin privileges."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",

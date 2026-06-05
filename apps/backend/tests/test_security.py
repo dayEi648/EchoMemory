@@ -5,7 +5,6 @@ from jose import jwt
 
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.security import (
-    ALGORITHM,
     create_access_token,
     decode_access_token,
     get_password_hash,
@@ -54,7 +53,7 @@ class TestAccessToken:
         token = jwt.encode(
             {"sub": "1", "type": "access"},
             "wrong-secret",
-            algorithm=ALGORITHM,
+            algorithm="HS256",
         )
         payload = decode_access_token(token)
         assert payload is None
@@ -63,7 +62,7 @@ class TestAccessToken:
         token = jwt.encode(
             {"sub": "1"},
             settings.secret_key,
-            algorithm=ALGORITHM,
+            algorithm="HS256",
         )
         payload = decode_access_token(token)
         assert payload is None
@@ -72,7 +71,7 @@ class TestAccessToken:
         token = jwt.encode(
             {"sub": "1", "type": "refresh"},
             settings.secret_key,
-            algorithm=ALGORITHM,
+            algorithm="HS256",
         )
         payload = decode_access_token(token)
         assert payload is None

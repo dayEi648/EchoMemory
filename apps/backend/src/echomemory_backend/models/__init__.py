@@ -1,4 +1,5 @@
 from echomemory_backend.db.base import Base
+from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.album import (
     Album,
     AlbumAuthor,
@@ -92,4 +93,6 @@ __all__ = [
     "UserMusicCollection",
     "UserMusicRelease",
     "UserPlaylistCollection",
+    "UserRole",
+    "UserStatus",
 ]

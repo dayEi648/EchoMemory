@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import desc, func, select
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
-from echomemory_backend.models.user import User, UserFollow
+from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
     FollowCreate,
     FolloweeOut,
@@ -14,52 +13,28 @@ from echomemory_backend.schemas.user import (
     UserSearchOut,
     UserUpdate,
 )
+from echomemory_backend.services import admin_service
+from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.services import user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-# ---------------------------------------------------------------------------
-# Self profile
-# ---------------------------------------------------------------------------
 @router.patch("/me", response_model=UserMeOut)
 def update_me(
     db: SessionDep, current_user: ActiveUser, user_in: UserUpdate
 ) -> User:
-    if user_in.email is not None and user_in.email != current_user.email:
-        stmt = select(User).where(User.email == user_in.email)
-        if db.execute(stmt).scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
-        current_user.email = user_in.email
-
-    if user_in.phone is not None:
-        current_user.phone = user_in.phone
-    if user_in.nickname is not None:
-        current_user.nickname = user_in.nickname
-    if user_in.gender is not None:
-        current_user.gender = user_in.gender
-    if user_in.birth is not None:
-        current_user.birth = user_in.birth
-    if user_in.bio is not None:
-        current_user.bio = user_in.bio
-    if user_in.city_id is not None:
-        current_user.city_id = user_in.city_id
-    if user_in.avatar_url is not None:
-        current_user.avatar_url = user_in.avatar_url
-
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    """Update the current user's own profile."""
+    try:
+        return user_service.update_user_profile(db, current_user, user_in)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
-# ---------------------------------------------------------------------------
-# Public profile
-# ---------------------------------------------------------------------------
 @router.get("/{user_id}", response_model=UserPublicOut)
 def get_user(db: SessionDep, user_id: int) -> User:
-    user = db.get(User, user_id)
+    """Fetch a public user profile by ID."""
+    user = user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -68,9 +43,6 @@ def get_user(db: SessionDep, user_id: int) -> User:
     return user
 
 
-# ---------------------------------------------------------------------------
-# Search
-# ---------------------------------------------------------------------------
 @router.get("/", response_model=list[UserSearchOut])
 def search_users(
     db: SessionDep,
@@ -78,51 +50,19 @@ def search_users(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    stmt = select(User).where(User.is_deleted == False)
-    if q:
-        stmt = stmt.where(
-            (User.username.ilike(f"%{q}%")) | (User.nickname.ilike(f"%{q}%"))
-        )
-    stmt = stmt.order_by(desc(User.exp)).limit(limit).offset(offset)
-    return list(db.execute(stmt).scalars().all())
+    """Search users with optional keyword filter."""
+    return user_service.search_users(db, q=q, limit=limit, offset=offset)
 
 
-# ---------------------------------------------------------------------------
-# Follow
-# ---------------------------------------------------------------------------
 @router.post("/follow", status_code=status.HTTP_204_NO_CONTENT)
 def follow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
-    if current_user.id == follow_in.followee_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot follow yourself",
-        )
-
-    target = db.get(User, follow_in.followee_id)
-    if not target or target.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    stmt = select(UserFollow).where(
-        UserFollow.follower_id == current_user.id,
-        UserFollow.followee_id == follow_in.followee_id,
-    )
-    if db.execute(stmt).scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Already following this user",
-        )
-
-    follow = UserFollow(
-        follower_id=current_user.id,
-        followee_id=follow_in.followee_id,
-    )
-    db.add(follow)
-    db.commit()
+    """Follow another user."""
+    try:
+        user_service.follow_user(db, current_user.id, follow_in.followee_id)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     return None
 
 
@@ -130,18 +70,11 @@ def follow_user(
 def unfollow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
-    stmt = select(UserFollow).where(
-        UserFollow.follower_id == current_user.id,
-        UserFollow.followee_id == follow_in.followee_id,
-    )
-    follow = db.execute(stmt).scalar_one_or_none()
-    if not follow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Not following this user",
-        )
-    db.delete(follow)
-    db.commit()
+    """Unfollow a user."""
+    try:
+        user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     return None
 
 
@@ -152,16 +85,8 @@ def get_followees(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    stmt = (
-        select(User)
-        .join(UserFollow, UserFollow.followee_id == User.id)
-        .where(UserFollow.follower_id == user_id)
-        .where(User.is_deleted == False)
-        .order_by(desc(UserFollow.created_at))
-        .limit(limit)
-        .offset(offset)
-    )
-    return list(db.execute(stmt).scalars().all())
+    """List users that the given user follows."""
+    return user_service.get_followees(db, user_id, limit=limit, offset=offset)
 
 
 @router.get("/{user_id}/followers", response_model=list[FollowerOut])
@@ -171,16 +96,8 @@ def get_followers(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    stmt = (
-        select(User)
-        .join(UserFollow, UserFollow.follower_id == User.id)
-        .where(UserFollow.followee_id == user_id)
-        .where(User.is_deleted == False)
-        .order_by(desc(UserFollow.created_at))
-        .limit(limit)
-        .offset(offset)
-    )
-    return list(db.execute(stmt).scalars().all())
+    """List users that follow the given user."""
+    return user_service.get_followers(db, user_id, limit=limit, offset=offset)
 
 
 # ---------------------------------------------------------------------------
@@ -196,17 +113,10 @@ def admin_list_users(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    stmt = select(User).where(User.is_deleted == False)
-    if status is not None:
-        stmt = stmt.where(User.status == status)
-    if role is not None:
-        stmt = stmt.where(User.role == role)
-    if q:
-        stmt = stmt.where(
-            (User.username.ilike(f"%{q}%")) | (User.nickname.ilike(f"%{q}%"))
-        )
-    stmt = stmt.order_by(desc(User.created_at)).limit(limit).offset(offset)
-    return list(db.execute(stmt).scalars().all())
+    """List users with admin filters."""
+    return admin_service.list_users(
+        db, status=status, role=role, q=q, limit=limit, offset=offset
+    )
 
 
 @router.patch("/{user_id}/admin", response_model=UserMeOut)
@@ -216,35 +126,11 @@ def admin_update_user(
     user_id: int,
     user_in: UserAdminUpdate,
 ) -> User:
-    user = db.get(User, user_id)
-    if not user or user.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    if user.role == 3 and admin.role != 3:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot modify super-admin user",
-        )
-
-    if user_in.role is not None:
-        user.role = user_in.role
-    if user_in.status is not None:
-        user.status = user_in.status
-    if user_in.safety_score is not None:
-        user.safety_score = user_in.safety_score
-    if user_in.is_verified is not None:
-        user.is_verified = user_in.is_verified
-    if user_in.exp is not None:
-        user.exp = user_in.exp
-    if user_in.banned_at is not None:
-        user.banned_at = user_in.banned_at
-
-    db.commit()
-    db.refresh(user)
-    return user
+    """Update a user as an admin."""
+    try:
+        return admin_service.update_user_as_admin(db, admin, user_id, user_in)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/{user_id}/ban", response_model=UserMeOut)
@@ -254,24 +140,11 @@ def admin_ban_user(
     user_id: int,
     action: UserBanAction,
 ) -> User:
-    user = db.get(User, user_id)
-    if not user or user.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    if user.role == 3 and admin.role != 3:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot ban super-admin user",
-        )
-
-    user.status = action.status
-    user.banned_at = func.now()
-
-    db.commit()
-    db.refresh(user)
-    return user
+    """Ban a user."""
+    try:
+        return admin_service.ban_user(db, admin, user_id, action)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/{user_id}/unban", response_model=UserMeOut)
@@ -280,17 +153,8 @@ def admin_unban_user(
     admin: AdminUser,
     user_id: int,
 ) -> User:
-    user = db.get(User, user_id)
-    if not user or user.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    user.status = 0
-    user.banned_at = None
-    user.ban_duration = None
-
-    db.commit()
-    db.refresh(user)
-    return user
+    """Unban a user."""
+    try:
+        return admin_service.unban_user(db, admin, user_id)
+    except BusinessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)

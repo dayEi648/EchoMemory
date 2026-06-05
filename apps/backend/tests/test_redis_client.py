@@ -1,16 +1,14 @@
-import pytest
-from fakeredis import FakeRedis
+import time
 
-# We will patch the global redis_client in conftest or fixture
+import pytest
+
 from echomemory_backend.core import redis_client as rc
 
 
 @pytest.fixture(autouse=True)
-def fake_redis(monkeypatch):
-    fake = FakeRedis(decode_responses=True)
-    monkeypatch.setattr(rc, "redis_client", fake)
-    yield fake
-    fake.flushall()
+def _patch_redis(fake_redis):
+    """Ensure conftest.py fake_redis is active for all tests in this module."""
+    pass
 
 
 class TestRefreshToken:
@@ -29,8 +27,6 @@ class TestRefreshToken:
     def test_ttl_expires(self, fake_redis):
         rc.store_refresh_token("rt_ttl", 99, ttl_seconds=1)
         assert rc.get_refresh_token_user_id("rt_ttl") == "99"
-        import time
-
         time.sleep(1.1)
         assert rc.get_refresh_token_user_id("rt_ttl") is None
 
@@ -46,8 +42,6 @@ class TestBlacklist:
     def test_blacklist_ttl_expires(self, fake_redis):
         rc.blacklist_access_token("at_ttl", ttl_seconds=1)
         assert rc.is_access_token_blacklisted("at_ttl") is True
-        import time
-
         time.sleep(1.1)
         assert rc.is_access_token_blacklisted("at_ttl") is False
 

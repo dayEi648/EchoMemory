@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User, UserFollow
 
 BASE = "/api/v1/users"
@@ -14,7 +15,7 @@ UNFOLLOW_URL = f"{BASE}/unfollow"
 ADMIN_LIST_URL = f"{BASE}/admin/list"
 
 
-def _create_user(db: Session, username: str, password: str = "secret", role: int = 0, status: int = 0, **kwargs) -> User:
+def _create_user(db: Session, username: str, password: str = "secret", role: int = UserRole.USER.value, status: int = UserStatus.ACTIVE.value, **kwargs) -> User:
     user = User(
         username=username,
         password_hash=get_password_hash(password),
@@ -162,7 +163,7 @@ class TestFollow:
 
 class TestAdmin:
     def test_admin_list_users(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_user", role=2)
+        admin = _create_user(db_session, "admin_user", role=UserRole.ADMIN.value)
         _create_user(db_session, "regular")
         resp = client.get(ADMIN_LIST_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
@@ -175,20 +176,20 @@ class TestAdmin:
         assert resp.status_code == 403
 
     def test_admin_ban_user(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_ban", role=2)
+        admin = _create_user(db_session, "admin_ban", role=UserRole.ADMIN.value)
         target = _create_user(db_session, "to_ban")
         resp = client.post(
             f"{BASE}/{target.id}/ban",
             headers=_auth_header(admin),
-            json={"status": 3},
+            json={"status": UserStatus.BANNED.value},
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == 3
+        assert resp.json()["status"] == UserStatus.BANNED.value
 
     def test_admin_unban_user(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_unban", role=2)
+        admin = _create_user(db_session, "admin_unban", role=UserRole.ADMIN.value)
         target = _create_user(db_session, "to_unban")
-        target.status = 3
+        target.status = UserStatus.BANNED.value
         target.banned_at = func.now()
         db_session.commit()
         resp = client.post(
@@ -196,27 +197,27 @@ class TestAdmin:
             headers=_auth_header(admin),
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == 0
+        assert resp.json()["status"] == UserStatus.ACTIVE.value
 
     def test_admin_cannot_ban_super_admin(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_limited", role=2)
-        super_admin = _create_user(db_session, "super", role=3)
+        admin = _create_user(db_session, "admin_limited", role=UserRole.ADMIN.value)
+        super_admin = _create_user(db_session, "super", role=UserRole.SUPER_ADMIN.value)
         resp = client.post(
             f"{BASE}/{super_admin.id}/ban",
             headers=_auth_header(admin),
-            json={"status": 3},
+            json={"status": UserStatus.BANNED.value},
         )
         assert resp.status_code == 403
 
     def test_admin_update_user(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_patch", role=2)
+        admin = _create_user(db_session, "admin_patch", role=UserRole.ADMIN.value)
         target = _create_user(db_session, "to_patch")
         resp = client.patch(
             f"{BASE}/{target.id}/admin",
             headers=_auth_header(admin),
-            json={"role": 1, "safety_score": 5},
+            json={"role": UserRole.VIP.value, "safety_score": 5},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["role"] == 1
+        assert data["role"] == UserRole.VIP.value
         assert data["safety_score"] == 5
