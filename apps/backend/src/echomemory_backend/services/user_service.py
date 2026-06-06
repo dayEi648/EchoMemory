@@ -1,4 +1,5 @@
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from echomemory_backend.models.user import User, UserFollow
@@ -72,7 +73,11 @@ def create_user(db: Session, user_in: UserCreate, password_hash: str) -> User:
         city_id=user_in.city_id,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BusinessError("Username, email or phone already registered", 409)
     db.refresh(user)
     return user
 
@@ -113,7 +118,11 @@ def update_user_profile(
     if user_in.avatar_url is not None:
         current_user.avatar_url = user_in.avatar_url
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BusinessError("Email or phone already registered", 409)
     db.refresh(current_user)
     return current_user
 

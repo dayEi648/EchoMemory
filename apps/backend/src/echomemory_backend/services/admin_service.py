@@ -1,4 +1,5 @@
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from echomemory_backend.core.utils import parse_iso8601_duration
@@ -44,6 +45,9 @@ def update_user_as_admin(
     Raises:
         BusinessError: If target is not found or admin lacks privilege.
     """
+    if admin.id == target_user_id:
+        raise BusinessError("Cannot perform this action on yourself", 403)
+
     user = get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
@@ -75,7 +79,11 @@ def update_user_as_admin(
     if user_in.ban_duration is not None:
         user.ban_duration = parse_iso8601_duration(user_in.ban_duration)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BusinessError("Invalid user state combination", 400)
     db.refresh(user)
     return user
 
@@ -92,6 +100,9 @@ def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanActio
     Raises:
         BusinessError: If target is not found or admin lacks privilege.
     """
+    if admin.id == target_user_id:
+        raise BusinessError("Cannot perform this action on yourself", 403)
+
     user = get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
