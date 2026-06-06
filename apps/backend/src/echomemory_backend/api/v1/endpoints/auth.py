@@ -22,7 +22,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register(db: SessionDep, user_in: UserCreate) -> Token:
-    """注册新用户，并返回 access token 与 refresh token 对。""""
+    """注册新用户，并返回 access token 与 refresh token 对。"""
     try:
         return register_user(db, user_in)
     except BusinessError as exc:
