@@ -63,3 +63,95 @@ def upload_image_to_oss(
     # 构建 URL：https://bucket.endpoint/object_key
     url = f"https://{settings.oss_bucket_name}.{settings.oss_endpoint.lstrip('https://').lstrip('http://')}/{object_key}"
     return url
+
+
+# ---------------------------------------------------------------------------
+# 音频 / 歌词 / 通用文件上传
+# ---------------------------------------------------------------------------
+
+_MAX_AUDIO_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+_MAX_LYRICS_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+_ALLOWED_AUDIO_TYPES = {
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/flac",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/ogg",
+    "audio/aac",
+}
+
+_ALLOWED_LYRICS_TYPES = {
+    "text/plain",
+    "application/octet-stream",
+}
+
+
+def _upload_file_to_oss(
+    file: BinaryIO,
+    folder: str,
+    filename_prefix: str,
+    ext: str,
+    allowed_types: set[str],
+    max_size: int,
+) -> str:
+    """通用文件上传到 OSS。"""
+    content_type = getattr(file, "content_type", None)
+    if content_type is not None and content_type not in allowed_types:
+        raise ValueError(
+            f"Invalid file type: {content_type}. Allowed: {', '.join(allowed_types)}"
+        )
+
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > max_size:
+        raise ValueError(
+            f"File too large: {size} bytes. Maximum allowed: {max_size} bytes"
+        )
+
+    bucket = _get_bucket()
+    object_key = f"{folder}/{filename_prefix}_{uuid.uuid4().hex}.{ext}"
+
+    try:
+        bucket.put_object(object_key, file)
+    except oss2.exceptions.OssError as exc:
+        raise RuntimeError(f"OSS upload failed: {exc}") from exc
+
+    url = f"https://{settings.oss_bucket_name}.{settings.oss_endpoint.lstrip('https://').lstrip('http://')}/{object_key}"
+    return url
+
+
+def upload_audio_to_oss(
+    file: BinaryIO,
+    music_id: int | None = None,
+    ext: str = "mp3",
+) -> str:
+    """上传音频文件到 OSS。"""
+    prefix = str(music_id) if music_id is not None else "temp"
+    return _upload_file_to_oss(
+        file=file,
+        folder="musics",
+        filename_prefix=prefix,
+        ext=ext,
+        allowed_types=_ALLOWED_AUDIO_TYPES,
+        max_size=_MAX_AUDIO_SIZE_BYTES,
+    )
+
+
+def upload_lyrics_to_oss(
+    file: BinaryIO,
+    music_id: int | None = None,
+    ext: str = "lrc",
+) -> str:
+    """上传歌词文件到 OSS。"""
+    prefix = str(music_id) if music_id is not None else "temp"
+    return _upload_file_to_oss(
+        file=file,
+        folder="lyrics",
+        filename_prefix=prefix,
+        ext=ext,
+        allowed_types=_ALLOWED_LYRICS_TYPES,
+        max_size=_MAX_LYRICS_SIZE_BYTES,
+    )
