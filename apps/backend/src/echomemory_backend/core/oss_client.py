@@ -1,4 +1,4 @@
-"""OSS (Aliyun Object Storage Service) client wrapper."""
+"""OSS（阿里云对象存储服务）客户端封装。"""
 
 import uuid
 from typing import BinaryIO
@@ -10,10 +10,10 @@ from echomemory_backend.core.image_utils import compress_image_to_memory
 
 
 def _get_bucket() -> oss2.Bucket:
-    """Return an initialized OSS Bucket instance.
+    """返回一个已初始化的 OSS Bucket 实例。
 
     Raises:
-        RuntimeError: If any required OSS configuration is missing.
+        RuntimeError: 当任一必需的 OSS 配置缺失时抛出。
     """
     required = {
         "OSS_ACCESS_KEY_ID": settings.oss_access_key_id,
@@ -35,20 +35,20 @@ def upload_image_to_oss(
     filename_prefix: str = "",
     ext: str = "jpg",
 ) -> str:
-    """Compress an image and upload it to OSS.
+    """压缩图像并上传到 OSS。
 
     Args:
-        file: A file-like object containing the original image data.
-        folder: Destination folder path inside the bucket (e.g. ``avatars``).
-        filename_prefix: Prefix for the generated filename (e.g. user id).
-        ext: File extension for the stored object (default ``jpg``).
+        file: 包含原始图像数据的类文件对象。
+        folder: Bucket 中的目标文件夹路径（例如 avatars）。
+        filename_prefix: 生成文件名时使用的前缀（例如用户 ID）。
+        ext: 存储对象的文件扩展名（默认 jpg）。
 
     Returns:
-        The public URL of the uploaded object.
+        上传对象的公开访问 URL。
 
     Raises:
-        RuntimeError: If OSS is not configured or the upload fails.
-        ValueError: If the file is not a valid image.
+        RuntimeError: OSS 未配置或上传失败时抛出。
+        ValueError: 文件不是有效图像时抛出。
     """
     bucket = _get_bucket()
 
@@ -60,6 +60,6 @@ def upload_image_to_oss(
     except oss2.exceptions.OssError as exc:
         raise RuntimeError(f"OSS upload failed: {exc}") from exc
 
-    # Build URL: https://bucket.endpoint/object_key
+    # 构建 URL：https://bucket.endpoint/object_key
     url = f"https://{settings.oss_bucket_name}.{settings.oss_endpoint.lstrip('https://').lstrip('http://')}/{object_key}"
     return url

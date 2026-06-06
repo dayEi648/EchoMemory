@@ -14,7 +14,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def get_db() -> Session:
-    """Yield a SQLAlchemy session and close it after use."""
+    """提供一个 SQLAlchemy Session，使用结束后自动关闭。"""
     db = SessionLocal()
     try:
         yield db
@@ -27,10 +27,9 @@ TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 
 def get_current_user(db: SessionDep, token: TokenDep) -> User:
-    """Resolve the current user from the JWT access token.
+    """通过 JWT access token 解析当前用户。
 
-    Validates token blacklist status, decodes the token, and checks
-    that the user exists and has not been soft-deleted.
+    校验 token 黑名单状态，解码 token，并确认用户存在且未被软删除。
     """
     if is_access_token_blacklisted(token):
         raise HTTPException(
@@ -81,7 +80,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def get_current_active_user(current_user: CurrentUser) -> User:
-    """Ensure the current user account is active (not banned)."""
+    """确保当前用户账号处于活跃状态（未被封禁）。"""
     if current_user.status == UserStatus.BANNED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -94,7 +93,7 @@ ActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 
 def require_admin(current_user: ActiveUser) -> User:
-    """Require that the current user has admin or super-admin privileges."""
+    """要求当前用户具有 admin 或 super-admin 权限。"""
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

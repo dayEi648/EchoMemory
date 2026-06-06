@@ -1,43 +1,42 @@
-"""Image processing utilities: compression, format conversion, validation."""
+"""图像处理工具：压缩、格式转换、校验。"""
 
 import io
 from typing import BinaryIO
 
 from PIL import Image
 
-MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
+MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB 限制
 
 
 def compress_image_to_memory(
     file: BinaryIO,
     max_size: int = MAX_IMAGE_SIZE_BYTES,
 ) -> io.BytesIO:
-    """Compress an image file to fit within *max_size* bytes.
+    """将图像文件压缩到不超过 max_size 字节。
 
-    The function reads the uploaded image, attempts to reduce its file size
-    by lowering JPEG quality and/or scaling down dimensions, and returns a
-    new in-memory buffer ready for upload.
+    该函数读取上传的图像，通过降低 JPEG 质量或缩小尺寸来减小文件体积，
+    并返回一个新的内存缓冲区供上传使用。
 
     Args:
-        file: A file-like object containing image data.
-        max_size: Target maximum file size in bytes (default 2 MB).
+        file: 包含图像数据的类文件对象。
+        max_size: 目标最大文件大小，单位为字节（默认 2 MB）。
 
     Returns:
-        A ``BytesIO`` buffer containing the compressed image.
+        包含压缩后图像的 BytesIO 缓冲区。
 
     Raises:
-        ValueError: If the input is not a valid image.
+        ValueError: 输入不是有效图像时抛出。
     """
     try:
         img = Image.open(file)
     except Exception as exc:
         raise ValueError("Invalid image file") from exc
 
-    # Convert to RGB to ensure consistent output (handles PNG transparency, etc.)
+    # 转换为 RGB 以确保输出一致（处理 PNG 透明度等情况）
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
 
-    # Try to fit within max_size by reducing quality first, then scaling.
+    # 先降低质量，再缩小尺寸，尝试压缩到 max_size 以内
     quality_levels = [85, 75, 65, 55, 45]
     scale_factors = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 
@@ -54,7 +53,7 @@ def compress_image_to_memory(
                 buffer.seek(0)
                 return buffer
 
-    # Fallback: if still too large, aggressive scale + low quality
+    # 回退策略：如果仍然过大，则大幅缩小尺寸并降低质量
     final_size = (int(img.width * 0.25), int(img.height * 0.25))
     resized = img.resize(final_size, Image.Resampling.LANCZOS)
     buffer = io.BytesIO()

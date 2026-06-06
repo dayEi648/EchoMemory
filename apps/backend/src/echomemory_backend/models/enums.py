@@ -2,7 +2,7 @@ from enum import IntEnum
 
 
 class UserRole(IntEnum):
-    """User role levels."""
+    """用户角色等级。"""
 
     USER = 0
     VIP = 1
@@ -11,7 +11,7 @@ class UserRole(IntEnum):
 
 
 class UserStatus(IntEnum):
-    """User account status."""
+    """用户账号状态。"""
 
     ACTIVE = 0
     TEMP_BAN = 1

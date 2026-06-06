@@ -2,7 +2,7 @@ from datetime import timedelta
 
 
 def timedelta_to_iso8601_duration(td: timedelta | None) -> str | None:
-    """Convert a Python timedelta to an ISO 8601 duration string.
+    """将 Python timedelta 转换为 ISO 8601 持续时间字符串。
 
     Examples:
         timedelta(days=7)     -> "P7D"
@@ -31,17 +31,17 @@ def timedelta_to_iso8601_duration(td: timedelta | None) -> str | None:
 
 
 def parse_iso8601_duration(value: str | None) -> timedelta | None:
-    """Parse an ISO 8601 duration string into a Python timedelta.
+    """将 ISO 8601 持续时间字符串解析为 Python timedelta。
 
-    Supports formats like P7D, PT1H, P1DT2H30M15S.
-    Returns None for None input.
+    支持 P7D、PT1H、P1DT2H30M15S 等格式。
+    输入为 None 时返回 None。
     """
     if value is None:
         return None
     if not value.startswith("P"):
         raise ValueError("ISO 8601 duration must start with P")
 
-    s = value[1:]  # strip leading P
+    s = value[1:]  # 去掉开头的 P
     days = 0
     hours = 0
     minutes = 0
@@ -53,7 +53,7 @@ def parse_iso8601_duration(value: str | None) -> timedelta | None:
         date_part = s
         time_part = ""
 
-    # Parse date part (only D supported for now)
+    # 解析日期部分（目前仅支持 D）
     if date_part:
         import re
 
@@ -63,7 +63,7 @@ def parse_iso8601_duration(value: str | None) -> timedelta | None:
         elif date_part:
             raise ValueError(f"Unsupported ISO 8601 duration date part: {date_part}")
 
-    # Parse time part
+    # 解析时间部分
     if time_part:
         import re
 

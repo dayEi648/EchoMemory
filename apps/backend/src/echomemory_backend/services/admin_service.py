@@ -17,7 +17,7 @@ def list_users(
     limit: int,
     offset: int,
 ) -> list[User]:
-    """List users with optional admin filters."""
+    """以管理员筛选条件列出用户。"""
     stmt = select(User).where(User.is_deleted == False)
     if status is not None:
         stmt = stmt.where(User.status == status)
@@ -34,16 +34,16 @@ def list_users(
 def update_user_as_admin(
     db: Session, admin: User, target_user_id: int, user_in: UserAdminUpdate
 ) -> User:
-    """Update a user as an admin.
+    """以管理员身份更新用户信息。
 
     Args:
-        db: SQLAlchemy session.
-        admin: The performing admin user.
-        target_user_id: The user to modify.
-        user_in: Update payload.
+        db: SQLAlchemy Session。
+        admin: 执行操作的管理员。
+        target_user_id: 待修改的用户 ID。
+        user_in: 更新内容。
 
     Raises:
-        BusinessError: If target is not found or admin lacks privilege.
+        BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)
@@ -52,11 +52,11 @@ def update_user_as_admin(
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
 
-    # Cannot modify super-admin unless you are super-admin
+    # 除非自己是 super-admin，否则不能修改 super-admin
     if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
         raise BusinessError("Cannot modify super-admin user", 403)
 
-    # Cannot promote anyone to super-admin unless you are super-admin
+    # 除非自己是 super-admin，否则不能将任何人提升为 super-admin
     if (
         user_in.role is not None
         and user_in.role == UserRole.SUPER_ADMIN
@@ -89,16 +89,16 @@ def update_user_as_admin(
 
 
 def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanAction) -> User:
-    """Ban a user.
+    """封禁用户。
 
     Args:
-        db: SQLAlchemy session.
-        admin: The performing admin user.
-        target_user_id: The user to ban.
-        action: Ban action payload including status and optional duration.
+        db: SQLAlchemy Session。
+        admin: 执行操作的管理员。
+        target_user_id: 待封禁的用户 ID。
+        action: 封禁操作载荷，包含状态与可选封禁时长。
 
     Raises:
-        BusinessError: If target is not found or admin lacks privilege.
+        BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)
@@ -124,15 +124,15 @@ def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanActio
 
 
 def unban_user(db: Session, admin: User, target_user_id: int) -> User:
-    """Unban a user.
+    """解封用户。
 
     Args:
-        db: SQLAlchemy session.
-        admin: The performing admin user.
-        target_user_id: The user to unban.
+        db: SQLAlchemy Session。
+        admin: 执行操作的管理员。
+        target_user_id: 待解封的用户 ID。
 
     Raises:
-        BusinessError: If target is not found or admin lacks privilege.
+        BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)

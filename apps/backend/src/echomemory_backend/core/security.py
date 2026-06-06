@@ -9,26 +9,26 @@ from echomemory_backend.core.config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against a hashed password."""
+    """验证明文密码是否与哈希密码匹配。"""
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Generate a bcrypt hash for the given password."""
+    """为给定密码生成 bcrypt 哈希值。"""
     return pwd_context.hash(password)
 
 
 def create_access_token(
     subject: str | int, expires_delta: timedelta | None = None
 ) -> str:
-    """Create a JWT access token for the given subject (user id).
+    """为指定主体（用户 ID）创建 JWT access token。
 
     Args:
-        subject: The user identifier to encode in the token.
-        expires_delta: Optional custom expiration delta. Defaults to settings value.
+        subject: 要编码到 token 中的用户标识符。
+        expires_delta: 可选的自定义过期时间增量，默认使用配置值。
 
     Returns:
-        Encoded JWT string.
+        编码后的 JWT 字符串。
     """
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -44,13 +44,13 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
-    """Decode and validate a JWT access token.
+    """解码并校验 JWT access token。
 
     Args:
-        token: The JWT string to decode.
+        token: 待解码的 JWT 字符串。
 
     Returns:
-        Decoded payload dict if valid, otherwise None.
+        校验通过则返回解码后的 payload 字典，否则返回 None。
     """
     try:
         payload = jwt.decode(

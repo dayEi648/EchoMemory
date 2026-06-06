@@ -7,11 +7,11 @@ from echomemory_backend.schemas.user import UserCreate, UserUpdate
 
 
 class BusinessError(Exception):
-    """Raised when a business rule is violated.
+    """业务规则被违反时抛出。
 
     Attributes:
-        detail: Human-readable error message.
-        status_code: Suggested HTTP status code for the error.
+        detail: 人类可读的错误信息。
+        status_code: 建议的 HTTP 状态码。
     """
 
     def __init__(self, detail: str, status_code: int = 400):
@@ -21,38 +21,38 @@ class BusinessError(Exception):
 
 
 def get_user_by_id(db: Session, user_id: int) -> User | None:
-    """Fetch a user by primary key."""
+    """根据主键查询用户。"""
     return db.get(User, user_id)
 
 
 def get_user_by_username(db: Session, username: str) -> User | None:
-    """Fetch a user by username."""
+    """根据用户名查询用户。"""
     stmt = select(User).where(User.username == username)
     return db.execute(stmt).scalar_one_or_none()
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
-    """Fetch a user by email address."""
+    """根据邮箱地址查询用户。"""
     stmt = select(User).where(User.email == email)
     return db.execute(stmt).scalar_one_or_none()
 
 
 def get_user_by_phone(db: Session, phone: str) -> User | None:
-    """Fetch a user by phone number."""
+    """根据手机号查询用户。"""
     stmt = select(User).where(User.phone == phone)
     return db.execute(stmt).scalar_one_or_none()
 
 
 def create_user(db: Session, user_in: UserCreate, password_hash: str) -> User:
-    """Create a new user after validating uniqueness constraints.
+    """在验证唯一性约束后创建新用户。
 
     Args:
-        db: SQLAlchemy session.
-        user_in: User creation schema.
-        password_hash: Pre-hashed password string.
+        db: SQLAlchemy Session。
+        user_in: 用户创建 Schema。
+        password_hash: 已哈希的密码字符串。
 
     Raises:
-        BusinessError: If username, email or phone already exists.
+        BusinessError: 用户名、邮箱或手机号已存在时抛出。
     """
     if get_user_by_username(db, user_in.username):
         raise BusinessError("Username already registered", 409)
@@ -85,15 +85,15 @@ def create_user(db: Session, user_in: UserCreate, password_hash: str) -> User:
 def update_user_profile(
     db: Session, current_user: User, user_in: UserUpdate
 ) -> User:
-    """Update the current user's profile.
+    """更新当前用户的个人资料。
 
     Args:
-        db: SQLAlchemy session.
-        current_user: The user to update.
-        user_in: Update payload.
+        db: SQLAlchemy Session。
+        current_user: 待更新的用户。
+        user_in: 更新内容。
 
     Raises:
-        BusinessError: If the new email or phone is already taken.
+        BusinessError: 新邮箱或手机号已被占用时抛出。
     """
     if user_in.email is not None and user_in.email != current_user.email:
         if get_user_by_email(db, user_in.email):
@@ -126,10 +126,10 @@ def update_user_profile(
 
 
 def follow_user(db: Session, follower_id: int, followee_id: int) -> None:
-    """Create a follow relationship.
+    """创建关注关系。
 
     Raises:
-        BusinessError: On self-follow, missing target, or duplicate follow.
+        BusinessError: 自己关注自己、目标用户不存在或重复关注时抛出。
     """
     if follower_id == followee_id:
         raise BusinessError("Cannot follow yourself", 400)
@@ -155,10 +155,10 @@ def follow_user(db: Session, follower_id: int, followee_id: int) -> None:
 
 
 def unfollow_user(db: Session, follower_id: int, followee_id: int) -> None:
-    """Remove a follow relationship.
+    """移除关注关系。
 
     Raises:
-        BusinessError: If the follow relationship does not exist.
+        BusinessError: 关注关系不存在时抛出。
     """
     stmt = select(UserFollow).where(
         UserFollow.follower_id == follower_id,
@@ -174,7 +174,7 @@ def unfollow_user(db: Session, follower_id: int, followee_id: int) -> None:
 def get_followees(
     db: Session, user_id: int, limit: int, offset: int
 ) -> list[User]:
-    """Return the list of users that *user_id* follows."""
+    """返回 user_id 所关注的用户列表。"""
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.followee_id == User.id)
@@ -190,7 +190,7 @@ def get_followees(
 def get_followers(
     db: Session, user_id: int, limit: int, offset: int
 ) -> list[User]:
-    """Return the list of users that follow *user_id*."""
+    """返回关注 user_id 的用户列表。"""
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.follower_id == User.id)
@@ -204,15 +204,15 @@ def get_followers(
 
 
 def update_user_avatar(db: Session, user: User, avatar_url: str) -> User:
-    """Update the user's avatar URL.
+    """更新用户头像 URL。
 
     Args:
-        db: SQLAlchemy session.
-        user: The user to update.
-        avatar_url: The new avatar URL returned by OSS.
+        db: SQLAlchemy Session。
+        user: 待更新的用户。
+        avatar_url: OSS 返回的新头像 URL。
 
     Returns:
-        The updated user instance.
+        更新后的用户实例。
     """
     user.avatar_url = avatar_url
     db.commit()
@@ -228,7 +228,7 @@ def search_users(
     status: int | None = None,
     role: int | None = None,
 ) -> list[User]:
-    """Search users with optional filters."""
+    """按可选条件搜索用户。"""
     stmt = select(User).where(User.is_deleted == False)
     if status is not None:
         stmt = stmt.where(User.status == status)

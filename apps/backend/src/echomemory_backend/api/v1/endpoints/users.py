@@ -26,7 +26,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 def update_me(
     db: SessionDep, current_user: ActiveUser, user_in: UserUpdate
 ) -> User:
-    """Update the current user's own profile."""
+    """更新当前用户自己的个人资料。"""
     try:
         return user_service.update_user_profile(db, current_user, user_in)
     except BusinessError as exc:
@@ -39,12 +39,12 @@ def upload_avatar(
     current_user: ActiveUser,
     file: UploadFile = File(...),
 ) -> User:
-    """Upload a new avatar image.
+    """上传新的头像图片。
 
-    The image is compressed to ≤ 2 MB and uploaded to OSS.
-    The returned URL is persisted as the user's avatar.
+    图片将被压缩至 ≤ 2 MB 后上传到 OSS。
+    返回的 URL 会持久化保存为用户头像。
     """
-    # Validate content type
+    # 校验文件类型
     if file.content_type is None or not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -73,7 +73,7 @@ def upload_avatar(
 
 @router.get("/{user_id}", response_model=UserPublicOut)
 def get_user(db: SessionDep, user_id: int) -> User:
-    """Fetch a public user profile by ID."""
+    """根据用户 ID 获取公开的个人资料。"""
     user = user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
         raise HTTPException(
@@ -86,11 +86,11 @@ def get_user(db: SessionDep, user_id: int) -> User:
 @router.get("/", response_model=list[UserSearchOut])
 def search_users(
     db: SessionDep,
-    q: str | None = Query(None, description="Search by username or nickname"),
+    q: str | None = Query(None, description="按用户名或昵称搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    """Search users with optional keyword filter."""
+    """按可选关键词搜索用户。"""
     return user_service.search_users(db, q=q, limit=limit, offset=offset)
 
 
@@ -98,7 +98,7 @@ def search_users(
 def follow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
-    """Follow another user."""
+    """关注另一个用户。"""
     try:
         user_service.follow_user(db, current_user.id, follow_in.followee_id)
     except BusinessError as exc:
@@ -110,7 +110,7 @@ def follow_user(
 def unfollow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
-    """Unfollow a user."""
+    """取消关注某用户。"""
     try:
         user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
     except BusinessError as exc:
@@ -125,7 +125,7 @@ def get_followees(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    """List users that the given user follows."""
+    """列出指定用户关注的用户列表。"""
     return user_service.get_followees(db, user_id, limit=limit, offset=offset)
 
 
@@ -136,12 +136,12 @@ def get_followers(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    """List users that follow the given user."""
+    """列出关注指定用户的用户列表。"""
     return user_service.get_followers(db, user_id, limit=limit, offset=offset)
 
 
 # ---------------------------------------------------------------------------
-# Admin
+# 管理员接口
 # ---------------------------------------------------------------------------
 @router.get("/admin/list", response_model=list[UserMeOut])
 def admin_list_users(
@@ -149,11 +149,11 @@ def admin_list_users(
     admin: AdminUser,
     status: int | None = Query(None, ge=0, le=3),
     role: int | None = Query(None, ge=0, le=3),
-    q: str | None = Query(None, description="Search by username or nickname"),
+    q: str | None = Query(None, description="按用户名或昵称搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
-    """List users with admin filters."""
+    """以管理员身份列出用户，支持筛选。"""
     return admin_service.list_users(
         db, status=status, role=role, q=q, limit=limit, offset=offset
     )
@@ -166,7 +166,7 @@ def admin_update_user(
     user_id: int,
     user_in: UserAdminUpdate,
 ) -> User:
-    """Update a user as an admin."""
+    """以管理员身份更新用户信息。"""
     try:
         return admin_service.update_user_as_admin(db, admin, user_id, user_in)
     except BusinessError as exc:
@@ -180,7 +180,7 @@ def admin_ban_user(
     user_id: int,
     action: UserBanAction,
 ) -> User:
-    """Ban a user."""
+    """封禁用户。"""
     try:
         return admin_service.ban_user(db, admin, user_id, action)
     except BusinessError as exc:
@@ -193,7 +193,7 @@ def admin_unban_user(
     admin: AdminUser,
     user_id: int,
 ) -> User:
-    """Unban a user."""
+    """解封用户。"""
     try:
         return admin_service.unban_user(db, admin, user_id)
     except BusinessError as exc:

@@ -14,7 +14,7 @@ from echomemory_backend.services.user_service import BusinessError, create_user,
 
 
 def _issue_tokens(user_id: int) -> Token:
-    """Issue a new access token and refresh token pair."""
+    """签发新的 access token 与 refresh token 对。"""
     access_token = create_access_token(subject=user_id)
     refresh_token = generate_refresh_token()
     store_refresh_token(refresh_token, user_id)
@@ -22,14 +22,14 @@ def _issue_tokens(user_id: int) -> Token:
 
 
 def register_user(db: Session, user_in: UserCreate) -> Token:
-    """Register a new user and return an initial token pair.
+    """注册新用户并返回初始 token 对。
 
     Args:
-        db: SQLAlchemy session.
-        user_in: User creation schema.
+        db: SQLAlchemy Session。
+        user_in: 用户创建 Schema。
 
     Raises:
-        BusinessError: If uniqueness constraints are violated.
+        BusinessError: 唯一性约束冲突时抛出。
     """
     password_hash = get_password_hash(user_in.password)
     user = create_user(db, user_in, password_hash)
@@ -37,15 +37,15 @@ def register_user(db: Session, user_in: UserCreate) -> Token:
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Token:
-    """Authenticate a user and return a token pair.
+    """验证用户身份并返回 token 对。
 
     Args:
-        db: SQLAlchemy session.
-        username: Login username.
-        password: Plain-text password.
+        db: SQLAlchemy Session。
+        username: 登录用户名。
+        password: 明文密码。
 
     Raises:
-        BusinessError: If credentials are invalid or account is disabled.
+        BusinessError: 凭据无效或账号被禁用时抛出。
     """
     user = get_user_by_username(db, username)
     if not user or not verify_password(password, user.password_hash):
@@ -58,14 +58,14 @@ def authenticate_user(db: Session, username: str, password: str) -> Token:
 
 
 def refresh_user_token(db: Session, refresh_token: str) -> Token:
-    """Rotate a refresh token and issue a new token pair.
+    """轮换 refresh token 并签发新的 token 对。
 
     Args:
-        db: SQLAlchemy session.
-        refresh_token: The existing refresh token string.
+        db: SQLAlchemy Session。
+        refresh_token: 现有的 refresh token 字符串。
 
     Raises:
-        BusinessError: If the token is invalid or the user is disabled.
+        BusinessError: token 无效或用户被禁用时抛出。
     """
     user_id = get_refresh_token_user_id(refresh_token)
     if user_id is None:
@@ -82,11 +82,11 @@ def refresh_user_token(db: Session, refresh_token: str) -> Token:
 
 
 def logout_user(refresh_token: str, access_token: str | None = None) -> None:
-    """Invalidate a refresh token and optionally blacklist the access token.
+    """使 refresh token 失效，并可选地将 access token 加入黑名单。
 
     Args:
-        refresh_token: The refresh token to invalidate.
-        access_token: Optional access token to blacklist.
+        refresh_token: 要失效的 refresh token。
+        access_token: 可选，要加入黑名单的 access token。
     """
     delete_refresh_token(refresh_token)
     if access_token:

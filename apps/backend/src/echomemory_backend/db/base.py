@@ -2,6 +2,6 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base class for all ORM models."""
+    """所有 ORM 模型的基类。"""
 
     pass
