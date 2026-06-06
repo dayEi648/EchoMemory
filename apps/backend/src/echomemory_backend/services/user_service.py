@@ -115,8 +115,6 @@ def update_user_profile(
         current_user.bio = user_in.bio
     if user_in.city_id is not None:
         current_user.city_id = user_in.city_id
-    if user_in.avatar_url is not None:
-        current_user.avatar_url = user_in.avatar_url
 
     try:
         db.commit()
@@ -203,6 +201,23 @@ def get_followers(
         .offset(offset)
     )
     return list(db.execute(stmt).scalars().all())
+
+
+def update_user_avatar(db: Session, user: User, avatar_url: str) -> User:
+    """Update the user's avatar URL.
+
+    Args:
+        db: SQLAlchemy session.
+        user: The user to update.
+        avatar_url: The new avatar URL returned by OSS.
+
+    Returns:
+        The updated user instance.
+    """
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def search_users(

@@ -1,7 +1,28 @@
 import os
+from pathlib import Path
 
-# Ensure required env vars are set before any imports trigger Settings() instantiation.
-os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://postgres:131420@localhost:5432/echomemory_test")
+# Load backend .env for shared credentials (password, keys, etc.)
+_backend_env = Path(__file__).resolve().parent.parent / ".env"
+if _backend_env.exists():
+    with open(_backend_env, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key not in os.environ:
+                os.environ[key] = value
+
+# Force tests to use the dedicated test database.
+# Connection details (password, host, etc.) come from .env;
+# only the database name is overridden here.
+_db_url = os.environ.get(
+    "DATABASE_URL",
+    "postgresql+psycopg2://postgres@localhost:5432/echomemory",
+)
+if "/echomemory_test" not in _db_url:
+    os.environ["DATABASE_URL"] = _db_url.rsplit("/", 1)[0] + "/echomemory_test"
+
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 

@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
+from echomemory_backend.core.config import settings
+from echomemory_backend.core.oss_client import upload_image_to_oss
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
     FollowCreate,
@@ -29,6 +31,44 @@ def update_me(
         return user_service.update_user_profile(db, current_user, user_in)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+
+@router.post("/me/avatar", response_model=UserMeOut)
+def upload_avatar(
+    db: SessionDep,
+    current_user: ActiveUser,
+    file: UploadFile = File(...),
+) -> User:
+    """Upload a new avatar image.
+
+    The image is compressed to ≤ 2 MB and uploaded to OSS.
+    The returned URL is persisted as the user's avatar.
+    """
+    # Validate content type
+    if file.content_type is None or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Only image files are allowed",
+        )
+
+    try:
+        avatar_url = upload_image_to_oss(
+            file.file,
+            folder=settings.oss_avatar_prefix,
+            filename_prefix=str(current_user.id),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return user_service.update_user_avatar(db, current_user, avatar_url)
 
 
 @router.get("/{user_id}", response_model=UserPublicOut)

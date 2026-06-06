@@ -1,5 +1,8 @@
+import io
+
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -9,10 +12,19 @@ from echomemory_backend.models.user import User, UserFollow
 
 BASE = "/api/v1/users"
 ME_URL = f"{BASE}/me"
+AVATAR_URL = f"{BASE}/me/avatar"
 SEARCH_URL = f"{BASE}/"
 FOLLOW_URL = f"{BASE}/follow"
 UNFOLLOW_URL = f"{BASE}/unfollow"
 ADMIN_LIST_URL = f"{BASE}/admin/list"
+
+
+def _make_image_bytes() -> bytes:
+    """Generate a tiny valid JPEG image in memory."""
+    img = Image.new("RGB", (100, 100), color=(73, 109, 137))
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 def _create_user(db: Session, username: str, password: str = "secret", role: int = UserRole.USER.value, status: int = UserStatus.ACTIVE.value, **kwargs) -> User:
@@ -221,3 +233,39 @@ class TestAdmin:
         data = resp.json()
         assert data["role"] == UserRole.VIP.value
         assert data["safety_score"] == 5
+
+
+class TestUploadAvatar:
+    def test_upload_avatar_success(self, client: TestClient, db_session: Session, monkeypatch):
+        def fake_upload(*args, **kwargs):
+            return "https://fake-oss.example.com/avatars/1_test.jpg"
+
+        monkeypatch.setattr(
+            "echomemory_backend.api.v1.endpoints.users.upload_image_to_oss", fake_upload
+        )
+
+        user = _create_user(db_session, "avatar_user")
+        resp = client.post(
+            AVATAR_URL,
+            headers=_auth_header(user),
+            files={"file": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avatar_url"] == "https://fake-oss.example.com/avatars/1_test.jpg"
+
+    def test_upload_avatar_invalid_file_type(self, client: TestClient, db_session: Session):
+        user = _create_user(db_session, "bad_avatar")
+        resp = client.post(
+            AVATAR_URL,
+            headers=_auth_header(user),
+            files={"file": ("readme.txt", b"not an image", "text/plain")},
+        )
+        assert resp.status_code == 422
+
+    def test_upload_avatar_unauthorized(self, client: TestClient):
+        resp = client.post(
+            AVATAR_URL,
+            files={"file": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
+        )
+        assert resp.status_code == 401

@@ -18,10 +18,14 @@ dependencies = [
     "python-jose",
     "bcrypt<4.0",
     "email-validator",
+    "oss2",
+    "Pillow",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "httpx",
+    "fakeredis",
 ]

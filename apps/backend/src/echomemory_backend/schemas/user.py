@@ -29,7 +29,6 @@ class UserUpdate(BaseModel):
     birth: date | None = None
     bio: str | None = None
     city_id: int | None = None
-    avatar_url: str | None = Field(None, max_length=500)
 
 
 class UserAdminUpdate(BaseModel):
