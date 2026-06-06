@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core import redis_client as rc
 from echomemory_backend.core.security import decode_access_token
@@ -14,7 +14,7 @@ LOGOUT_URL = "/api/v1/auth/logout"
 ME_URL = "/api/v1/auth/me"
 
 
-def _create_user_directly(db: Session, username: str = "tester", password: str = "secret123") -> User:
+async def _create_user_directly(db: AsyncSession, username: str = "tester", password: str = "secret123") -> User:
     from echomemory_backend.core.security import get_password_hash
 
     user = User(
@@ -23,13 +23,13 @@ def _create_user_directly(db: Session, username: str = "tester", password: str =
         nickname="Tester",
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 
 class TestRegister:
-    def test_register_success(self, client: TestClient):
+    async def test_register_success(self, client: TestClient):
         resp = client.post(
             REGISTER_URL,
             json={"username": "alice", "password": "secret123", "nickname": "Alice"},
@@ -53,7 +53,7 @@ class TestRegister:
         assert "id" in me_data
         assert me_data["role"] == UserRole.USER.value
 
-    def test_register_duplicate_username(self, client: TestClient):
+    async def test_register_duplicate_username(self, client: TestClient):
         client.post(
             REGISTER_URL,
             json={"username": "bob", "password": "secret123", "nickname": "Bob"},
@@ -64,7 +64,7 @@ class TestRegister:
         )
         assert resp.status_code == 409
 
-    def test_register_duplicate_email(self, client: TestClient):
+    async def test_register_duplicate_email(self, client: TestClient):
         client.post(
             REGISTER_URL,
             json={
@@ -85,7 +85,7 @@ class TestRegister:
         )
         assert resp.status_code == 409
 
-    def test_register_validation_short_password(self, client: TestClient):
+    async def test_register_validation_short_password(self, client: TestClient):
         resp = client.post(
             REGISTER_URL,
             json={"username": "dave", "password": "123", "nickname": "Dave"},
@@ -94,8 +94,8 @@ class TestRegister:
 
 
 class TestLogin:
-    def test_login_success(self, client: TestClient, db_session: Session):
-        _create_user_directly(db_session, username="login_user", password="mypassword")
+    async def test_login_success(self, client: TestClient, db_session: AsyncSession):
+        await _create_user_directly(db_session, username="login_user", password="mypassword")
         resp = client.post(
             LOGIN_URL,
             json={"username": "login_user", "password": "mypassword"},
@@ -105,18 +105,18 @@ class TestLogin:
         assert "access_token" in data
         assert "refresh_token" in data
 
-    def test_login_wrong_password(self, client: TestClient, db_session: Session):
-        _create_user_directly(db_session, username="login_user2", password="mypassword")
+    async def test_login_wrong_password(self, client: TestClient, db_session: AsyncSession):
+        await _create_user_directly(db_session, username="login_user2", password="mypassword")
         resp = client.post(
             LOGIN_URL,
             json={"username": "login_user2", "password": "wrongpass"},
         )
         assert resp.status_code == 401
 
-    def test_login_deleted_user(self, client: TestClient, db_session: Session):
-        user = _create_user_directly(db_session, username="deleted", password="secret")
+    async def test_login_deleted_user(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="deleted", password="secret")
         user.is_deleted = True
-        db_session.commit()
+        await db_session.commit()
         resp = client.post(
             LOGIN_URL,
             json={"username": "deleted", "password": "secret"},
@@ -125,9 +125,9 @@ class TestLogin:
 
 
 class TestRefresh:
-    def test_refresh_success(self, client: TestClient, db_session: Session):
-        user = _create_user_directly(db_session, username="refresh_user", password="secret")
-        rc.store_refresh_token("valid_rt", user.id)
+    async def test_refresh_success(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="refresh_user", password="secret")
+        await rc.store_refresh_token("valid_rt", user.id)
 
         resp = client.post(REFRESH_URL, json={"refresh_token": "valid_rt"})
         assert resp.status_code == 200
@@ -136,19 +136,19 @@ class TestRefresh:
         assert "refresh_token" in data
 
         # Old refresh token should be rotated (deleted)
-        assert rc.get_refresh_token_user_id("valid_rt") is None
+        assert await rc.get_refresh_token_user_id("valid_rt") is None
 
-    def test_refresh_invalid_token(self, client: TestClient):
+    async def test_refresh_invalid_token(self, client: TestClient):
         resp = client.post(REFRESH_URL, json={"refresh_token": "bogus"})
         assert resp.status_code == 401
 
 
 class TestLogout:
-    def test_logout_success(self, client: TestClient, db_session: Session):
+    async def test_logout_success(self, client: TestClient, db_session: AsyncSession):
         from echomemory_backend.core.security import create_access_token
 
-        user = _create_user_directly(db_session, username="logout_user", password="secret")
-        rc.store_refresh_token("logout_rt", user.id)
+        user = await _create_user_directly(db_session, username="logout_user", password="secret")
+        await rc.store_refresh_token("logout_rt", user.id)
         token = create_access_token(subject=user.id)
 
         resp = client.post(
@@ -158,13 +158,13 @@ class TestLogout:
         )
         assert resp.status_code == 204
 
-        assert rc.get_refresh_token_user_id("logout_rt") is None
-        assert rc.is_access_token_blacklisted(token) is True
+        assert await rc.get_refresh_token_user_id("logout_rt") is None
+        assert await rc.is_access_token_blacklisted(token) is True
 
 
 class TestGetMe:
-    def test_get_me_success(self, client: TestClient, db_session: Session):
-        user = _create_user_directly(db_session, username="me_user", password="secret")
+    async def test_get_me_success(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="me_user", password="secret")
         from echomemory_backend.core.security import create_access_token
 
         token = create_access_token(subject=user.id)
@@ -174,28 +174,28 @@ class TestGetMe:
         assert data["username"] == "me_user"
         assert data["id"] == user.id
 
-    def test_get_me_no_token(self, client: TestClient):
+    async def test_get_me_no_token(self, client: TestClient):
         resp = client.get(ME_URL)
         assert resp.status_code == 401  # OAuth2 returns 401 when token is missing
 
-    def test_get_me_banned_user(self, client: TestClient, db_session: Session):
+    async def test_get_me_banned_user(self, client: TestClient, db_session: AsyncSession):
         from sqlalchemy import func
 
-        user = _create_user_directly(db_session, username="banned", password="secret")
+        user = await _create_user_directly(db_session, username="banned", password="secret")
         user.status = UserStatus.BANNED.value
         user.banned_at = func.now()
-        db_session.commit()
+        await db_session.commit()
         from echomemory_backend.core.security import create_access_token
 
         token = create_access_token(subject=user.id)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
 
-    def test_get_me_blacklisted_token(self, client: TestClient, db_session: Session):
-        user = _create_user_directly(db_session, username="blacklisted", password="secret")
+    async def test_get_me_blacklisted_token(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="blacklisted", password="secret")
         from echomemory_backend.core.security import create_access_token
 
         token = create_access_token(subject=user.id)
-        rc.blacklist_access_token(token)
+        await rc.blacklist_access_token(token)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401

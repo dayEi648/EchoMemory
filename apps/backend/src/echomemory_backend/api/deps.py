@@ -2,36 +2,36 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.redis_client import is_access_token_blacklisted
 from echomemory_backend.core.security import decode_access_token
-from echomemory_backend.db.session import SessionLocal
+from echomemory_backend.db.session import AsyncSessionLocal
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-def get_db() -> Session:
-    """提供一个 SQLAlchemy Session，使用结束后自动关闭。"""
-    db = SessionLocal()
+async def get_db() -> AsyncSession:
+    """提供一个异步 SQLAlchemy Session，使用结束后自动关闭。"""
+    db = AsyncSessionLocal()
     try:
         yield db
     finally:
-        db.close()
+        await db.close()
 
 
-SessionDep = Annotated[Session, Depends(get_db)]
+SessionDep = Annotated[AsyncSession, Depends(get_db)]
 TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 
-def get_current_user(db: SessionDep, token: TokenDep) -> User:
+async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     """通过 JWT access token 解析当前用户。
 
     校验 token 黑名单状态，解码 token，并确认用户存在且未被软删除。
     """
-    if is_access_token_blacklisted(token):
+    if await is_access_token_blacklisted(token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",
@@ -60,7 +60,7 @@ def get_current_user(db: SessionDep, token: TokenDep) -> User:
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = db.get(User, user_id_int)
+    user = await db.get(User, user_id_int)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -79,7 +79,7 @@ def get_current_user(db: SessionDep, token: TokenDep) -> User:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-def get_current_active_user(current_user: CurrentUser) -> User:
+async def get_current_active_user(current_user: CurrentUser) -> User:
     """确保当前用户账号处于活跃状态（未被封禁）。"""
     if current_user.status == UserStatus.BANNED:
         raise HTTPException(
@@ -92,7 +92,7 @@ def get_current_active_user(current_user: CurrentUser) -> User:
 ActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 
-def require_admin(current_user: ActiveUser) -> User:
+async def require_admin(current_user: ActiveUser) -> User:
     """要求当前用户具有 admin 或 super-admin 权限。"""
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(

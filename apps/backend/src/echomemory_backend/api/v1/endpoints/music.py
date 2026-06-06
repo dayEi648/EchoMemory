@@ -5,21 +5,12 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, sta
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.core import oss_client
+from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate
 from echomemory_backend.services import music_service
 from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/music", tags=["music"])
-
-_ALLOWED_AUDIO_TYPES = {
-    "audio/mpeg",
-    "audio/mp3",
-    "audio/flac",
-    "audio/wav",
-    "audio/x-wav",
-    "audio/ogg",
-    "audio/aac",
-}
 
 
 def _safe_ext(filename: str | None, default: str) -> str:
@@ -30,12 +21,32 @@ def _safe_ext(filename: str | None, default: str) -> str:
     return ext if ext else default
 
 
+async def _upload_optional_image(file: UploadFile | None, folder: str, prefix: str) -> str | None:
+    """上传可选图片文件到 OSS，失败时抛出 HTTPException。"""
+    if file is None:
+        return None
+    if file.content_type is None or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{prefix} must be an image file",
+        )
+    try:
+        return await oss_client.upload_image_to_oss(
+            file.file, folder=folder, filename_prefix=prefix
+        )
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+
+
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------
 
 @router.post("/admin/import", response_model=MusicOut, status_code=status.HTTP_201_CREATED)
-def import_music(
+async def import_music(
     db: SessionDep,
     _: AdminUser,
     title: str = Form(..., min_length=1, max_length=128),
@@ -62,13 +73,13 @@ def import_music(
     # ----- 文件类型校验 -----
     if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid audio file type: {audio_file.content_type}",
         )
 
     if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cover icon must be an image file",
         )
 
@@ -76,7 +87,7 @@ def import_music(
         cover_home.content_type is None or not cover_home.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cover home must be an image file",
         )
 
@@ -84,7 +95,7 @@ def import_music(
         cover_play.content_type is None or not cover_play.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Cover play must be an image file",
         )
 
@@ -95,72 +106,44 @@ def import_music(
             release_date_parsed = date.fromisoformat(release_date)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="release_date must be in YYYY-MM-DD format",
             ) from exc
 
-    # ----- 上传必填文件 -----
+    # ----- 上传文件到 OSS（带孤儿文件清理） -----
+    uploaded_urls: list[str] = []
     try:
-        file_url = oss_client.upload_audio_to_oss(
+        file_url = await oss_client.upload_audio_to_oss(
             audio_file.file,
             ext=_safe_ext(audio_file.filename, "mp3"),
         )
-        cover_icon_url = oss_client.upload_image_to_oss(
+        uploaded_urls.append(file_url)
+
+        cover_icon_url = await oss_client.upload_image_to_oss(
             cover_icon.file,
             folder="music_covers",
             filename_prefix="icon",
         )
-    except (ValueError, RuntimeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        )
+        uploaded_urls.append(cover_icon_url)
 
-    # ----- 上传选填文件 -----
-    cover_home_url: str | None = None
-    if cover_home is not None:
-        try:
-            cover_home_url = oss_client.upload_image_to_oss(
-                cover_home.file,
-                folder="music_covers",
-                filename_prefix="home",
-            )
-        except (ValueError, RuntimeError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            )
+        cover_home_url = await _upload_optional_image(cover_home, "music_covers", "home")
+        if cover_home_url:
+            uploaded_urls.append(cover_home_url)
 
-    cover_play_url: str | None = None
-    if cover_play is not None:
-        try:
-            cover_play_url = oss_client.upload_image_to_oss(
-                cover_play.file,
-                folder="music_covers",
-                filename_prefix="play",
-            )
-        except (ValueError, RuntimeError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            )
+        cover_play_url = await _upload_optional_image(cover_play, "music_covers", "play")
+        if cover_play_url:
+            uploaded_urls.append(cover_play_url)
 
-    lyrics_url: str | None = None
-    if lyrics_file is not None:
-        try:
-            lyrics_url = oss_client.upload_lyrics_to_oss(
+        lyrics_url: str | None = None
+        if lyrics_file is not None:
+            lyrics_url = await oss_client.upload_lyrics_to_oss(
                 lyrics_file.file,
                 ext=_safe_ext(lyrics_file.filename, "lrc"),
             )
-        except (ValueError, RuntimeError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            )
+            uploaded_urls.append(lyrics_url)
 
-    # ----- 创建数据库记录 -----
-    try:
-        music = music_service.create_music(
+        # ----- 创建数据库记录 -----
+        music = await music_service.create_music(
             db,
             title=title,
             is_vip=is_vip,
@@ -178,28 +161,36 @@ def import_music(
             cover_home_url=cover_home_url,
             cover_play_url=cover_play_url,
         )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    except HTTPException:
+        # HTTPException 是校验错误，不清理已上传文件（因为没上传或已校验失败）
+        raise
+    except Exception:
+        # 任何其他异常（OSS 上传失败或数据库失败），清理已上传的 OSS 文件
+        for url in uploaded_urls:
+            await oss_client.delete_object_by_url(url)
+        raise
 
+    # 重新加载完整关联数据以匹配 MusicOut（避免异步懒加载 MissingGreenlet）
+    music = await music_service.get_music_by_id(db, music.id)
     return music
 
 
 @router.patch("/admin/{music_id}", response_model=MusicOut)
-def admin_update_music(
+async def admin_update_music(
     db: SessionDep,
     _: AdminUser,
     music_id: int,
     update_in: MusicUpdate,
 ):
     """管理员修改音乐信息（不含文件替换）。"""
-    music = music_service.get_music_by_id(db, music_id)
+    music = await music_service.get_music_by_id(db, music_id)
     if music is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
 
     try:
-        music = music_service.update_music(
+        music = await music_service.update_music(
             db,
             music,
             title=update_in.title,
@@ -217,41 +208,41 @@ def admin_update_music(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
     # 重新加载完整关联数据以匹配 MusicOut
-    music = music_service.get_music_by_id(db, music.id)
+    music = await music_service.get_music_by_id(db, music.id)
     return music
 
 
 @router.post("/admin/{music_id}/publish", response_model=MusicOut)
-def admin_publish_music(
+async def admin_publish_music(
     db: SessionDep,
     _: AdminUser,
     music_id: int,
 ):
     """管理员上架音乐。"""
-    music = music_service.get_music_by_id(db, music_id)
+    music = await music_service.get_music_by_id(db, music_id)
     if music is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
-    music = music_service.set_music_published(db, music, published=True)
-    music = music_service.get_music_by_id(db, music.id)
+    music = await music_service.set_music_published(db, music, published=True)
+    music = await music_service.get_music_by_id(db, music.id)
     return music
 
 
 @router.post("/admin/{music_id}/unpublish", response_model=MusicOut)
-def admin_unpublish_music(
+async def admin_unpublish_music(
     db: SessionDep,
     _: AdminUser,
     music_id: int,
 ):
     """管理员下架音乐。"""
-    music = music_service.get_music_by_id(db, music_id)
+    music = await music_service.get_music_by_id(db, music_id)
     if music is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
-    music = music_service.set_music_published(db, music, published=False)
-    music = music_service.get_music_by_id(db, music.id)
+    music = await music_service.set_music_published(db, music, published=False)
+    music = await music_service.get_music_by_id(db, music.id)
     return music
 
 
@@ -261,20 +252,20 @@ def admin_unpublish_music(
 
 # 注意：/search 必须排在 /{music_id} 之前，否则 FastAPI 会把 "search" 当作 music_id。
 @router.get("/search", response_model=list[MusicListOut])
-def search_musics(
+async def search_musics(
     db: SessionDep,
     q: str | None = Query(None, description="按标题模糊搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     """按标题模糊搜索已上架音乐。"""
-    return music_service.search_musics(
+    return await music_service.search_musics(
         db, q=q, limit=limit, offset=offset
     )
 
 
 @router.get("/", response_model=list[MusicListOut])
-def list_musics(
+async def list_musics(
     db: SessionDep,
     style_id: int | None = Query(None),
     language_id: int | None = Query(None),
@@ -283,7 +274,7 @@ def list_musics(
     offset: int = Query(0, ge=0),
 ):
     """分页列出已上架音乐，支持筛选。"""
-    return music_service.list_musics(
+    return await music_service.list_musics(
         db,
         style_id=style_id,
         language_id=language_id,
@@ -294,12 +285,12 @@ def list_musics(
 
 
 @router.get("/{music_id}", response_model=MusicOut)
-def get_music(
+async def get_music(
     db: SessionDep,
     music_id: int,
 ):
     """获取已上架音乐的详情。"""
-    music = music_service.get_music_by_id(db, music_id)
+    music = await music_service.get_music_by_id(db, music_id)
     if music is None or not music.is_published:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"

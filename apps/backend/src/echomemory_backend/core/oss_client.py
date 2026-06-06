@@ -1,9 +1,11 @@
-"""OSS（阿里云对象存储服务）客户端封装。"""
+"""OSS（阿里云对象存储服务）客户端封装 —— 异步接口，同步实现跑在线程池中。"""
 
+import io
 import uuid
 from typing import BinaryIO
 
 import oss2
+from anyio import to_thread
 
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.image_utils import compress_image_to_memory
@@ -29,45 +31,32 @@ def _get_bucket() -> oss2.Bucket:
     return oss2.Bucket(auth, settings.oss_endpoint, settings.oss_bucket_name)
 
 
-def upload_image_to_oss(
+def _build_oss_url(object_key: str) -> str:
+    """根据 object_key 构建公开访问 URL。"""
+    endpoint = (settings.oss_endpoint or "").removeprefix("https://").removeprefix("http://")
+    return f"https://{settings.oss_bucket_name}.{endpoint}/{object_key}"
+
+
+# ---------------------------------------------------------------------------
+# 同步内部实现
+# ---------------------------------------------------------------------------
+
+def _upload_image_to_oss_sync(
     file: BinaryIO,
     folder: str,
     filename_prefix: str = "",
     ext: str = "jpg",
 ) -> str:
-    """压缩图像并上传到 OSS。
-
-    Args:
-        file: 包含原始图像数据的类文件对象。
-        folder: Bucket 中的目标文件夹路径（例如 avatars）。
-        filename_prefix: 生成文件名时使用的前缀（例如用户 ID）。
-        ext: 存储对象的文件扩展名（默认 jpg）。
-
-    Returns:
-        上传对象的公开访问 URL。
-
-    Raises:
-        RuntimeError: OSS 未配置或上传失败时抛出。
-        ValueError: 文件不是有效图像时抛出。
-    """
+    """压缩图像并上传到 OSS（同步实现）。"""
     bucket = _get_bucket()
-
     compressed = compress_image_to_memory(file)
     object_key = f"{folder}/{filename_prefix}_{uuid.uuid4().hex}.{ext}"
-
     try:
         bucket.put_object(object_key, compressed)
     except oss2.exceptions.OssError as exc:
         raise RuntimeError(f"OSS upload failed: {exc}") from exc
+    return _build_oss_url(object_key)
 
-    # 构建 URL：https://bucket.endpoint/object_key
-    url = f"https://{settings.oss_bucket_name}.{settings.oss_endpoint.lstrip('https://').lstrip('http://')}/{object_key}"
-    return url
-
-
-# ---------------------------------------------------------------------------
-# 音频 / 歌词 / 通用文件上传
-# ---------------------------------------------------------------------------
 
 _MAX_AUDIO_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 _MAX_LYRICS_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -88,7 +77,7 @@ _ALLOWED_LYRICS_TYPES = {
 }
 
 
-def _upload_file_to_oss(
+def _upload_file_to_oss_sync(
     file: BinaryIO,
     folder: str,
     filename_prefix: str,
@@ -96,7 +85,7 @@ def _upload_file_to_oss(
     allowed_types: set[str],
     max_size: int,
 ) -> str:
-    """通用文件上传到 OSS。"""
+    """通用文件上传到 OSS（同步实现）。"""
     content_type = getattr(file, "content_type", None)
     if content_type is not None and content_type not in allowed_types:
         raise ValueError(
@@ -119,39 +108,90 @@ def _upload_file_to_oss(
     except oss2.exceptions.OssError as exc:
         raise RuntimeError(f"OSS upload failed: {exc}") from exc
 
-    url = f"https://{settings.oss_bucket_name}.{settings.oss_endpoint.lstrip('https://').lstrip('http://')}/{object_key}"
-    return url
+    return _build_oss_url(object_key)
 
 
-def upload_audio_to_oss(
+def _delete_object_by_url_sync(url: str) -> None:
+    """根据 URL 删除 OSS 对象（同步实现）。删除失败时静默忽略。"""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    object_key = parsed.path.lstrip("/")
+    if not object_key:
+        return
+    try:
+        bucket = _get_bucket()
+        bucket.delete_object(object_key)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# 异步公开接口
+# ---------------------------------------------------------------------------
+
+async def upload_image_to_oss(
+    file: BinaryIO,
+    folder: str,
+    filename_prefix: str = "",
+    ext: str = "jpg",
+) -> str:
+    """压缩图像并上传到 OSS。
+
+    Args:
+        file: 包含原始图像数据的类文件对象。
+        folder: Bucket 中的目标文件夹路径（例如 avatars）。
+        filename_prefix: 生成文件名时使用的前缀（例如用户 ID）。
+        ext: 存储对象的文件扩展名（默认 jpg）。
+
+    Returns:
+        上传对象的公开访问 URL。
+
+    Raises:
+        RuntimeError: OSS 未配置或上传失败时抛出。
+        ValueError: 文件不是有效图像时抛出。
+    """
+    return await to_thread.run_sync(
+        _upload_image_to_oss_sync, file, folder, filename_prefix, ext
+    )
+
+
+async def upload_audio_to_oss(
     file: BinaryIO,
     music_id: int | None = None,
     ext: str = "mp3",
 ) -> str:
     """上传音频文件到 OSS。"""
     prefix = str(music_id) if music_id is not None else "temp"
-    return _upload_file_to_oss(
-        file=file,
-        folder="musics",
-        filename_prefix=prefix,
-        ext=ext,
-        allowed_types=_ALLOWED_AUDIO_TYPES,
-        max_size=_MAX_AUDIO_SIZE_BYTES,
+    return await to_thread.run_sync(
+        _upload_file_to_oss_sync,
+        file,
+        "musics",
+        prefix,
+        ext,
+        _ALLOWED_AUDIO_TYPES,
+        _MAX_AUDIO_SIZE_BYTES,
     )
 
 
-def upload_lyrics_to_oss(
+async def upload_lyrics_to_oss(
     file: BinaryIO,
     music_id: int | None = None,
     ext: str = "lrc",
 ) -> str:
     """上传歌词文件到 OSS。"""
     prefix = str(music_id) if music_id is not None else "temp"
-    return _upload_file_to_oss(
-        file=file,
-        folder="lyrics",
-        filename_prefix=prefix,
-        ext=ext,
-        allowed_types=_ALLOWED_LYRICS_TYPES,
-        max_size=_MAX_LYRICS_SIZE_BYTES,
+    return await to_thread.run_sync(
+        _upload_file_to_oss_sync,
+        file,
+        "lyrics",
+        prefix,
+        ext,
+        _ALLOWED_LYRICS_TYPES,
+        _MAX_LYRICS_SIZE_BYTES,
     )
+
+
+async def delete_object_by_url(url: str) -> None:
+    """根据 URL 删除 OSS 对象。删除失败时静默忽略。"""
+    await to_thread.run_sync(_delete_object_by_url_sync, url)

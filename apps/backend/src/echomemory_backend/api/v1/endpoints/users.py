@@ -23,18 +23,18 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.patch("/me", response_model=UserMeOut)
-def update_me(
+async def update_me(
     db: SessionDep, current_user: ActiveUser, user_in: UserUpdate
 ) -> User:
     """更新当前用户自己的个人资料。"""
     try:
-        return user_service.update_user_profile(db, current_user, user_in)
+        return await user_service.update_user_profile(db, current_user, user_in)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/me/avatar", response_model=UserMeOut)
-def upload_avatar(
+async def upload_avatar(
     db: SessionDep,
     current_user: ActiveUser,
     file: UploadFile = File(...),
@@ -52,7 +52,7 @@ def upload_avatar(
         )
 
     try:
-        avatar_url = upload_image_to_oss(
+        avatar_url = await upload_image_to_oss(
             file.file,
             folder=settings.oss_avatar_prefix,
             filename_prefix=str(current_user.id),
@@ -68,13 +68,13 @@ def upload_avatar(
             detail=str(exc),
         ) from exc
 
-    return user_service.update_user_avatar(db, current_user, avatar_url)
+    return await user_service.update_user_avatar(db, current_user, avatar_url)
 
 
 @router.get("/{user_id}", response_model=UserPublicOut)
-def get_user(db: SessionDep, user_id: int) -> User:
+async def get_user(db: SessionDep, user_id: int) -> User:
     """根据用户 ID 获取公开的个人资料。"""
-    user = user_service.get_user_by_id(db, user_id)
+    user = await user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -84,67 +84,67 @@ def get_user(db: SessionDep, user_id: int) -> User:
 
 
 @router.get("/", response_model=list[UserSearchOut])
-def search_users(
+async def search_users(
     db: SessionDep,
     q: str | None = Query(None, description="按用户名或昵称搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
     """按可选关键词搜索用户。"""
-    return user_service.search_users(db, q=q, limit=limit, offset=offset)
+    return await user_service.search_users(db, q=q, limit=limit, offset=offset)
 
 
 @router.post("/follow", status_code=status.HTTP_204_NO_CONTENT)
-def follow_user(
+async def follow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
     """关注另一个用户。"""
     try:
-        user_service.follow_user(db, current_user.id, follow_in.followee_id)
+        await user_service.follow_user(db, current_user.id, follow_in.followee_id)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     return None
 
 
 @router.post("/unfollow", status_code=status.HTTP_204_NO_CONTENT)
-def unfollow_user(
+async def unfollow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
     """取消关注某用户。"""
     try:
-        user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
+        await user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     return None
 
 
 @router.get("/{user_id}/followees", response_model=list[FolloweeOut])
-def get_followees(
+async def get_followees(
     db: SessionDep,
     user_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
     """列出指定用户关注的用户列表。"""
-    return user_service.get_followees(db, user_id, limit=limit, offset=offset)
+    return await user_service.get_followees(db, user_id, limit=limit, offset=offset)
 
 
 @router.get("/{user_id}/followers", response_model=list[FollowerOut])
-def get_followers(
+async def get_followers(
     db: SessionDep,
     user_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
     """列出关注指定用户的用户列表。"""
-    return user_service.get_followers(db, user_id, limit=limit, offset=offset)
+    return await user_service.get_followers(db, user_id, limit=limit, offset=offset)
 
 
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------
 @router.get("/admin/list", response_model=list[UserMeOut])
-def admin_list_users(
+async def admin_list_users(
     db: SessionDep,
     admin: AdminUser,
     status: int | None = Query(None, ge=0, le=3),
@@ -154,13 +154,13 @@ def admin_list_users(
     offset: int = Query(0, ge=0),
 ) -> list[User]:
     """以管理员身份列出用户，支持筛选。"""
-    return admin_service.list_users(
+    return await admin_service.list_users(
         db, status=status, role=role, q=q, limit=limit, offset=offset
     )
 
 
 @router.patch("/{user_id}/admin", response_model=UserMeOut)
-def admin_update_user(
+async def admin_update_user(
     db: SessionDep,
     admin: AdminUser,
     user_id: int,
@@ -168,13 +168,13 @@ def admin_update_user(
 ) -> User:
     """以管理员身份更新用户信息。"""
     try:
-        return admin_service.update_user_as_admin(db, admin, user_id, user_in)
+        return await admin_service.update_user_as_admin(db, admin, user_id, user_in)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/{user_id}/ban", response_model=UserMeOut)
-def admin_ban_user(
+async def admin_ban_user(
     db: SessionDep,
     admin: AdminUser,
     user_id: int,
@@ -182,19 +182,19 @@ def admin_ban_user(
 ) -> User:
     """封禁用户。"""
     try:
-        return admin_service.ban_user(db, admin, user_id, action)
+        return await admin_service.ban_user(db, admin, user_id, action)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.post("/{user_id}/unban", response_model=UserMeOut)
-def admin_unban_user(
+async def admin_unban_user(
     db: SessionDep,
     admin: AdminUser,
     user_id: int,
 ) -> User:
     """解封用户。"""
     try:
-        return admin_service.unban_user(db, admin, user_id)
+        return await admin_service.unban_user(db, admin, user_id)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)

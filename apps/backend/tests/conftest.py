@@ -14,8 +14,6 @@ if _backend_env.exists():
                 os.environ[key] = value
 
 # Force tests to use the dedicated test database.
-# Connection details (password, host, etc.) come from .env;
-# only the database name is overridden here.
 _db_url = os.environ.get(
     "DATABASE_URL",
     "postgresql+psycopg2://postgres@localhost:5432/echomemory",
@@ -29,20 +27,25 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 from contextlib import asynccontextmanager
 
 import pytest
-from fakeredis import FakeRedis
+import pytest_asyncio
+from fakeredis.aioredis import FakeRedis
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from echomemory_backend.api.deps import get_db
 from echomemory_backend.core import redis_client as rc
 from echomemory_backend.db.base import Base
 from echomemory_backend.main import app
 
-# PostgreSQL test database
-TEST_DATABASE_URL = os.environ["DATABASE_URL"]
-engine = create_engine(TEST_DATABASE_URL)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TEST_SYNC_DATABASE_URL = os.environ["DATABASE_URL"]
+TEST_ASYNC_DATABASE_URL = (
+    TEST_SYNC_DATABASE_URL.replace("postgresql+psycopg2", "postgresql+asyncpg")
+    .replace("postgresql://", "postgresql+asyncpg://", 1)
+)
+
+# 同步引擎（用于测试初始化、清理表结构，避免事件循环问题）
+sync_test_engine = create_engine(TEST_SYNC_DATABASE_URL)
 
 # Override lifespan to skip Alembic migrations during tests
 @asynccontextmanager
@@ -54,29 +57,40 @@ app.router.lifespan_context = testing_lifespan
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
-    with engine.begin() as conn:
+    """使用同步引擎初始化测试数据库结构（仅一次）。"""
+    with sync_test_engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+        Base.metadata.drop_all(bind=conn)
+        Base.metadata.create_all(bind=conn)
     yield
-    Base.metadata.drop_all(bind=engine)
+    with sync_test_engine.begin() as conn:
+        Base.metadata.drop_all(bind=conn)
 
 
 @pytest.fixture(autouse=True)
-def clean_tables(db_session):
-    """Clean user-related tables before each test."""
-    db_session.execute(text("TRUNCATE TABLE user_follows, users RESTART IDENTITY CASCADE"))
-    db_session.commit()
+def clean_tables():
+    """每次测试前清理用户相关表（使用同步连接，避免跨事件循环）。"""
+    with sync_test_engine.begin() as conn:
+        conn.execute(text("TRUNCATE TABLE user_follows, users RESTART IDENTITY CASCADE"))
     yield
 
 
-@pytest.fixture
-def db_session():
-    session = TestingSessionLocal()
+@pytest_asyncio.fixture
+async def db_session():
+    """提供一个绑定到当前事件循环的异步 Session（供测试 helper 使用）。"""
+    engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
+    AsyncTestingSessionLocal = async_sessionmaker(
+        autocommit=False, autoflush=False, bind=engine
+    )
+    AsyncTestingSessionLocal = async_sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
+    )
+    session = AsyncTestingSessionLocal()
     try:
         yield session
     finally:
-        session.close()
+        await session.close()
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -84,16 +98,22 @@ def fake_redis(monkeypatch):
     fake = FakeRedis(decode_responses=True)
     monkeypatch.setattr(rc, "redis_client", fake)
     yield fake
-    fake.flushall()
 
 
 @pytest.fixture
-def client(db_session, fake_redis):
-    def override_get_db():
+def client(fake_redis):
+    """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
+    engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
+    AsyncTestingSessionLocal = async_sessionmaker(
+        autocommit=False, autoflush=False, bind=engine
+    )
+
+    async def override_get_db():
+        session = AsyncTestingSessionLocal()
         try:
-            yield db_session
+            yield session
         finally:
-            pass
+            await session.close()
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:

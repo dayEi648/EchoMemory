@@ -12,47 +12,47 @@ def _patch_redis(fake_redis):
 
 
 class TestRefreshToken:
-    def test_store_and_get(self):
-        rc.store_refresh_token("rt_abc", 42)
-        assert rc.get_refresh_token_user_id("rt_abc") == "42"
+    async def test_store_and_get(self):
+        await rc.store_refresh_token("rt_abc", 42)
+        assert await rc.get_refresh_token_user_id("rt_abc") == "42"
 
-    def test_get_nonexistent_returns_none(self):
-        assert rc.get_refresh_token_user_id("not_exists") is None
+    async def test_get_nonexistent_returns_none(self):
+        assert await rc.get_refresh_token_user_id("not_exists") is None
 
-    def test_delete_removes_token(self):
-        rc.store_refresh_token("rt_del", 1)
-        rc.delete_refresh_token("rt_del")
-        assert rc.get_refresh_token_user_id("rt_del") is None
+    async def test_delete_removes_token(self):
+        await rc.store_refresh_token("rt_del", 1)
+        await rc.delete_refresh_token("rt_del")
+        assert await rc.get_refresh_token_user_id("rt_del") is None
 
-    def test_ttl_expires(self, fake_redis):
-        rc.store_refresh_token("rt_ttl", 99, ttl_seconds=1)
-        assert rc.get_refresh_token_user_id("rt_ttl") == "99"
+    async def test_ttl_expires(self, fake_redis):
+        await rc.store_refresh_token("rt_ttl", 99, ttl_seconds=1)
+        assert await rc.get_refresh_token_user_id("rt_ttl") == "99"
         time.sleep(1.1)
-        assert rc.get_refresh_token_user_id("rt_ttl") is None
+        assert await rc.get_refresh_token_user_id("rt_ttl") is None
 
 
 class TestBlacklist:
-    def test_blacklist_and_check(self):
-        rc.blacklist_access_token("at_abc")
-        assert rc.is_access_token_blacklisted("at_abc") is True
+    async def test_blacklist_and_check(self):
+        await rc.blacklist_access_token("at_abc")
+        assert await rc.is_access_token_blacklisted("at_abc") is True
 
-    def test_non_blacklisted_returns_false(self):
-        assert rc.is_access_token_blacklisted("at_clean") is False
+    async def test_non_blacklisted_returns_false(self):
+        assert await rc.is_access_token_blacklisted("at_clean") is False
 
-    def test_blacklist_ttl_expires(self, fake_redis):
-        rc.blacklist_access_token("at_ttl", ttl_seconds=1)
-        assert rc.is_access_token_blacklisted("at_ttl") is True
+    async def test_blacklist_ttl_expires(self, fake_redis):
+        await rc.blacklist_access_token("at_ttl", ttl_seconds=1)
+        assert await rc.is_access_token_blacklisted("at_ttl") is True
         time.sleep(1.1)
-        assert rc.is_access_token_blacklisted("at_ttl") is False
+        assert await rc.is_access_token_blacklisted("at_ttl") is False
 
 
 class TestGenerateRefreshToken:
-    def test_generates_non_empty_string(self):
+    async def test_generates_non_empty_string(self):
         token = rc.generate_refresh_token()
         assert isinstance(token, str)
         assert len(token) > 20
 
-    def test_generates_unique_tokens(self):
+    async def test_generates_unique_tokens(self):
         t1 = rc.generate_refresh_token()
         t2 = rc.generate_refresh_token()
         assert t1 != t2

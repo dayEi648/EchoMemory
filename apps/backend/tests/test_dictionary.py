@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.security import create_access_token, get_password_hash
 from echomemory_backend.models.dictionary import City, EmotionTag, Instrument, InterestTag, Language, Style
@@ -13,8 +13,8 @@ from echomemory_backend.models.user import User
 BASE_URL = "/api/v1/dictionary"
 
 
-def _create_user(
-    db: Session,
+async def _create_user(
+    db: AsyncSession,
     username: str,
     role: int = UserRole.USER.value,
 ) -> User:
@@ -25,8 +25,8 @@ def _create_user(
         role=role,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 
@@ -34,19 +34,19 @@ def _auth_header(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(subject=user.id)}"}
 
 
-def _create_style(db: Session, name: str) -> Style:
+async def _create_style(db: AsyncSession, name: str) -> Style:
     style = Style(name=name)
     db.add(style)
-    db.commit()
-    db.refresh(style)
+    await db.commit()
+    await db.refresh(style)
     return style
 
 
-def _create_language(db: Session, name: str) -> Language:
+async def _create_language(db: AsyncSession, name: str) -> Language:
     lang = Language(name=name)
     db.add(lang)
-    db.commit()
-    db.refresh(lang)
+    await db.commit()
+    await db.refresh(lang)
     return lang
 
 
@@ -55,14 +55,14 @@ def _create_language(db: Session, name: str) -> Language:
 # ---------------------------------------------------------------------------
 
 class TestListDictionaryItems:
-    def test_list_styles_empty(self, client: TestClient):
+    async def test_list_styles_empty(self, client: TestClient):
         resp = client.get(f"{BASE_URL}/styles")
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_list_styles_with_data(self, client: TestClient, db_session: Session):
-        _create_style(db_session, "Rock")
-        _create_style(db_session, "Jazz")
+    async def test_list_styles_with_data(self, client: TestClient, db_session: AsyncSession):
+        await _create_style(db_session, "Rock")
+        await _create_style(db_session, "Jazz")
         resp = client.get(f"{BASE_URL}/styles")
         assert resp.status_code == 200
         data = resp.json()
@@ -70,38 +70,38 @@ class TestListDictionaryItems:
         names = {item["name"] for item in data}
         assert names == {"Rock", "Jazz"}
 
-    def test_list_languages(self, client: TestClient, db_session: Session):
-        _create_language(db_session, "English")
+    async def test_list_languages(self, client: TestClient, db_session: AsyncSession):
+        await _create_language(db_session, "English")
         resp = client.get(f"{BASE_URL}/languages")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
         assert data[0]["name"] == "English"
 
-    def test_list_unknown_type(self, client: TestClient):
+    async def test_list_unknown_type(self, client: TestClient):
         resp = client.get(f"{BASE_URL}/unknown_type")
         assert resp.status_code == 400
 
-    def test_list_pagination(self, client: TestClient, db_session: Session):
+    async def test_list_pagination(self, client: TestClient, db_session: AsyncSession):
         for i in range(5):
-            _create_style(db_session, f"Style{i}")
+            await _create_style(db_session, f"Style{i}")
         resp = client.get(f"{BASE_URL}/styles", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
 
 class TestGetDictionaryItem:
-    def test_get_existing_item(self, client: TestClient, db_session: Session):
-        style = _create_style(db_session, "Blues")
+    async def test_get_existing_item(self, client: TestClient, db_session: AsyncSession):
+        style = await _create_style(db_session, "Blues")
         resp = client.get(f"{BASE_URL}/styles/{style.id}")
         assert resp.status_code == 200
         assert resp.json()["name"] == "Blues"
 
-    def test_get_nonexistent_item(self, client: TestClient):
-        resp = client.get(f"{BASE_URL}/styles/99999")
+    async def test_get_nonexistent_item(self, client: TestClient):
+        resp = client.get(f"{BASE_URL}/styles/999")
         assert resp.status_code == 404
 
-    def test_get_unknown_type(self, client: TestClient):
+    async def test_get_unknown_type(self, client: TestClient):
         resp = client.get(f"{BASE_URL}/unknown_type/1")
         assert resp.status_code == 400
 
@@ -111,8 +111,8 @@ class TestGetDictionaryItem:
 # ---------------------------------------------------------------------------
 
 class TestCreateDictionaryItem:
-    def test_admin_create_style(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_create", role=UserRole.ADMIN.value)
+    async def test_admin_create_style(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_create", role=UserRole.ADMIN.value)
         resp = client.post(
             f"{BASE_URL}/styles",
             headers=_auth_header(admin),
@@ -123,8 +123,8 @@ class TestCreateDictionaryItem:
         assert data["name"] == "Pop"
         assert "id" in data
 
-    def test_normal_user_cannot_create(self, client: TestClient, db_session: Session):
-        user = _create_user(db_session, "normal_create")
+    async def test_normal_user_cannot_create(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user(db_session, "normal_create")
         resp = client.post(
             f"{BASE_URL}/styles",
             headers=_auth_header(user),
@@ -132,9 +132,9 @@ class TestCreateDictionaryItem:
         )
         assert resp.status_code == 403
 
-    def test_create_duplicate_name(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_dup", role=UserRole.ADMIN.value)
-        _create_style(db_session, "Classical")
+    async def test_create_duplicate_name(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_dup", role=UserRole.ADMIN.value)
+        await _create_style(db_session, "Classical")
         resp = client.post(
             f"{BASE_URL}/styles",
             headers=_auth_header(admin),
@@ -142,8 +142,8 @@ class TestCreateDictionaryItem:
         )
         assert resp.status_code == 409
 
-    def test_create_invalid_type(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_inv", role=UserRole.ADMIN.value)
+    async def test_create_invalid_type(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_inv", role=UserRole.ADMIN.value)
         resp = client.post(
             f"{BASE_URL}/bad_type",
             headers=_auth_header(admin),
@@ -153,9 +153,9 @@ class TestCreateDictionaryItem:
 
 
 class TestUpdateDictionaryItem:
-    def test_admin_update_style(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_update", role=UserRole.ADMIN.value)
-        style = _create_style(db_session, "OldName")
+    async def test_admin_update_style(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_update", role=UserRole.ADMIN.value)
+        style = await _create_style(db_session, "OldName")
         resp = client.patch(
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(admin),
@@ -164,9 +164,9 @@ class TestUpdateDictionaryItem:
         assert resp.status_code == 200
         assert resp.json()["name"] == "NewName"
 
-    def test_normal_user_cannot_update(self, client: TestClient, db_session: Session):
-        user = _create_user(db_session, "normal_update")
-        style = _create_style(db_session, "Protected")
+    async def test_normal_user_cannot_update(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user(db_session, "normal_update")
+        style = await _create_style(db_session, "Protected")
         resp = client.patch(
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(user),
@@ -174,18 +174,18 @@ class TestUpdateDictionaryItem:
         )
         assert resp.status_code == 403
 
-    def test_update_nonexistent_item(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_nx", role=UserRole.ADMIN.value)
+    async def test_update_nonexistent_item(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_nx", role=UserRole.ADMIN.value)
         resp = client.patch(
-            f"{BASE_URL}/styles/99999",
+            f"{BASE_URL}/styles/999",
             headers=_auth_header(admin),
             json={"name": "Ghost"},
         )
         assert resp.status_code == 404
 
-    def test_update_missing_name(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_no_name", role=UserRole.ADMIN.value)
-        style = _create_style(db_session, "Something")
+    async def test_update_missing_name(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_no_name", role=UserRole.ADMIN.value)
+        style = await _create_style(db_session, "Something")
         resp = client.patch(
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(admin),
@@ -195,33 +195,35 @@ class TestUpdateDictionaryItem:
 
 
 class TestDeleteDictionaryItem:
-    def test_admin_delete_style(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_del", role=UserRole.ADMIN.value)
-        style = _create_style(db_session, "ToDelete")
+    async def test_admin_delete_style(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_del", role=UserRole.ADMIN.value)
+        style = await _create_style(db_session, "ToDelete")
         resp = client.delete(
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(admin),
         )
         assert resp.status_code == 204
-        # 确认已删除
-        assert db_session.get(Style, style.id) is None
+        # 确认已删除（使用 select 避免 identity map 缓存）
+        from sqlalchemy import select
+        stmt = select(Style).where(Style.id == style.id)
+        assert (await db_session.execute(stmt)).scalar_one_or_none() is None
 
-    def test_normal_user_cannot_delete(self, client: TestClient, db_session: Session):
-        user = _create_user(db_session, "normal_del")
-        style = _create_style(db_session, "ProtectedDel")
+    async def test_normal_user_cannot_delete(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user(db_session, "normal_del")
+        style = await _create_style(db_session, "ProtectedDel")
         resp = client.delete(
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(user),
         )
         assert resp.status_code == 403
 
-    def test_delete_referenced_style_blocked(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_ref", role=UserRole.ADMIN.value)
-        style = _create_style(db_session, "Referenced")
+    async def test_delete_referenced_style_blocked(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_ref", role=UserRole.ADMIN.value)
+        style = await _create_style(db_session, "Referenced")
         # 创建一首引用该 style 的音乐
         music = Music(title="TestSong", style_id=style.id)
         db_session.add(music)
-        db_session.commit()
+        await db_session.commit()
 
         resp = client.delete(
             f"{BASE_URL}/styles/{style.id}",
@@ -229,10 +231,10 @@ class TestDeleteDictionaryItem:
         )
         assert resp.status_code == 409
 
-    def test_delete_nonexistent_item(self, client: TestClient, db_session: Session):
-        admin = _create_user(db_session, "admin_nxdel", role=UserRole.ADMIN.value)
+    async def test_delete_nonexistent_item(self, client: TestClient, db_session: AsyncSession):
+        admin = await _create_user(db_session, "admin_nxdel", role=UserRole.ADMIN.value)
         resp = client.delete(
-            f"{BASE_URL}/styles/99999",
+            f"{BASE_URL}/styles/999",
             headers=_auth_header(admin),
         )
         assert resp.status_code == 404
@@ -252,10 +254,10 @@ class TestAllDictionaryTypes:
             ("interest_tags", InterestTag),
         ],
     )
-    def test_create_and_list_each_type(
-        self, client: TestClient, db_session: Session, dtype: str, model
+    async def test_create_and_list_each_type(
+        self, client: TestClient, db_session: AsyncSession, dtype: str, model
     ):
-        admin = _create_user(db_session, f"admin_{dtype}", role=UserRole.ADMIN.value)
+        admin = await _create_user(db_session, f"admin_{dtype}", role=UserRole.ADMIN.value)
         # 创建
         resp = client.post(
             f"{BASE_URL}/{dtype}",

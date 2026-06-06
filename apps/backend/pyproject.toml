@@ -26,6 +26,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-asyncio",
     "httpx",
     "fakeredis",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.models.album import AlbumEmotionTag, AlbumInterestTag
 from echomemory_backend.models.dictionary import (
@@ -65,7 +65,7 @@ def _get_model(dictionary_type: str):
     return model
 
 
-def create_dictionary_item(db: Session, dictionary_type: str, name: str):
+async def create_dictionary_item(db: AsyncSession, dictionary_type: str, name: str):
     """创建字典项。
 
     Raises:
@@ -75,22 +75,22 @@ def create_dictionary_item(db: Session, dictionary_type: str, name: str):
     item = model(name=name)
     db.add(item)
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise BusinessError(f"Name already exists in {dictionary_type}", 409)
-    db.refresh(item)
+    await db.refresh(item)
     return item
 
 
-def get_dictionary_item_by_id(db: Session, dictionary_type: str, item_id: int):
+async def get_dictionary_item_by_id(db: AsyncSession, dictionary_type: str, item_id: int):
     """根据 ID 获取字典项。"""
     model = _get_model(dictionary_type)
-    return db.get(model, item_id)
+    return await db.get(model, item_id)
 
 
-def list_dictionary_items(
-    db: Session,
+async def list_dictionary_items(
+    db: AsyncSession,
     dictionary_type: str,
     *,
     limit: int = 100,
@@ -99,11 +99,11 @@ def list_dictionary_items(
     """分页列出字典项，按 name 字母序排列。"""
     model = _get_model(dictionary_type)
     stmt = select(model).order_by(model.name).limit(limit).offset(offset)
-    return list(db.execute(stmt).scalars().all())
+    return (await db.execute(stmt)).scalars().all()
 
 
-def update_dictionary_item(
-    db: Session, dictionary_type: str, item_id: int, name: str
+async def update_dictionary_item(
+    db: AsyncSession, dictionary_type: str, item_id: int, name: str
 ):
     """更新字典项名称。
 
@@ -111,39 +111,43 @@ def update_dictionary_item(
         BusinessError: 字典项不存在或名称冲突时抛出。
     """
     model = _get_model(dictionary_type)
-    item = db.get(model, item_id)
+    item = await db.get(model, item_id)
     if item is None:
         raise BusinessError("Dictionary item not found", 404)
 
     item.name = name
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise BusinessError(f"Name already exists in {dictionary_type}", 409)
-    db.refresh(item)
+    await db.refresh(item)
     return item
 
 
-def delete_dictionary_item(db: Session, dictionary_type: str, item_id: int):
+async def delete_dictionary_item(db: AsyncSession, dictionary_type: str, item_id: int):
     """删除字典项，若存在外键引用则拒绝删除。
 
     Raises:
         BusinessError: 字典项不存在或被引用时抛出。
     """
     model = _get_model(dictionary_type)
-    item = db.get(model, item_id)
+    item = await db.get(model, item_id)
     if item is None:
         raise BusinessError("Dictionary item not found", 404)
 
     # 检查引用关系
     ref_checks = _REF_CHECKS.get(dictionary_type, [])
     for assoc_model, fk_attr, ref_name in ref_checks:
-        stmt = select(assoc_model).where(getattr(assoc_model, fk_attr) == item_id)
-        if db.execute(stmt).scalar_one_or_none() is not None:
+        stmt = (
+            select(assoc_model)
+            .where(getattr(assoc_model, fk_attr) == item_id)
+            .limit(1)
+        )
+        if (await db.execute(stmt)).scalar_one_or_none() is not None:
             raise BusinessError(
                 f"Cannot delete: this item is referenced by {ref_name}", 409
             )
 
-    db.delete(item)
-    db.commit()
+    await db.delete(item)
+    await db.commit()

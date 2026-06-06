@@ -1,6 +1,6 @@
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.utils import parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
@@ -9,8 +9,8 @@ from echomemory_backend.schemas.user import UserAdminUpdate, UserBanAction
 from echomemory_backend.services.user_service import BusinessError, get_user_by_id
 
 
-def list_users(
-    db: Session,
+async def list_users(
+    db: AsyncSession,
     status: int | None,
     role: int | None,
     q: str | None,
@@ -24,20 +24,22 @@ def list_users(
     if role is not None:
         stmt = stmt.where(User.role == role)
     if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
         stmt = stmt.where(
-            (User.username.ilike(f"%{q}%")) | (User.nickname.ilike(f"%{q}%"))
+            (User.username.ilike(f"%{escaped_q}%", escape="\\"))
+            | (User.nickname.ilike(f"%{escaped_q}%", escape="\\"))
         )
     stmt = stmt.order_by(desc(User.created_at)).limit(limit).offset(offset)
-    return list(db.execute(stmt).scalars().all())
+    return list((await db.execute(stmt)).scalars().all())
 
 
-def update_user_as_admin(
-    db: Session, admin: User, target_user_id: int, user_in: UserAdminUpdate
+async def update_user_as_admin(
+    db: AsyncSession, admin: User, target_user_id: int, user_in: UserAdminUpdate
 ) -> User:
     """以管理员身份更新用户信息。
 
     Args:
-        db: SQLAlchemy Session。
+        db: SQLAlchemy AsyncSession。
         admin: 执行操作的管理员。
         target_user_id: 待修改的用户 ID。
         user_in: 更新内容。
@@ -48,7 +50,7 @@ def update_user_as_admin(
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)
 
-    user = get_user_by_id(db, target_user_id)
+    user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
 
@@ -80,19 +82,19 @@ def update_user_as_admin(
         user.ban_duration = parse_iso8601_duration(user_in.ban_duration)
 
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise BusinessError("Invalid user state combination", 400)
-    db.refresh(user)
+    await db.refresh(user)
     return user
 
 
-def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanAction) -> User:
+async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: UserBanAction) -> User:
     """封禁用户。
 
     Args:
-        db: SQLAlchemy Session。
+        db: SQLAlchemy AsyncSession。
         admin: 执行操作的管理员。
         target_user_id: 待封禁的用户 ID。
         action: 封禁操作载荷，包含状态与可选封禁时长。
@@ -103,7 +105,7 @@ def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanActio
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)
 
-    user = get_user_by_id(db, target_user_id)
+    user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
     if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
@@ -115,19 +117,19 @@ def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanActio
         user.ban_duration = parse_iso8601_duration(action.ban_duration)
 
     try:
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise BusinessError("Invalid ban state or duration", 400)
-    db.refresh(user)
+    await db.refresh(user)
     return user
 
 
-def unban_user(db: Session, admin: User, target_user_id: int) -> User:
+async def unban_user(db: AsyncSession, admin: User, target_user_id: int) -> User:
     """解封用户。
 
     Args:
-        db: SQLAlchemy Session。
+        db: SQLAlchemy AsyncSession。
         admin: 执行操作的管理员。
         target_user_id: 待解封的用户 ID。
 
@@ -137,7 +139,7 @@ def unban_user(db: Session, admin: User, target_user_id: int) -> User:
     if admin.id == target_user_id:
         raise BusinessError("Cannot perform this action on yourself", 403)
 
-    user = get_user_by_id(db, target_user_id)
+    user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
 
@@ -148,6 +150,6 @@ def unban_user(db: Session, admin: User, target_user_id: int) -> User:
     user.banned_at = None
     user.ban_duration = None
 
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
