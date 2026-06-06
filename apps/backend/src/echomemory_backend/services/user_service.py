@@ -149,7 +149,11 @@ def follow_user(db: Session, follower_id: int, followee_id: int) -> None:
 
     follow = UserFollow(follower_id=follower_id, followee_id=followee_id)
     db.add(follow)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BusinessError("Already following this user", 409)
 
 
 def unfollow_user(db: Session, follower_id: int, followee_id: int) -> None:

@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
 
-from echomemory_backend.core.utils import timedelta_to_iso8601_duration
+from echomemory_backend.core.utils import parse_iso8601_duration, timedelta_to_iso8601_duration
 
 
 class UserBase(BaseModel):
@@ -41,6 +41,19 @@ class UserAdminUpdate(BaseModel):
     banned_at: datetime | None = None
     ban_duration: str | None = None
 
+    @field_validator("ban_duration")
+    @classmethod
+    def validate_ban_duration(cls, v: str | None) -> str | None:
+        if v is not None:
+            if not v.startswith("P"):
+                raise ValueError(
+                    "ban_duration must be an ISO 8601 duration string starting with P"
+                )
+            td = parse_iso8601_duration(v)
+            if td is not None and td.total_seconds() <= 0:
+                raise ValueError("ban_duration must represent a positive duration")
+        return v
+
 
 class UserBanAction(BaseModel):
     status: Literal[1, 2, 3]
@@ -49,10 +62,14 @@ class UserBanAction(BaseModel):
     @field_validator("ban_duration")
     @classmethod
     def validate_ban_duration(cls, v: str | None) -> str | None:
-        if v is not None and not v.startswith("P"):
-            raise ValueError(
-                "ban_duration must be an ISO 8601 duration string starting with P"
-            )
+        if v is not None:
+            if not v.startswith("P"):
+                raise ValueError(
+                    "ban_duration must be an ISO 8601 duration string starting with P"
+                )
+            td = parse_iso8601_duration(v)
+            if td is not None and td.total_seconds() <= 0:
+                raise ValueError("ban_duration must represent a positive duration")
         return v
 
 

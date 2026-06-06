@@ -114,7 +114,11 @@ def ban_user(db: Session, admin: User, target_user_id: int, action: UserBanActio
     if action.ban_duration is not None:
         user.ban_duration = parse_iso8601_duration(action.ban_duration)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise BusinessError("Invalid ban state or duration", 400)
     db.refresh(user)
     return user
 
@@ -128,11 +132,17 @@ def unban_user(db: Session, admin: User, target_user_id: int) -> User:
         target_user_id: The user to unban.
 
     Raises:
-        BusinessError: If target is not found.
+        BusinessError: If target is not found or admin lacks privilege.
     """
+    if admin.id == target_user_id:
+        raise BusinessError("Cannot perform this action on yourself", 403)
+
     user = get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
+
+    if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
+        raise BusinessError("Cannot unban super-admin user", 403)
 
     user.status = UserStatus.ACTIVE
     user.banned_at = None
