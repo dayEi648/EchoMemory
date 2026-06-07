@@ -9,6 +9,8 @@ from fastapi import FastAPI
 
 from echomemory_backend.api.v1.router import router as api_v1_router
 from echomemory_backend.core.config import settings
+from echomemory_backend.core.redis_client import redis_client
+from echomemory_backend.db.session import async_engine
 from echomemory_backend.models import Base  # noqa: F401
 
 
@@ -23,6 +25,8 @@ async def lifespan(app: FastAPI):
     with ThreadPoolExecutor() as pool:
         await loop.run_in_executor(pool, command.upgrade, alembic_cfg, "head")
     yield
+    await async_engine.dispose()
+    await redis_client.close()
 
 
 app = FastAPI(title="echomemory backend", lifespan=lifespan)

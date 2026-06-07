@@ -1,4 +1,4 @@
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 

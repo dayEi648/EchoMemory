@@ -28,8 +28,10 @@ async def delete_refresh_token(token: str) -> None:
     await redis_client.delete(f"{REFRESH_PREFIX}:{token}")
 
 
-async def blacklist_access_token(token: str, ttl_seconds: int = 24 * 3600) -> None:
-    """将 access token 加入黑名单，TTL 默认 1 天。"""
+async def blacklist_access_token(token: str, ttl_seconds: int | None = None) -> None:
+    """将 access token 加入黑名单，TTL 默认与 JWT 过期时间一致。"""
+    if ttl_seconds is None:
+        ttl_seconds = settings.jwt_access_token_expire_minutes * 60
     await redis_client.set(f"{BLACKLIST_PREFIX}:{token}", "1", ex=ttl_seconds)
 
 

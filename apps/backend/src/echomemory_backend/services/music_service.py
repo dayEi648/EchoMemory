@@ -13,7 +13,6 @@ from echomemory_backend.models.music import (
     MusicInstrument,
     MusicInterestTag,
 )
-from echomemory_backend.models.user import User
 from echomemory_backend.services.user_service import BusinessError, get_user_by_id
 
 

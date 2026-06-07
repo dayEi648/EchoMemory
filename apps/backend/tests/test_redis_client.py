@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 import pytest
 
@@ -27,7 +27,7 @@ class TestRefreshToken:
     async def test_ttl_expires(self, fake_redis):
         await rc.store_refresh_token("rt_ttl", 99, ttl_seconds=1)
         assert await rc.get_refresh_token_user_id("rt_ttl") == "99"
-        time.sleep(1.1)
+        await asyncio.sleep(1.1)
         assert await rc.get_refresh_token_user_id("rt_ttl") is None
 
 
@@ -42,7 +42,7 @@ class TestBlacklist:
     async def test_blacklist_ttl_expires(self, fake_redis):
         await rc.blacklist_access_token("at_ttl", ttl_seconds=1)
         assert await rc.is_access_token_blacklisted("at_ttl") is True
-        time.sleep(1.1)
+        await asyncio.sleep(1.1)
         assert await rc.is_access_token_blacklisted("at_ttl") is False
 
 

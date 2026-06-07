@@ -71,7 +71,18 @@ def setup_db():
 def clean_tables():
     """每次测试前清理用户相关表（使用同步连接，避免跨事件循环）。"""
     with sync_test_engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE user_follows, users RESTART IDENTITY CASCADE"))
+        conn.execute(text("""
+            TRUNCATE TABLE user_follows, users, musics, music_authors, music_instruments,
+            music_emotion_tags, music_interest_tags, styles, languages, cities,
+            instruments, emotion_tags, interest_tags, albums, album_authors, album_musics,
+            album_emotion_tags, album_interest_tags, playlists, playlist_musics,
+            playlist_emotion_tags, playlist_interest_tags, comments, comment_likes,
+            comment_dislikes, space_posts, space_post_images, space_post_likes,
+            play_history, user_music_releases, user_music_collections,
+            user_album_collections, user_playlist_collections,
+            user_emotion_tags, user_interest_tags, level_config
+            RESTART IDENTITY CASCADE
+        """))
     yield
 
 
@@ -79,9 +90,6 @@ def clean_tables():
 async def db_session():
     """提供一个绑定到当前事件循环的异步 Session（供测试 helper 使用）。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
-    AsyncTestingSessionLocal = async_sessionmaker(
-        autocommit=False, autoflush=False, bind=engine
-    )
     AsyncTestingSessionLocal = async_sessionmaker(
         autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
     )

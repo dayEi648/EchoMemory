@@ -28,35 +28,34 @@ def compress_image_to_memory(
         ValueError: 输入不是有效图像时抛出。
     """
     try:
-        img = Image.open(file)
+        with Image.open(file) as img:
+            # 转换为 RGB 以确保输出一致（处理 PNG 透明度等情况）
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            # 先降低质量，再缩小尺寸，尝试压缩到 max_size 以内
+            quality_levels = [85, 75, 65, 55, 45]
+            scale_factors = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
+
+            for scale in scale_factors:
+                resized = img
+                if scale < 1.0:
+                    new_size = (int(img.width * scale), int(img.height * scale))
+                    resized = img.resize(new_size, Image.Resampling.LANCZOS)
+
+                for quality in quality_levels:
+                    buffer = io.BytesIO()
+                    resized.save(buffer, format="JPEG", quality=quality, optimize=True)
+                    if buffer.tell() <= max_size:
+                        buffer.seek(0)
+                        return buffer
+
+            # 回退策略：如果仍然过大，则大幅缩小尺寸并降低质量
+            final_size = (int(img.width * 0.25), int(img.height * 0.25))
+            resized = img.resize(final_size, Image.Resampling.LANCZOS)
+            buffer = io.BytesIO()
+            resized.save(buffer, format="JPEG", quality=30, optimize=True)
+            buffer.seek(0)
+            return buffer
     except Exception as exc:
         raise ValueError("Invalid image file") from exc
-
-    # 转换为 RGB 以确保输出一致（处理 PNG 透明度等情况）
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-
-    # 先降低质量，再缩小尺寸，尝试压缩到 max_size 以内
-    quality_levels = [85, 75, 65, 55, 45]
-    scale_factors = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
-
-    for scale in scale_factors:
-        resized = img
-        if scale < 1.0:
-            new_size = (int(img.width * scale), int(img.height * scale))
-            resized = img.resize(new_size, Image.Resampling.LANCZOS)
-
-        for quality in quality_levels:
-            buffer = io.BytesIO()
-            resized.save(buffer, format="JPEG", quality=quality, optimize=True)
-            if buffer.tell() <= max_size:
-                buffer.seek(0)
-                return buffer
-
-    # 回退策略：如果仍然过大，则大幅缩小尺寸并降低质量
-    final_size = (int(img.width * 0.25), int(img.height * 0.25))
-    resized = img.resize(final_size, Image.Resampling.LANCZOS)
-    buffer = io.BytesIO()
-    resized.save(buffer, format="JPEG", quality=30, optimize=True)
-    buffer.seek(0)
-    return buffer

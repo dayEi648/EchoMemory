@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 
 from echomemory_backend.core.config import settings
-from echomemory_backend.db.base import Base
 
 # 同步引擎（供 Alembic 与测试初始化使用）
 sync_engine = create_engine(settings.database_url, pool_pre_ping=True)
@@ -14,5 +13,5 @@ async_engine = create_async_engine(
     settings.async_database_url, pool_pre_ping=True, future=True
 )
 AsyncSessionLocal = async_sessionmaker(
-    autocommit=False, autoflush=False, bind=async_engine
+    autocommit=False, autoflush=False, expire_on_commit=False, bind=async_engine
 )

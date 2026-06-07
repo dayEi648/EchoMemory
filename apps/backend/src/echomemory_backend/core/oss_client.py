@@ -1,6 +1,5 @@
 """OSS（阿里云对象存储服务）客户端封装 —— 异步接口，同步实现跑在线程池中。"""
 
-import io
 import uuid
 from typing import BinaryIO
 
