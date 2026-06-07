@@ -15,9 +15,11 @@ from echomemory_backend.schemas.user import (
     UserSearchOut,
     UserUpdate,
 )
+from echomemory_backend.schemas.user_tag import UserTagOut
 from echomemory_backend.services import admin_service
 from echomemory_backend.services.user_service import BusinessError
 from echomemory_backend.services import user_service
+from echomemory_backend.services import user_tag_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -69,6 +71,22 @@ async def upload_avatar(
         ) from exc
 
     return await user_service.update_user_avatar(db, current_user, avatar_url)
+
+
+@router.get("/me/emotion-tags", response_model=list[UserTagOut])
+async def get_my_emotion_tags(
+    db: SessionDep, current_user: ActiveUser
+) -> list[dict]:
+    """获取当前用户的情感标签偏好列表。"""
+    return await user_tag_service.list_user_emotion_tags(db, current_user.id)
+
+
+@router.get("/me/interest-tags", response_model=list[UserTagOut])
+async def get_my_interest_tags(
+    db: SessionDep, current_user: ActiveUser
+) -> list[dict]:
+    """获取当前用户的兴趣标签偏好列表。"""
+    return await user_tag_service.list_user_interest_tags(db, current_user.id)
 
 
 @router.get("/{user_id}", response_model=UserPublicOut)
