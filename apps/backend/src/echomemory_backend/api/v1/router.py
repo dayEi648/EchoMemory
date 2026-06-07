@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from echomemory_backend.api.v1.endpoints import album, auth, collection, comment, dictionary, music, play_history, playlist, users
+from echomemory_backend.api.v1.endpoints import album, auth, collection, comment, dictionary, music, play_history, playlist, space_post, users
 
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
@@ -12,3 +12,4 @@ router.include_router(playlist.router)
 router.include_router(album.router)
 router.include_router(collection.router)
 router.include_router(comment.router)
+router.include_router(space_post.router)
