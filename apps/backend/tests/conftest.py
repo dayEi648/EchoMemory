@@ -62,31 +62,57 @@ def setup_db():
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         Base.metadata.drop_all(bind=conn)
         Base.metadata.create_all(bind=conn)
-        conn.execute(text("""
-            INSERT INTO level_config (level, min_exp, title) VALUES
-                (0, 0, '静默之声'),
-                (1, 100, '初响'),
-                (2, 300, '浅唱'),
-                (3, 700, '低吟'),
-                (4, 1500, '和鸣'),
-                (5, 3000, '共鸣'),
-                (6, 5500, '弦歌'),
-                (7, 9500, '高歌'),
-                (8, 16000, '咏叹'),
-                (9, 28000, '天籁'),
-                (10, 50000, '回响')
-            ON CONFLICT (level) DO UPDATE SET
-                min_exp = EXCLUDED.min_exp,
-                title = EXCLUDED.title
-        """))
     yield
     with sync_test_engine.begin() as conn:
         Base.metadata.drop_all(bind=conn)
 
 
+# 字典表种子数据 SQL（同步执行，供 setup_db 和 clean_tables 复用）
+_DICTIONARY_SEED_SQL = """
+INSERT INTO level_config (level, min_exp, title) VALUES
+    (0, 0, '静默之声'),
+    (1, 100, '初响'),
+    (2, 300, '浅唱'),
+    (3, 700, '低吟'),
+    (4, 1500, '和鸣'),
+    (5, 3000, '共鸣'),
+    (6, 5500, '弦歌'),
+    (7, 9500, '高歌'),
+    (8, 16000, '咏叹'),
+    (9, 28000, '天籁'),
+    (10, 50000, '回响')
+ON CONFLICT (level) DO UPDATE SET
+    min_exp = EXCLUDED.min_exp,
+    title = EXCLUDED.title;
+
+INSERT INTO styles (name) VALUES
+    ('流行'), ('摇滚'), ('古典'), ('电子'), ('民谣'),
+    ('爵士'), ('R&B'), ('嘻哈'), ('轻音乐'), ('古风'),
+    ('金属'), ('蓝调')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO languages (name) VALUES
+    ('汉语'), ('英语'), ('日语'), ('韩语'), ('粤语'),
+    ('法语'), ('西班牙语'), ('德语'), ('俄语'), ('意大利语')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO emotion_tags (name) VALUES
+    ('治愈'), ('激昂'), ('忧伤'), ('浪漫'), ('宁静'),
+    ('怀旧'), ('欢快'), ('孤独'), ('希望'), ('慵懒'),
+    ('紧张'), ('温暖')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO interest_tags (name) VALUES
+    ('运动'), ('学习'), ('睡眠'), ('通勤'), ('聚会'),
+    ('阅读'), ('游戏'), ('冥想'), ('旅行'), ('工作'),
+    ('烹饪'), ('散步')
+ON CONFLICT (name) DO NOTHING;
+"""
+
+
 @pytest.fixture(autouse=True)
 def clean_tables():
-    """每次测试前清理业务数据表（保留 level_config 配置数据）。"""
+    """每次测试前清理业务数据表并重新灌入字典种子数据。"""
     with sync_test_engine.begin() as conn:
         conn.execute(text("""
             TRUNCATE TABLE user_follows, users, musics, music_authors, music_instruments,
@@ -100,6 +126,7 @@ def clean_tables():
             user_emotion_tags, user_interest_tags
             RESTART IDENTITY CASCADE
         """))
+        conn.execute(text(_DICTIONARY_SEED_SQL))
     yield
 
 

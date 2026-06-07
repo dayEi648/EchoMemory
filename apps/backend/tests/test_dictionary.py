@@ -55,28 +55,23 @@ async def _create_language(db: AsyncSession, name: str) -> Language:
 # ---------------------------------------------------------------------------
 
 class TestListDictionaryItems:
-    async def test_list_styles_empty(self, client: TestClient):
-        resp = client.get(f"{BASE_URL}/styles")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
     async def test_list_styles_with_data(self, client: TestClient, db_session: AsyncSession):
         await _create_style(db_session, "Rock")
         await _create_style(db_session, "Jazz")
         resp = client.get(f"{BASE_URL}/styles")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
         names = {item["name"] for item in data}
-        assert names == {"Rock", "Jazz"}
+        assert "Rock" in names
+        assert "Jazz" in names
 
     async def test_list_languages(self, client: TestClient, db_session: AsyncSession):
         await _create_language(db_session, "English")
         resp = client.get(f"{BASE_URL}/languages")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["name"] == "English"
+        names = {item["name"] for item in data}
+        assert "English" in names
 
     async def test_list_unknown_type(self, client: TestClient):
         resp = client.get(f"{BASE_URL}/unknown_type")
