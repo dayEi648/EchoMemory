@@ -155,6 +155,7 @@ class AlbumEmotionTag(Base):
     __table_args__ = (Index("idx_album_emotion_tags_tag", "emotion_tag_id"),)
 
     album: Mapped["Album"] = relationship("Album", back_populates="emotion_tags")
+    emotion_tag: Mapped["EmotionTag"] = relationship("EmotionTag")
 
 
 class AlbumInterestTag(Base):
@@ -173,3 +174,4 @@ class AlbumInterestTag(Base):
     __table_args__ = (Index("idx_album_interest_tags_tag", "interest_tag_id"),)
 
     album: Mapped["Album"] = relationship("Album", back_populates="interest_tags")
+    interest_tag: Mapped["InterestTag"] = relationship("InterestTag")
