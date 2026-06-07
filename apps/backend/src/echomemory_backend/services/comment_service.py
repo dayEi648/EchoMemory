@@ -31,11 +31,15 @@ async def _validate_target_exists(
 
 
 async def _resolve_parent(
-    db: AsyncSession, parent_id: int | None
+    db: AsyncSession,
+    parent_id: int | None,
+    target_type: str,
+    target_id: int,
 ) -> tuple[int | None, bool]:
     """根据 parent_id 解析 root_id 和 is_nested_reply。
 
     返回 (root_id, is_nested_reply)。
+    同时校验 parent 是否属于同一个 target。
     """
     if parent_id is None:
         return None, False
@@ -43,6 +47,15 @@ async def _resolve_parent(
     parent = await db.get(Comment, parent_id)
     if parent is None or parent.is_deleted:
         raise BusinessError("Parent comment not found", 404)
+
+    # 校验 parent 是否属于同一个 target
+    parent_target_match = {
+        "music": parent.music_id == target_id,
+        "playlist": parent.playlist_id == target_id,
+        "space_post": parent.space_post_id == target_id,
+    }[target_type]
+    if not parent_target_match:
+        raise BusinessError("Parent comment does not belong to the same target", 400)
 
     if parent.root_id is None:
         return parent.id, False
@@ -73,7 +86,7 @@ async def create_comment(
         raise BusinessError("Invalid target_type", 400)
 
     await _validate_target_exists(db, target_type, target_id)
-    root_id, is_nested_reply = await _resolve_parent(db, parent_id)
+    root_id, is_nested_reply = await _resolve_parent(db, parent_id, target_type, target_id)
 
     comment = Comment(
         user_id=user_id,
