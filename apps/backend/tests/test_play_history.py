@@ -150,8 +150,10 @@ class TestListPlayHistory:
         data = resp.json()
         assert len(data) == 3
         # 验证倒序：最新的在前
-        assert data[0]["played_at"] >= data[1]["played_at"]
-        assert data[1]["played_at"] >= data[2]["played_at"]
+        t0 = datetime.fromisoformat(data[0]["played_at"])
+        t1 = datetime.fromisoformat(data[1]["played_at"])
+        t2 = datetime.fromisoformat(data[2]["played_at"])
+        assert t0 >= t1 >= t2
 
     async def test_list_play_history_pagination(
         self, client: TestClient, db_session: AsyncSession

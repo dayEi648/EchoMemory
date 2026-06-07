@@ -20,9 +20,7 @@ async def record_play(
     """记录一次播放。"""
     user_id = current_user.id
     try:
-        history = await play_history_service.create_play_history(
-            db, user_id, data.music_id
-        )
+        await play_history_service.create_play_history(db, user_id, data.music_id)
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
