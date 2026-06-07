@@ -17,7 +17,19 @@ from echomemory_backend.services.user_service import BusinessError, get_user_by_
 
 
 async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[int]) -> None:
-    """设置音乐的作者关联，覆盖原有作者。"""
+    """设置音乐的作者关联，覆盖原有作者。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要设置作者的音乐实例。
+        author_ids: 作者用户 ID 列表，按顺序关联。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 作者不存在或已被删除时抛出，状态码 404。
+    """
     await db.execute(
         delete(MusicAuthor).where(MusicAuthor.music_id == music.id)
     )
@@ -33,7 +45,18 @@ async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[in
 
 
 async def _validate_instruments_exist(db: AsyncSession, instrument_ids: list[int]) -> None:
-    """批量校验乐器 ID 是否存在。"""
+    """批量校验乐器 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        instrument_ids: 要校验的乐器 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
+    """
     if not instrument_ids:
         return
     stmt = select(Instrument.id).where(Instrument.id.in_(instrument_ids))
@@ -44,7 +67,18 @@ async def _validate_instruments_exist(db: AsyncSession, instrument_ids: list[int
 
 
 async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验情绪标签 ID 是否存在。"""
+    """批量校验情绪标签 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        tag_ids: 要校验的情绪标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的情绪标签 ID 时抛出，状态码 404。
+    """
     if not tag_ids:
         return
     stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
@@ -55,7 +89,18 @@ async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> 
 
 
 async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验兴趣标签 ID 是否存在。"""
+    """批量校验兴趣标签 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        tag_ids: 要校验的兴趣标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的兴趣标签 ID 时抛出，状态码 404。
+    """
     if not tag_ids:
         return
     stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
@@ -68,7 +113,19 @@ async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) ->
 async def _set_music_instruments(
     db: AsyncSession, music: Music, instrument_ids: list[int]
 ) -> None:
-    """设置音乐的乐器关联，覆盖原有乐器。"""
+    """设置音乐的乐器关联，覆盖原有乐器。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要设置乐器的音乐实例。
+        instrument_ids: 乐器 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
+    """
     await _validate_instruments_exist(db, instrument_ids)
     await db.execute(
         delete(MusicInstrument).where(MusicInstrument.music_id == music.id)
@@ -82,7 +139,19 @@ async def _set_music_instruments(
 async def _set_music_emotion_tags(
     db: AsyncSession, music: Music, tag_ids: list[int]
 ) -> None:
-    """设置音乐的情绪标签关联，覆盖原有标签。"""
+    """设置音乐的情绪标签关联，覆盖原有标签。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要设置情绪标签的音乐实例。
+        tag_ids: 情绪标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的情绪标签 ID 时抛出，状态码 404。
+    """
     await _validate_emotion_tags_exist(db, tag_ids)
     await db.execute(
         delete(MusicEmotionTag).where(MusicEmotionTag.music_id == music.id)
@@ -94,7 +163,19 @@ async def _set_music_emotion_tags(
 async def _set_music_interest_tags(
     db: AsyncSession, music: Music, tag_ids: list[int]
 ) -> None:
-    """设置音乐的兴趣标签关联，覆盖原有标签。"""
+    """设置音乐的兴趣标签关联，覆盖原有标签。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要设置兴趣标签的音乐实例。
+        tag_ids: 兴趣标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的兴趣标签 ID 时抛出，状态码 404。
+    """
     await _validate_interest_tags_exist(db, tag_ids)
     await db.execute(
         delete(MusicInterestTag).where(MusicInterestTag.music_id == music.id)
@@ -164,7 +245,15 @@ async def create_music(
 
 
 async def get_music_by_id(db: AsyncSession, music_id: int) -> Music | None:
-    """根据 ID 获取音乐详情，加载所有关联关系。"""
+    """根据 ID 获取音乐详情，加载所有关联关系。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music_id: 要查询的音乐主键 ID。
+
+    Returns:
+        找到的音乐实例（含关联关系），不存在时返回 None。
+    """
     stmt = (
         select(Music)
         .where(Music.id == music_id)
@@ -194,7 +283,20 @@ async def list_musics(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Music]:
-    """分页列出音乐，支持筛选条件。默认只返回已上架音乐。"""
+    """分页列出音乐，支持筛选条件。默认只返回已上架音乐。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        style_id: 按风格 ID 筛选，默认 None 表示不筛选。
+        language_id: 按语言 ID 筛选，默认 None 表示不筛选。
+        is_vip: 按是否 VIP 筛选，默认 None 表示不筛选。
+        is_published: 按是否上架筛选，默认 True 只返回已上架音乐。
+        limit: 每页返回的最大记录数，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        音乐实例列表（仅加载作者关联关系）。
+    """
     stmt = (
         select(Music)
         .where(Music.is_published == is_published)
@@ -224,7 +326,18 @@ async def search_musics(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Music]:
-    """按标题模糊搜索音乐。"""
+    """按标题模糊搜索音乐。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        q: 搜索关键词，默认 None 表示不搜索。
+        is_published: 按是否上架筛选，默认 True 只返回已上架音乐。
+        limit: 每页返回的最大记录数，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        音乐实例列表（按热度降序，仅加载作者关联关系）。
+    """
     stmt = (
         select(Music)
         .where(Music.is_published == is_published)
@@ -257,7 +370,28 @@ async def update_music(
     emotion_tag_ids: list[int] | None = None,
     interest_tag_ids: list[int] | None = None,
 ) -> Music:
-    """更新音乐文本信息及关联关系（不处理文件）。"""
+    """更新音乐文本信息及关联关系（不处理文件）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要更新的音乐实例。
+        title: 新标题，默认 None 表示不修改。
+        is_vip: 新的 VIP 状态，默认 None 表示不修改。
+        source: 新的来源信息，默认 None 表示不修改。
+        style_id: 新的风格 ID，默认 None 表示不修改。
+        language_id: 新的语言 ID，默认 None 表示不修改。
+        release_date: 新的发行日期，默认 None 表示不修改。
+        author_ids: 新的作者 ID 列表，默认 None 表示不修改。
+        instrument_ids: 新的乐器 ID 列表，默认 None 表示不修改。
+        emotion_tag_ids: 新的情绪标签 ID 列表，默认 None 表示不修改。
+        interest_tag_ids: 新的兴趣标签 ID 列表，默认 None 表示不修改。
+
+    Returns:
+        更新后的音乐实例。
+
+    Raises:
+        BusinessError: 作者不存在、关联标签/乐器不存在或数据库约束冲突时抛出。
+    """
     if title is not None:
         music.title = title
     if is_vip is not None:
@@ -290,7 +424,16 @@ async def update_music(
 
 
 async def set_music_published(db: AsyncSession, music: Music, published: bool) -> Music:
-    """设置音乐上架/下架状态。"""
+    """设置音乐上架/下架状态。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        music: 要设置状态的音乐实例。
+        published: True 表示上架，False 表示下架。
+
+    Returns:
+        更新后的音乐实例。
+    """
     music.is_published = published
     await db.commit()
     await db.refresh(music)

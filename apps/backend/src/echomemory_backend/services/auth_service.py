@@ -14,7 +14,14 @@ from echomemory_backend.services.user_service import BusinessError, create_user,
 
 
 async def _issue_tokens(user_id: int) -> Token:
-    """签发新的 access token 与 refresh token 对。"""
+    """签发新的 access token 与 refresh token 对。
+
+    Args:
+        user_id: 要签发 token 的用户主键。
+
+    Returns:
+        包含 access_token 与 refresh_token 的 Token 实例。
+    """
     access_token = create_access_token(subject=user_id)
     refresh_token = generate_refresh_token()
     await store_refresh_token(refresh_token, user_id)

@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
@@ -112,9 +113,11 @@ async def import_music(
 
     # ----- 上传文件到 OSS（带孤儿文件清理） -----
     uploaded_urls: list[str] = []
+    file_prefix = uuid.uuid4().hex[:12]
     try:
         file_url = await oss_client.upload_audio_to_oss(
             audio_file.file,
+            prefix=file_prefix,
             ext=_safe_ext(audio_file.filename, "mp3"),
         )
         uploaded_urls.append(file_url)
@@ -138,6 +141,7 @@ async def import_music(
         if lyrics_file is not None:
             lyrics_url = await oss_client.upload_lyrics_to_oss(
                 lyrics_file.file,
+                prefix=file_prefix,
                 ext=_safe_ext(lyrics_file.filename, "lrc"),
             )
             uploaded_urls.append(lyrics_url)

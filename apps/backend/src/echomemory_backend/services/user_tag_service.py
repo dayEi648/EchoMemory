@@ -6,7 +6,15 @@ from echomemory_backend.models.user_tag import UserEmotionTag, UserInterestTag
 
 
 async def list_user_emotion_tags(db: AsyncSession, user_id: int) -> list[dict]:
-    """查询指定用户的情感标签列表，按绑定时间倒序。"""
+    """查询指定用户的情感标签列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+
+    Returns:
+        按绑定时间倒序排列的标签字典列表，每项包含 tag_id、name、created_at。
+    """
     result = await db.execute(
         select(UserEmotionTag)
         .where(UserEmotionTag.user_id == user_id)
@@ -25,7 +33,15 @@ async def list_user_emotion_tags(db: AsyncSession, user_id: int) -> list[dict]:
 
 
 async def list_user_interest_tags(db: AsyncSession, user_id: int) -> list[dict]:
-    """查询指定用户的兴趣标签列表，按绑定时间倒序。"""
+    """查询指定用户的兴趣标签列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+
+    Returns:
+        按绑定时间倒序排列的标签字典列表，每项包含 tag_id、name、created_at。
+    """
     result = await db.execute(
         select(UserInterestTag)
         .where(UserInterestTag.user_id == user_id)

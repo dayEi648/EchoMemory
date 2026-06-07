@@ -12,7 +12,16 @@ async def create_play_history(
 ) -> PlayHistory:
     """创建一条播放历史记录。
 
-    校验音乐存在且已上架，否则抛出 BusinessError(404)。
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        music_id: 音乐主键。
+
+    Returns:
+        创建后的 PlayHistory 实例。
+
+    Raises:
+        BusinessError: 音乐不存在或未上架时抛出 404。
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
@@ -31,7 +40,17 @@ async def list_play_history(
     limit: int = 20,
     offset: int = 0,
 ) -> list[PlayHistory]:
-    """查询用户的播放历史，按播放时间倒序，关联加载音乐信息。"""
+    """查询用户的播放历史。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        limit: 返回数量上限，默认 20。
+        offset: 偏移量，默认 0。
+
+    Returns:
+        按播放时间倒序、关联加载音乐信息的 PlayHistory 列表。
+    """
     stmt = (
         select(PlayHistory)
         .where(PlayHistory.user_id == user_id)
@@ -48,7 +67,16 @@ async def delete_play_history(
 ) -> None:
     """删除单条播放历史。
 
-    若记录不存在或不属于该用户，抛出 BusinessError(404)。
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        history_id: 播放历史记录主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 记录不存在或不属于该用户时抛出 404。
     """
     history = await db.get(PlayHistory, history_id)
     if history is None or history.user_id != user_id:
@@ -59,7 +87,15 @@ async def delete_play_history(
 
 
 async def clear_play_history(db: AsyncSession, user_id: int) -> None:
-    """清空该用户的全部播放历史。"""
+    """清空该用户的全部播放历史。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+
+    Returns:
+        None。
+    """
     await db.execute(
         delete(PlayHistory).where(PlayHistory.user_id == user_id)
     )

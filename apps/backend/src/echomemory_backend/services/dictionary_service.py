@@ -54,7 +54,17 @@ _REF_CHECKS = {
 
 
 def _get_model(dictionary_type: str):
-    """根据字典类型获取对应的 ORM 模型类。"""
+    """根据字典类型获取对应的 ORM 模型类。
+
+    Args:
+        dictionary_type: 字典类型标识，如 "styles"、"languages" 等。
+
+    Returns:
+        对应的 SQLAlchemy ORM 模型类。
+
+    Raises:
+        BusinessError: 字典类型无效时抛出，状态码 400。
+    """
     model = _MODEL_MAP.get(dictionary_type)
     if model is None:
         raise BusinessError(
@@ -84,7 +94,16 @@ async def create_dictionary_item(db: AsyncSession, dictionary_type: str, name: s
 
 
 async def get_dictionary_item_by_id(db: AsyncSession, dictionary_type: str, item_id: int):
-    """根据 ID 获取字典项。"""
+    """根据 ID 获取字典项。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        dictionary_type: 字典类型标识。
+        item_id: 要查询的字典项主键 ID。
+
+    Returns:
+        找到的字典项实例，不存在时返回 None。
+    """
     model = _get_model(dictionary_type)
     return await db.get(model, item_id)
 
@@ -96,7 +115,17 @@ async def list_dictionary_items(
     limit: int = 100,
     offset: int = 0,
 ):
-    """分页列出字典项，按 name 字母序排列。"""
+    """分页列出字典项，按 name 字母序排列。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        dictionary_type: 字典类型标识。
+        limit: 每页返回的最大记录数，默认 100。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        字典项实例列表。
+    """
     model = _get_model(dictionary_type)
     stmt = select(model).order_by(model.name).limit(limit).offset(offset)
     return (await db.execute(stmt)).scalars().all()

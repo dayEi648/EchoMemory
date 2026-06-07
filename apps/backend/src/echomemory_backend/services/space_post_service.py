@@ -14,7 +14,18 @@ async def create_space_post(
     is_private: bool,
     image_urls: list[str],
 ) -> SpacePost:
-    """创建空间动态及关联图片。"""
+    """创建空间动态及关联图片。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 发布者主键。
+        content: 动态文本内容。
+        is_private: 是否为私密动态。
+        image_urls: 图片 URL 列表。
+
+    Returns:
+        创建后的 SpacePost 实例。
+    """
     post = SpacePost(
         user_id=user_id,
         content=content,
@@ -31,7 +42,15 @@ async def create_space_post(
 
 
 async def get_space_post_by_id(db: AsyncSession, post_id: int) -> SpacePost | None:
-    """根据 ID 获取动态详情（含图片）。"""
+    """根据 ID 获取动态详情。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        post_id: 动态主键。
+
+    Returns:
+        包含图片关联的 SpacePost 实例，不存在时返回 None。
+    """
     result = await db.execute(
         select(SpacePost)
         .where(SpacePost.id == post_id)
@@ -47,7 +66,18 @@ async def list_space_posts(
     limit: int,
     offset: int,
 ) -> list[SpacePost]:
-    """列出目标用户的动态。排除已删除；非本人时排除 private。按 created_at 倒序。"""
+    """列出目标用户的动态。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        target_user_id: 目标用户主键。
+        viewer_user_id: 查看者主键。
+        limit: 返回数量上限。
+        offset: 偏移量。
+
+    Returns:
+        排除已删除、非本人时排除私密、按 created_at 倒序的 SpacePost 列表。
+    """
     stmt = (
         select(SpacePost)
         .where(SpacePost.user_id == target_user_id)
@@ -64,13 +94,32 @@ async def list_space_posts(
 
 
 async def soft_delete_space_post(db: AsyncSession, post: SpacePost) -> None:
-    """软删除动态。"""
+    """软删除动态。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        post: 要软删除的 SpacePost 实例。
+
+    Returns:
+        None。
+    """
     post.is_deleted = True
     await db.commit()
 
 
 async def hard_delete_space_post(db: AsyncSession, post_id: int) -> list[str]:
-    """硬删除动态及其关联记录。返回待清理的图片 URL 列表。"""
+    """硬删除动态及其关联记录。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        post_id: 动态主键。
+
+    Returns:
+        待清理的图片 URL 列表。
+
+    Raises:
+        BusinessError: 动态不存在时抛出 404。
+    """
     post = await get_space_post_by_id(db, post_id)
     if post is None:
         raise BusinessError("Post not found", 404)
@@ -93,7 +142,16 @@ async def hard_delete_space_post(db: AsyncSession, post_id: int) -> list[str]:
 
 
 async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
-    """点赞动态（幂等）。"""
+    """点赞动态（幂等）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        post_id: 动态主键。
+
+    Returns:
+        None。
+    """
     like = SpacePostLike(post_id=post_id, user_id=user_id)
     db.add(like)
     try:
@@ -103,7 +161,16 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
 
 
 async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
-    """取消点赞（幂等）。"""
+    """取消点赞动态（幂等）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        post_id: 动态主键。
+
+    Returns:
+        None。
+    """
     result = await db.execute(
         select(SpacePostLike).where(
             SpacePostLike.post_id == post_id,

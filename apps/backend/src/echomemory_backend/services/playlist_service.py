@@ -14,7 +14,18 @@ from echomemory_backend.services.user_service import BusinessError
 
 
 async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验情感标签 ID 是否存在。"""
+    """批量校验情感标签 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        tag_ids: 待校验的情感标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
+    """
     if not tag_ids:
         return
     stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
@@ -25,7 +36,18 @@ async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> 
 
 
 async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验兴趣标签 ID 是否存在。"""
+    """批量校验兴趣标签 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        tag_ids: 待校验的兴趣标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
+    """
     if not tag_ids:
         return
     stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
@@ -38,7 +60,19 @@ async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) ->
 async def _set_playlist_emotion_tags(
     db: AsyncSession, playlist: Playlist, tag_ids: list[int]
 ) -> None:
-    """设置歌单的情感标签关联，覆盖原有标签。"""
+    """设置歌单的情感标签关联，覆盖原有标签。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist: 要设置情感标签的歌单实例。
+        tag_ids: 情感标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 某标签不存在时抛出，状态码 404。
+    """
     await _validate_emotion_tags_exist(db, tag_ids)
     await db.execute(
         delete(PlaylistEmotionTag).where(PlaylistEmotionTag.playlist_id == playlist.id)
@@ -50,7 +84,19 @@ async def _set_playlist_emotion_tags(
 async def _set_playlist_interest_tags(
     db: AsyncSession, playlist: Playlist, tag_ids: list[int]
 ) -> None:
-    """设置歌单的兴趣标签关联，覆盖原有标签。"""
+    """设置歌单的兴趣标签关联，覆盖原有标签。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist: 要设置兴趣标签的歌单实例。
+        tag_ids: 兴趣标签 ID 列表。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 某标签不存在时抛出，状态码 404。
+    """
     await _validate_interest_tags_exist(db, tag_ids)
     await db.execute(
         delete(PlaylistInterestTag).where(PlaylistInterestTag.playlist_id == playlist.id)
@@ -70,7 +116,24 @@ async def create_playlist(
     emotion_tag_ids: list[int] | None = None,
     interest_tag_ids: list[int] | None = None,
 ) -> Playlist:
-    """创建歌单及标签关联。"""
+    """创建歌单及标签关联。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 创建者用户 ID。
+        title: 歌单标题。
+        description: 歌单描述，可选。
+        is_private: 是否私密，默认 False。
+        cover_icon_url: 封面图标 URL，可选。
+        emotion_tag_ids: 情感标签 ID 列表，可选。
+        interest_tag_ids: 兴趣标签 ID 列表，可选。
+
+    Returns:
+        创建的歌单实例。
+
+    Raises:
+        BusinessError: 标签不存在时抛出。
+    """
     playlist = Playlist(
         title=title,
         user_id=user_id,
@@ -92,7 +155,15 @@ async def create_playlist(
 
 
 async def get_playlist_by_id(db: AsyncSession, playlist_id: int) -> Playlist | None:
-    """根据 ID 获取歌单详情，加载所有关联关系。"""
+    """根据 ID 获取歌单详情，加载所有关联关系。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist_id: 歌单主键 ID。
+
+    Returns:
+        歌单实例；不存在时返回 None。
+    """
     stmt = (
         select(Playlist)
         .where(Playlist.id == playlist_id)
@@ -116,7 +187,17 @@ async def list_user_playlists(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Playlist]:
-    """查询指定用户的歌单列表，按创建时间倒序。"""
+    """查询指定用户的歌单列表，按创建时间倒序。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键 ID。
+        limit: 返回数量上限，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        歌单实例列表。
+    """
     stmt = (
         select(Playlist)
         .where(Playlist.user_id == user_id)
@@ -138,7 +219,23 @@ async def update_playlist(
     emotion_tag_ids: list[int] | None = None,
     interest_tag_ids: list[int] | None = None,
 ) -> Playlist:
-    """更新歌单文本字段及标签关联（覆盖式）。"""
+    """更新歌单文本字段及标签关联（覆盖式）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist: 待更新的歌单实例。
+        title: 新标题，可选。
+        description: 新描述，可选。
+        is_private: 新隐私状态，可选。
+        emotion_tag_ids: 新的情感标签 ID 列表，可选，会覆盖原有标签。
+        interest_tag_ids: 新的兴趣标签 ID 列表，可选，会覆盖原有标签。
+
+    Returns:
+        更新后的歌单实例。
+
+    Raises:
+        BusinessError: 标签不存在时抛出。
+    """
     if title is not None:
         playlist.title = title
     if description is not None:
@@ -157,7 +254,15 @@ async def update_playlist(
 
 
 async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
-    """删除歌单（级联删除关联表记录）。"""
+    """删除歌单（级联删除关联表记录）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist: 待删除的歌单实例。
+
+    Returns:
+        None。
+    """
     await db.delete(playlist)
     await db.commit()
 
@@ -168,6 +273,17 @@ async def add_music_to_playlist(
     """添加一首音乐到歌单。
 
     校验音乐存在且已发布；查询当前最大 ordinal 并 +1；拒绝重复添加。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist_id: 目标歌单 ID。
+        music_id: 要添加的音乐 ID。
+
+    Returns:
+        创建的 PlaylistMusic 关联实例。
+
+    Raises:
+        BusinessError: 音乐不存在或未发布时抛出 404；音乐已在歌单中时抛出 409。
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
@@ -197,6 +313,17 @@ async def remove_music_from_playlist(
     """从歌单移除一首音乐。
 
     若关联记录不存在，抛出 BusinessError(404)。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist_id: 目标歌单 ID。
+        music_id: 要移除的音乐 ID。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 关联记录不存在时抛出，状态码 404。
     """
     playlist_music = await db.get(PlaylistMusic, (playlist_id, music_id))
     if playlist_music is None:

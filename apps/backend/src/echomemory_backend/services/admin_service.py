@@ -17,7 +17,19 @@ async def list_users(
     limit: int,
     offset: int,
 ) -> list[User]:
-    """以管理员筛选条件列出用户。"""
+    """以管理员筛选条件列出用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        status: 按用户状态筛选；为 None 时不按状态过滤。
+        role: 按用户角色筛选；为 None 时不按角色过滤。
+        q: 搜索关键词，支持对用户名和昵称进行模糊匹配；为 None 时不按关键词过滤。
+        limit: 返回结果数量上限。
+        offset: 分页偏移量。
+
+    Returns:
+        符合条件的用户实例列表。
+    """
     stmt = select(User).where(User.is_deleted == False)
     if status is not None:
         stmt = stmt.where(User.status == status)

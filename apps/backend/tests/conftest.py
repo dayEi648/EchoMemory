@@ -152,8 +152,8 @@ def fake_redis(monkeypatch):
     yield fake
 
 
-@pytest.fixture
-def client(fake_redis):
+@pytest_asyncio.fixture
+async def client(fake_redis):
     """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
     AsyncTestingSessionLocal = async_sessionmaker(
@@ -171,3 +171,4 @@ def client(fake_redis):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    await engine.dispose()

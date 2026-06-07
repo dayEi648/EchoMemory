@@ -157,11 +157,10 @@ async def upload_image_to_oss(
 
 async def upload_audio_to_oss(
     file: BinaryIO,
-    music_id: int | None = None,
+    prefix: str = "temp",
     ext: str = "mp3",
 ) -> str:
     """上传音频文件到 OSS。"""
-    prefix = str(music_id) if music_id is not None else "temp"
     return await to_thread.run_sync(
         _upload_file_to_oss_sync,
         file,
@@ -175,11 +174,10 @@ async def upload_audio_to_oss(
 
 async def upload_lyrics_to_oss(
     file: BinaryIO,
-    music_id: int | None = None,
+    prefix: str = "temp",
     ext: str = "lrc",
 ) -> str:
     """上传歌词文件到 OSS。"""
-    prefix = str(music_id) if music_id is not None else "temp"
     return await to_thread.run_sync(
         _upload_file_to_oss_sync,
         file,

@@ -21,24 +21,56 @@ class BusinessError(Exception):
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-    """根据主键查询用户。"""
+    """根据主键查询用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 要查询的用户主键。
+
+    Returns:
+        找到的用户实例，不存在时返回 None。
+    """
     return await db.get(User, user_id)
 
 
 async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
-    """根据用户名查询用户。"""
+    """根据用户名查询用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        username: 要查询的用户名。
+
+    Returns:
+        找到的用户实例，不存在时返回 None。
+    """
     stmt = select(User).where(User.username == username)
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    """根据邮箱地址查询用户。"""
+    """根据邮箱地址查询用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        email: 要查询的邮箱地址。
+
+    Returns:
+        找到的用户实例，不存在时返回 None。
+    """
     stmt = select(User).where(User.email == email)
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
 async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
-    """根据手机号查询用户。"""
+    """根据手机号查询用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        phone: 要查询的手机号。
+
+    Returns:
+        找到的用户实例，不存在时返回 None。
+    """
     stmt = select(User).where(User.phone == phone)
     return (await db.execute(stmt)).scalar_one_or_none()
 
@@ -174,7 +206,17 @@ async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) ->
 async def get_followees(
     db: AsyncSession, user_id: int, limit: int, offset: int
 ) -> list[User]:
-    """返回 user_id 所关注的用户列表。"""
+    """返回 user_id 所关注的用户列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 查询目标的用户主键。
+        limit: 返回结果数量上限。
+        offset: 分页偏移量。
+
+    Returns:
+        符合条件的用户实例列表。
+    """
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.followee_id == User.id)
@@ -190,7 +232,17 @@ async def get_followees(
 async def get_followers(
     db: AsyncSession, user_id: int, limit: int, offset: int
 ) -> list[User]:
-    """返回关注 user_id 的用户列表。"""
+    """返回关注 user_id 的用户列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 查询目标的用户主键。
+        limit: 返回结果数量上限。
+        offset: 分页偏移量。
+
+    Returns:
+        符合条件的用户实例列表。
+    """
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.follower_id == User.id)
@@ -228,7 +280,19 @@ async def search_users(
     status: int | None = None,
     role: int | None = None,
 ) -> list[User]:
-    """按可选条件搜索用户。"""
+    """按可选条件搜索用户。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        q: 搜索关键词，支持对用户名和昵称进行模糊匹配；为 None 时不按关键词过滤。
+        limit: 返回结果数量上限。
+        offset: 分页偏移量。
+        status: 按用户状态筛选；为 None 时不按状态过滤。
+        role: 按用户角色筛选；为 None 时不按角色过滤。
+
+    Returns:
+        符合条件的用户实例列表。
+    """
     stmt = select(User).where(User.is_deleted == False)
     if status is not None:
         stmt = stmt.where(User.status == status)

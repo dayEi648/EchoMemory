@@ -15,7 +15,19 @@ _VALID_TARGET_TYPES = ("music", "playlist", "space_post")
 async def _validate_target_exists(
     db: AsyncSession, target_type: str, target_id: int
 ) -> None:
-    """校验评论目标是否存在且可见。"""
+    """校验评论目标是否存在且可见。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        target_type: 目标类型（music / playlist / space_post）。
+        target_id: 目标主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 目标不存在或不可见时抛出 404。
+    """
     if target_type == "music":
         target = await db.get(Music, target_id)
         if target is None or not target.is_published:
@@ -38,8 +50,18 @@ async def _resolve_parent(
 ) -> tuple[int | None, bool]:
     """根据 parent_id 解析 root_id 和 is_nested_reply。
 
-    返回 (root_id, is_nested_reply)。
-    同时校验 parent 是否属于同一个 target。
+    Args:
+        db: SQLAlchemy 异步 Session。
+        parent_id: 父评论 ID，无父评论时为 None。
+        target_type: 目标类型（music / playlist / space_post）。
+        target_id: 目标主键。
+
+    Returns:
+        (root_id, is_nested_reply) 元组。root_id 为根评论 ID 或 None，
+        is_nested_reply 表示是否为嵌套回复。
+
+    Raises:
+        BusinessError: 父评论不存在或父评论不属于同一目标时抛出。
     """
     if parent_id is None:
         return None, False
@@ -63,7 +85,15 @@ async def _resolve_parent(
 
 
 async def _get_comment_with_user(db: AsyncSession, comment_id: int) -> Comment:
-    """加载 user 关联后的单条评论。"""
+    """加载 user 关联后的单条评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        comment_id: 评论主键。
+
+    Returns:
+        关联加载用户信息的 Comment 实例。
+    """
     stmt = (
         select(Comment)
         .where(Comment.id == comment_id)
@@ -81,7 +111,22 @@ async def create_comment(
     content: str,
     parent_id: int | None = None,
 ) -> Comment:
-    """发表评论（含回复）。"""
+    """发表评论（含回复）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 评论作者主键。
+        target_type: 目标类型（music / playlist / space_post）。
+        target_id: 目标主键。
+        content: 评论内容。
+        parent_id: 父评论 ID，无父评论时默认为 None。
+
+    Returns:
+        创建后的 Comment 实例（已关联用户信息）。
+
+    Raises:
+        BusinessError: target_type 无效或目标不存在时抛出。
+    """
     if target_type not in _VALID_TARGET_TYPES:
         raise BusinessError("Invalid target_type", 400)
 
@@ -112,7 +157,21 @@ async def list_comments(
     limit: int = 20,
     offset: int = 0,
 ) -> list[Comment]:
-    """查询指定目标的 root 评论列表，排除已删除，按时间倒序。"""
+    """查询指定目标的 root 评论列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        target_type: 目标类型（music / playlist / space_post）。
+        target_id: 目标主键。
+        limit: 返回数量上限，默认 20。
+        offset: 偏移量，默认 0。
+
+    Returns:
+        排除已删除、按时间倒序排列的 Comment 列表。
+
+    Raises:
+        BusinessError: target_type 无效时抛出 400。
+    """
     if target_type not in _VALID_TARGET_TYPES:
         raise BusinessError("Invalid target_type", 400)
 
@@ -136,7 +195,19 @@ async def list_comments(
 
 
 async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
-    """软删除评论。仅允许评论作者操作。"""
+    """软删除评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 操作者主键。
+        comment_id: 评论主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 评论不存在时抛出 404，非作者操作时抛出 403。
+    """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
         raise BusinessError("Comment not found", 404)
@@ -148,7 +219,19 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
 
 
 async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
-    """点赞评论。已点赞则静默成功。"""
+    """点赞评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        comment_id: 评论主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 评论不存在时抛出 404。
+    """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
         raise BusinessError("Comment not found", 404)
@@ -162,7 +245,16 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
 
 
 async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
-    """取消点赞。未点赞则静默成功。"""
+    """取消点赞评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        comment_id: 评论主键。
+
+    Returns:
+        None。
+    """
     existing = await db.get(CommentLike, (comment_id, user_id))
     if existing is not None:
         await db.delete(existing)
@@ -170,7 +262,19 @@ async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
 
 
 async def dislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
-    """点踩评论。已点踩则静默成功。"""
+    """点踩评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        comment_id: 评论主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 评论不存在时抛出 404。
+    """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
         raise BusinessError("Comment not found", 404)
@@ -184,7 +288,16 @@ async def dislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> No
 
 
 async def undislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
-    """取消点踩。未点踩则静默成功。"""
+    """取消点踩评论。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        comment_id: 评论主键。
+
+    Returns:
+        None。
+    """
     existing = await db.get(CommentDislike, (comment_id, user_id))
     if existing is not None:
         await db.delete(existing)

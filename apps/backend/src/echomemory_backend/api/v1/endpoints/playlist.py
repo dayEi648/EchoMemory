@@ -30,6 +30,7 @@ async def create_playlist(
     """
     user_id = current_user.id
     cover_icon_url: str | None = None
+    uploaded_urls: list[str] = []
 
     if cover_icon is not None:
         if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
@@ -43,6 +44,7 @@ async def create_playlist(
                 folder="playlist_covers",
                 filename_prefix="icon",
             )
+            uploaded_urls.append(cover_icon_url)
         except (ValueError, RuntimeError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -60,8 +62,16 @@ async def create_playlist(
             emotion_tag_ids=emotion_tag_ids or None,
             interest_tag_ids=interest_tag_ids or None,
         )
+    except HTTPException:
+        raise
     except BusinessError as exc:
+        for url in uploaded_urls:
+            await oss_client.delete_object_by_url(url)
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    except Exception:
+        for url in uploaded_urls:
+            await oss_client.delete_object_by_url(url)
+        raise
 
     # 重新加载完整关联数据以匹配 PlaylistOut
     playlist = await playlist_service.get_playlist_by_id(db, playlist.id)
