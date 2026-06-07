@@ -20,6 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from echomemory_backend.db.base import Base
 
 if TYPE_CHECKING:
+    from echomemory_backend.models.dictionary import EmotionTag, InterestTag
     from echomemory_backend.models.music import Music
     from echomemory_backend.models.user import User
 
@@ -129,6 +130,7 @@ class PlaylistEmotionTag(Base):
     __table_args__ = (Index("idx_playlist_emotion_tags_tag", "emotion_tag_id"),)
 
     playlist: Mapped["Playlist"] = relationship("Playlist", back_populates="emotion_tags")
+    emotion_tag: Mapped["EmotionTag"] = relationship("EmotionTag")
 
 
 class PlaylistInterestTag(Base):
@@ -147,3 +149,5 @@ class PlaylistInterestTag(Base):
     __table_args__ = (Index("idx_playlist_interest_tags_tag", "interest_tag_id"),)
 
     playlist: Mapped["Playlist"] = relationship("Playlist", back_populates="interest_tags")
+
+    interest_tag: Mapped["InterestTag"] = relationship("InterestTag")

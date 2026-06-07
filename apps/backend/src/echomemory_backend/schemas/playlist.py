@@ -1,0 +1,145 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from echomemory_backend.schemas.music import MusicListOut, TagOut
+
+
+class PlaylistUserOut(BaseModel):
+    """歌单中嵌套的用户精简信息。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    nickname: str
+    avatar_url: str | None = None
+
+
+class PlaylistMusicOut(BaseModel):
+    """歌单内嵌套的音乐关联输出。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    music: MusicListOut
+    ordinal: int
+
+    @field_validator("music", mode="before")
+    @classmethod
+    def _flatten_music(cls, v):
+        if v is None:
+            return None
+        return {
+            "id": v.id,
+            "title": v.title,
+            "is_vip": v.is_vip,
+            "hot": v.hot,
+            "play_count": v.play_count,
+            "cover_icon_url": v.cover_icon_url,
+            "authors": [],
+            "created_at": v.created_at,
+        }
+
+
+class PlaylistOut(BaseModel):
+    """歌单详情输出。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    description: str | None = None
+    is_private: bool
+    cover_icon_url: str | None = None
+    collect_count: int
+    play_count: int
+    hot: int
+    comment_count: int
+    is_like: bool
+    is_recommended: bool
+    user: PlaylistUserOut
+    musics: list[PlaylistMusicOut] = []
+    emotion_tags: list[TagOut] = []
+    interest_tags: list[TagOut] = []
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("user", mode="before")
+    @classmethod
+    def _flatten_user(cls, v):
+        if v is None:
+            return None
+        return {
+            "id": v.id,
+            "username": v.username,
+            "nickname": v.nickname,
+            "avatar_url": v.avatar_url,
+        }
+
+    @field_validator("musics", mode="before")
+    @classmethod
+    def _flatten_musics(cls, v):
+        if not v:
+            return []
+        return [
+            {
+                "music": pm.music,
+                "ordinal": pm.ordinal,
+            }
+            for pm in v
+        ]
+
+    @field_validator("emotion_tags", mode="before")
+    @classmethod
+    def _flatten_emotion_tags(cls, v):
+        if not v:
+            return []
+        return [
+            {"id": et.emotion_tag.id, "name": et.emotion_tag.name}
+            for et in v
+        ]
+
+    @field_validator("interest_tags", mode="before")
+    @classmethod
+    def _flatten_interest_tags(cls, v):
+        if not v:
+            return []
+        return [
+            {"id": it.interest_tag.id, "name": it.interest_tag.name}
+            for it in v
+        ]
+
+
+class PlaylistListOut(BaseModel):
+    """歌单列表项输出（精简）。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    is_private: bool
+    cover_icon_url: str | None = None
+    user: PlaylistUserOut
+    created_at: datetime
+
+    @field_validator("user", mode="before")
+    @classmethod
+    def _flatten_user(cls, v):
+        if v is None:
+            return None
+        return {
+            "id": v.id,
+            "username": v.username,
+            "nickname": v.nickname,
+            "avatar_url": v.avatar_url,
+        }
+
+
+class PlaylistUpdate(BaseModel):
+    """修改歌单信息的请求体（不含封面替换）。"""
+
+    title: str | None = Field(None, min_length=1, max_length=128)
+    description: str | None = Field(None, max_length=500)
+    is_private: bool | None = None
+    emotion_tag_ids: list[int] | None = None
+    interest_tag_ids: list[int] | None = None
