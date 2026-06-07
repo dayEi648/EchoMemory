@@ -62,6 +62,23 @@ def setup_db():
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         Base.metadata.drop_all(bind=conn)
         Base.metadata.create_all(bind=conn)
+        conn.execute(text("""
+            INSERT INTO level_config (level, min_exp, title) VALUES
+                (0, 0, '静默之声'),
+                (1, 100, '初响'),
+                (2, 300, '浅唱'),
+                (3, 700, '低吟'),
+                (4, 1500, '和鸣'),
+                (5, 3000, '共鸣'),
+                (6, 5500, '弦歌'),
+                (7, 9500, '高歌'),
+                (8, 16000, '咏叹'),
+                (9, 28000, '天籁'),
+                (10, 50000, '回响')
+            ON CONFLICT (level) DO UPDATE SET
+                min_exp = EXCLUDED.min_exp,
+                title = EXCLUDED.title
+        """))
     yield
     with sync_test_engine.begin() as conn:
         Base.metadata.drop_all(bind=conn)
@@ -69,7 +86,7 @@ def setup_db():
 
 @pytest.fixture(autouse=True)
 def clean_tables():
-    """每次测试前清理用户相关表（使用同步连接，避免跨事件循环）。"""
+    """每次测试前清理业务数据表（保留 level_config 配置数据）。"""
     with sync_test_engine.begin() as conn:
         conn.execute(text("""
             TRUNCATE TABLE user_follows, users, musics, music_authors, music_instruments,
@@ -80,7 +97,7 @@ def clean_tables():
             comment_dislikes, space_posts, space_post_images, space_post_likes,
             play_history, user_music_releases, user_music_collections,
             user_album_collections, user_playlist_collections,
-            user_emotion_tags, user_interest_tags, level_config
+            user_emotion_tags, user_interest_tags
             RESTART IDENTITY CASCADE
         """))
     yield

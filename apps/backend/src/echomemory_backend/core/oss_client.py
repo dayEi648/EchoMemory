@@ -57,8 +57,8 @@ def _upload_image_to_oss_sync(
     return _build_oss_url(object_key)
 
 
-_MAX_AUDIO_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
-_MAX_LYRICS_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+_MAX_AUDIO_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+_MAX_LYRICS_SIZE_BYTES = 1 * 1024 * 1024  # 1 MB
 
 _ALLOWED_AUDIO_TYPES = {
     "audio/mpeg",
