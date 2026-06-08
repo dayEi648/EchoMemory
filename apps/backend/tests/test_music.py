@@ -8,6 +8,7 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.dictionary import (
     EmotionTag,
     Instrument,
@@ -16,7 +17,8 @@ from echomemory_backend.models.dictionary import (
     Style,
 )
 from echomemory_backend.models.enums import UserRole
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
+from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
 
 BASE_URL = "/api/v1/music"
@@ -441,3 +443,76 @@ class TestSearchMusics:
         titles = {m["title"] for m in data}
         assert "SongA" in titles
         assert "SongB" in titles
+
+
+# ---------------------------------------------------------------------------
+# 标签级联更新测试
+# ---------------------------------------------------------------------------
+
+class TestMusicTagCascadeUpdate:
+    async def test_update_music_tags_syncs_album_and_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """修改音乐标签后，包含该音乐的专辑和歌单标签应同步更新。"""
+        admin = await _create_user(db_session, "admin_cascade", role=UserRole.ADMIN.value)
+        user = await _create_user(db_session, "playlist_owner")
+
+        # 创建音乐和容器
+        music = await _create_music_directly(db_session, title="CascadeSong")
+        album = Album(title="CascadeAlbum")
+        db_session.add(album)
+        await db_session.commit()
+        await db_session.refresh(album)
+        playlist = Playlist(title="CascadePlaylist", user_id=user.id)
+        db_session.add(playlist)
+        await db_session.commit()
+        await db_session.refresh(playlist)
+
+        # 加入专辑和歌单
+        db_session.add(AlbumMusic(album_id=album.id, music_id=music.id, ordinal=0))
+        db_session.add(PlaylistMusic(playlist_id=playlist.id, music_id=music.id, ordinal=0))
+        await db_session.commit()
+
+        # 给音乐添加初始标签
+        old_etag = await _create_emotion_tag(db_session, "OldEmotion")
+        old_itag = await _create_interest_tag(db_session, "OldInterest")
+        db_session.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=old_etag.id))
+        db_session.add(MusicInterestTag(music_id=music.id, interest_tag_id=old_itag.id))
+        await db_session.commit()
+
+        # 准备新标签
+        new_etag = await _create_emotion_tag(db_session, "NewEmotion")
+        new_itag = await _create_interest_tag(db_session, "NewInterest")
+
+        # 通过 API 更新音乐标签
+        resp = client.patch(
+            f"{BASE_URL}/admin/{music.id}",
+            headers=_auth_header(admin),
+            json={
+                "emotion_tag_ids": [new_etag.id],
+                "interest_tag_ids": [new_itag.id],
+            },
+        )
+        assert resp.status_code == 200
+
+        # 验证专辑标签已更新
+        resp = client.get(f"/api/v1/albums/{album.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        album_etag_ids = {t["id"] for t in data["emotion_tags"]}
+        album_itag_ids = {t["id"] for t in data["interest_tags"]}
+        assert old_etag.id not in album_etag_ids
+        assert new_etag.id in album_etag_ids
+        assert old_itag.id not in album_itag_ids
+        assert new_itag.id in album_itag_ids
+
+        # 验证歌单标签已更新
+        resp = client.get(f"/api/v1/playlists/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        pl_etag_ids = {t["id"] for t in data["emotion_tags"]}
+        pl_itag_ids = {t["id"] for t in data["interest_tags"]}
+        assert old_etag.id not in pl_etag_ids
+        assert new_etag.id in pl_etag_ids
+        assert old_itag.id not in pl_itag_ids
+        assert new_itag.id in pl_itag_ids

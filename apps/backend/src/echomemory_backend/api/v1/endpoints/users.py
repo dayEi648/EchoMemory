@@ -110,6 +110,15 @@ async def get_my_interest_tags(
     return await user_tag_service.list_user_interest_tags(db, current_user.id)
 
 
+@router.post("/me/recalculate-tags", status_code=status.HTTP_204_NO_CONTENT)
+async def recalculate_my_tags(
+    db: SessionDep, current_user: ActiveUser
+) -> None:
+    """手动触发重新计算当前用户的情绪标签和兴趣标签。"""
+    await user_tag_service.recalculate_user_tags(db, current_user.id)
+    return None
+
+
 @router.get("/{user_id}", response_model=UserPublicOut)
 async def get_user(db: SessionDep, user_id: int) -> User:
     """根据用户 ID 获取公开的个人资料。"""

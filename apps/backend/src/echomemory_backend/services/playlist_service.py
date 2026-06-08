@@ -3,7 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import (
+    Music,
+    MusicEmotionTag,
+    MusicInterestTag,
+)
 from echomemory_backend.models.playlist import (
     Playlist,
     PlaylistEmotionTag,
@@ -103,6 +107,47 @@ async def _set_playlist_interest_tags(
     )
     for tag_id in tag_ids:
         db.add(PlaylistInterestTag(playlist_id=playlist.id, interest_tag_id=tag_id))
+
+
+async def _sync_playlist_tags_from_musics(
+    db: AsyncSession, playlist_id: int
+) -> None:
+    """根据歌单内所有歌曲的标签并集，重建歌单的情感标签和兴趣标签。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        playlist_id: 歌单主键 ID。
+    """
+    # 收集情感标签（去重）
+    stmt = (
+        select(MusicEmotionTag.emotion_tag_id)
+        .join(PlaylistMusic, PlaylistMusic.music_id == MusicEmotionTag.music_id)
+        .where(PlaylistMusic.playlist_id == playlist_id)
+        .distinct()
+    )
+    emotion_tag_ids = list((await db.execute(stmt)).scalars().all())
+
+    # 收集兴趣标签（去重）
+    stmt = (
+        select(MusicInterestTag.interest_tag_id)
+        .join(PlaylistMusic, PlaylistMusic.music_id == MusicInterestTag.music_id)
+        .where(PlaylistMusic.playlist_id == playlist_id)
+        .distinct()
+    )
+    interest_tag_ids = list((await db.execute(stmt)).scalars().all())
+
+    # 重建标签关联
+    await db.execute(
+        delete(PlaylistEmotionTag).where(PlaylistEmotionTag.playlist_id == playlist_id)
+    )
+    for tag_id in emotion_tag_ids:
+        db.add(PlaylistEmotionTag(playlist_id=playlist_id, emotion_tag_id=tag_id))
+
+    await db.execute(
+        delete(PlaylistInterestTag).where(PlaylistInterestTag.playlist_id == playlist_id)
+    )
+    for tag_id in interest_tag_ids:
+        db.add(PlaylistInterestTag(playlist_id=playlist_id, interest_tag_id=tag_id))
 
 
 async def create_playlist(
@@ -296,8 +341,18 @@ async def add_music_to_playlist(
         playlist_id=playlist_id, music_id=music_id, ordinal=max_ordinal + 1
     )
     db.add(playlist_music)
+    await db.flush()
+    await _sync_playlist_tags_from_musics(db, playlist_id)
     music.collect_count += 1
     await db.commit()
+
+    # 自动重新计算歌单创建者的用户标签
+    from echomemory_backend.services.user_tag_service import recalculate_user_tags
+
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is not None:
+        await recalculate_user_tags(db, playlist.user_id)
+
     await db.refresh(playlist_music)
     return playlist_music
 
@@ -328,4 +383,13 @@ async def remove_music_from_playlist(
     if music is not None:
         music.collect_count -= 1
     await db.delete(playlist_music)
+    await db.flush()
+    await _sync_playlist_tags_from_musics(db, playlist_id)
     await db.commit()
+
+    # 自动重新计算歌单创建者的用户标签
+    from echomemory_backend.services.user_tag_service import recalculate_user_tags
+
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is not None:
+        await recalculate_user_tags(db, playlist.user_id)

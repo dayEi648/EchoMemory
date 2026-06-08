@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.models.album import AlbumMusic
 from echomemory_backend.models.dictionary import EmotionTag, Instrument, InterestTag
 from echomemory_backend.models.music import (
     Music,
@@ -13,6 +14,7 @@ from echomemory_backend.models.music import (
     MusicInstrument,
     MusicInterestTag,
 )
+from echomemory_backend.models.playlist import PlaylistMusic
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.services.user_service import get_user_by_id
 
@@ -410,10 +412,41 @@ async def update_music(
         await _set_music_authors(db, music, author_ids)
     if instrument_ids is not None:
         await _set_music_instruments(db, music, instrument_ids)
+
+    tag_changed = False
     if emotion_tag_ids is not None:
         await _set_music_emotion_tags(db, music, emotion_tag_ids)
+        tag_changed = True
     if interest_tag_ids is not None:
         await _set_music_interest_tags(db, music, interest_tag_ids)
+        tag_changed = True
+
+    if tag_changed:
+        # 先 flush 音乐标签变更，确保同步查询能看到最新状态
+        await db.flush()
+
+        # 局部导入避免循环依赖
+        from echomemory_backend.services.album_service import (
+            _sync_album_tags_from_musics,
+        )
+        from echomemory_backend.services.playlist_service import (
+            _sync_playlist_tags_from_musics,
+        )
+
+        # 同步所属专辑标签
+        stmt = select(AlbumMusic.album_id).where(AlbumMusic.music_id == music.id)
+        result = await db.execute(stmt)
+        album_id = result.scalar_one_or_none()
+        if album_id is not None:
+            await _sync_album_tags_from_musics(db, album_id)
+
+        # 同步所属歌单标签
+        stmt = select(PlaylistMusic.playlist_id).where(
+            PlaylistMusic.music_id == music.id
+        )
+        result = await db.execute(stmt)
+        for pl_id in result.scalars().all():
+            await _sync_playlist_tags_from_musics(db, pl_id)
 
     try:
         await db.commit()

@@ -73,6 +73,12 @@ async def create_play_history(
         )
 
     await db.commit()
+
+    # 自动重新计算用户标签
+    from echomemory_backend.services.user_tag_service import recalculate_user_tags
+
+    await recalculate_user_tags(db, user_id)
+
     await db.refresh(history)
     return history
 

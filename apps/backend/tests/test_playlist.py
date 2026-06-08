@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from echomemory_backend.core.security import create_access_token, get_password_hash
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
 
@@ -436,6 +436,121 @@ class TestAddRemoveMusic:
             headers=_auth_header(user),
         )
         assert resp.status_code == 404
+
+
+# ============================================================================
+# 标签同步测试
+# ============================================================================
+
+class TestPlaylistTagSync:
+    async def test_add_music_syncs_tags_to_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """将带标签的歌曲加入歌单，歌单应自动获得该歌曲的标签。"""
+        user = await _create_user(db_session, "pl_tag_sync")
+        playlist = await _create_playlist_directly(db_session, user.id, title="TagSyncPL")
+        music = await _create_music_directly(db_session, title="TaggedSongPL")
+
+        # 给音乐添加标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music.id, interest_tag_id=interest_tag.id))
+        await db_session.commit()
+
+        # 通过 API 将歌曲加入歌单
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        # 验证歌单详情中包含该歌曲的标签
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        emotion_tag_ids = {t["id"] for t in data["emotion_tags"]}
+        interest_tag_ids = {t["id"] for t in data["interest_tags"]}
+        assert emotion_tag.id in emotion_tag_ids
+        assert interest_tag.id in interest_tag_ids
+
+    async def test_remove_music_syncs_tags_on_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """从歌单移除歌曲后，歌单标签应清空。"""
+        user = await _create_user(db_session, "pl_tag_remove")
+        playlist = await _create_playlist_directly(db_session, user.id, title="TagRemovePL")
+        music = await _create_music_directly(db_session, title="TaggedSongPLRemove")
+
+        # 给音乐添加标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music.id, interest_tag_id=interest_tag.id))
+        await db_session.commit()
+
+        # 通过 API 加入歌单（触发标签同步）
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+        # 确认歌单已有标签
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.json()["emotion_tags"] != []
+
+        # 通过 API 移除歌曲
+        resp = client.delete(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 204
+
+        # 验证歌单标签已清空
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["emotion_tags"] == []
+        assert data["interest_tags"] == []
+
+    async def test_add_multiple_musics_dedup_tags(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """向歌单添加多首标签重叠的歌曲，歌单标签应去重。"""
+        user = await _create_user(db_session, "pl_dedup_user")
+        playlist = await _create_playlist_directly(db_session, user.id, title="DedupPL")
+        music1 = await _create_music_directly(db_session, title="PLSong1")
+        music2 = await _create_music_directly(db_session, title="PLSong2")
+
+        # 两首歌共享同一个情感标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag1 = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music1.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicEmotionTag(music_id=music2.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music1.id, interest_tag_id=interest_tag1.id))
+        await db_session.commit()
+
+        # 加入第一首歌
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music1.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        # 加入第二首歌
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music2.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        # 验证情感标签只出现一次（去重）
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["emotion_tags"]) == 1
+        assert data["emotion_tags"][0]["id"] == emotion_tag.id
+        assert len(data["interest_tags"]) == 1
 
 
 # ============================================================================

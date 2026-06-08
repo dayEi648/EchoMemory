@@ -12,7 +12,7 @@ from echomemory_backend.core.security import create_access_token, get_password_h
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
 from echomemory_backend.models.user import User
 
 BASE_URL = "/api/v1/albums"
@@ -239,6 +239,117 @@ class TestAdminAddMusicToAlbum:
             headers=_auth_header(admin),
         )
         assert resp.status_code == 404
+
+
+class TestAlbumTagSync:
+    async def test_add_music_syncs_tags_to_album(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """将带标签的歌曲加入空专辑，专辑应自动获得该歌曲的标签。"""
+        admin = await _create_user(db_session, "admin_tag_sync", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="TagSyncAlbum")
+        music = await _create_music_directly(db_session, title="TaggedSong")
+
+        # 给音乐添加标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music.id, interest_tag_id=interest_tag.id))
+        await db_session.commit()
+
+        # 通过 API 将歌曲加入专辑
+        resp = client.post(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 201
+
+        # 验证专辑详情中包含该歌曲的标签
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        emotion_tag_ids = {t["id"] for t in data["emotion_tags"]}
+        interest_tag_ids = {t["id"] for t in data["interest_tags"]}
+        assert emotion_tag.id in emotion_tag_ids
+        assert interest_tag.id in interest_tag_ids
+
+    async def test_remove_music_syncs_tags_on_album(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """从专辑移除歌曲后，专辑标签应清空。"""
+        admin = await _create_user(db_session, "admin_tag_remove", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="TagRemoveAlbum")
+        music = await _create_music_directly(db_session, title="TaggedSongToRemove")
+
+        # 给音乐添加标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music.id, interest_tag_id=interest_tag.id))
+        await db_session.commit()
+
+        # 通过 API 加入专辑（触发标签同步）
+        resp = client.post(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 201
+        # 确认专辑已有标签
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.json()["emotion_tags"] != []
+
+        # 通过 API 移除歌曲
+        resp = client.delete(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 204
+
+        # 验证专辑标签已清空
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["emotion_tags"] == []
+        assert data["interest_tags"] == []
+
+    async def test_add_multiple_musics_dedup_tags(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """向专辑添加多首标签重叠的歌曲，专辑标签应去重。"""
+        admin = await _create_user(db_session, "admin_dedup", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="DedupAlbum")
+        music1 = await _create_music_directly(db_session, title="Song1")
+        music2 = await _create_music_directly(db_session, title="Song2")
+
+        # 两首歌共享同一个情感标签，各自有不同的兴趣标签
+        emotion_tag = await _get_first_emotion_tag(db_session)
+        interest_tag1 = await _get_first_interest_tag(db_session)
+        db_session.add(MusicEmotionTag(music_id=music1.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicEmotionTag(music_id=music2.id, emotion_tag_id=emotion_tag.id))
+        db_session.add(MusicInterestTag(music_id=music1.id, interest_tag_id=interest_tag1.id))
+        await db_session.commit()
+
+        # 加入第一首歌
+        resp = client.post(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music1.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 201
+
+        # 加入第二首歌
+        resp = client.post(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music2.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 201
+
+        # 验证情感标签只出现一次（去重）
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["emotion_tags"]) == 1
+        assert data["emotion_tags"][0]["id"] == emotion_tag.id
+        assert len(data["interest_tags"]) == 1
 
 
 class TestAdminRemoveMusicFromAlbum:
