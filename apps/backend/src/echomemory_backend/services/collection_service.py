@@ -11,7 +11,7 @@ from echomemory_backend.models.collection import (
 )
 from echomemory_backend.models.music import Music, MusicAuthor
 from echomemory_backend.models.playlist import Playlist
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 
 # ---------------------------------------------------------------------------

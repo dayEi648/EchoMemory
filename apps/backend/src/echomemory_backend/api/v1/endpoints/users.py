@@ -19,7 +19,7 @@ from echomemory_backend.schemas.user import (
 )
 from echomemory_backend.schemas.user_tag import UserTagOut
 from echomemory_backend.services import admin_service
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.services import user_service
 from echomemory_backend.services import user_tag_service
 
@@ -138,10 +138,7 @@ async def follow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
     """关注另一个用户。"""
-    try:
-        await user_service.follow_user(db, current_user.id, follow_in.followee_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await user_service.follow_user(db, current_user.id, follow_in.followee_id)
     return None
 
 
@@ -150,10 +147,7 @@ async def unfollow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
     """取消关注某用户。"""
-    try:
-        await user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
     return None
 
 
@@ -206,10 +200,7 @@ async def admin_update_user(
     user_in: UserAdminUpdate,
 ) -> User:
     """以管理员身份更新用户信息。"""
-    try:
-        return await admin_service.update_user_as_admin(db, admin, user_id, user_in)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await admin_service.update_user_as_admin(db, admin, user_id, user_in)
 
 
 @router.post("/{user_id}/ban", response_model=UserMeOut)
@@ -220,10 +211,7 @@ async def admin_ban_user(
     action: UserBanAction,
 ) -> User:
     """封禁用户。"""
-    try:
-        return await admin_service.ban_user(db, admin, user_id, action)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await admin_service.ban_user(db, admin, user_id, action)
 
 
 @router.post("/{user_id}/unban", response_model=UserMeOut)
@@ -233,7 +221,4 @@ async def admin_unban_user(
     user_id: int,
 ) -> User:
     """解封用户。"""
-    try:
-        return await admin_service.unban_user(db, admin, user_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await admin_service.unban_user(db, admin, user_id)

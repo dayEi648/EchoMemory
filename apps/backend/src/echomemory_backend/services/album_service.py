@@ -13,7 +13,8 @@ from echomemory_backend.models.album import (
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.user import User
-from echomemory_backend.services.user_service import BusinessError, get_user_by_id
+from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.user_service import get_user_by_id
 
 
 async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:

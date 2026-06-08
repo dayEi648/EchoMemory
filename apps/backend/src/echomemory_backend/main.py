@@ -5,11 +5,13 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from sqlalchemy import select
+from starlette.responses import JSONResponse
 
 from echomemory_backend.api.v1.router import router as api_v1_router
 from echomemory_backend.core.config import settings
+from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.core.redis_client import redis_client
 from echomemory_backend.db.session import AsyncSessionLocal, async_engine
 from echomemory_backend.models import Base  # noqa: F401
@@ -123,4 +125,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="echomemory backend", lifespan=lifespan)
+
+
+@app.exception_handler(BusinessError)
+async def business_error_handler(request: Request, exc: BusinessError):
+    """将业务异常统一转换为 JSON 响应，确保前端能感知具体错误信息。"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
 app.include_router(api_v1_router, prefix="/api")

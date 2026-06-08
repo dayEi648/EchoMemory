@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 
 async def create_play_history(

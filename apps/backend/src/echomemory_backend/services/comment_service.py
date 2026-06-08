@@ -6,7 +6,7 @@ from echomemory_backend.models.comment import Comment, CommentDislike, CommentLi
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 
 _VALID_TARGET_TYPES = ("music", "playlist", "space_post")

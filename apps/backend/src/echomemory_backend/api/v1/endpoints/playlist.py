@@ -1,10 +1,11 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.playlist import PlaylistListOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import playlist_service
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
 
@@ -65,7 +66,7 @@ async def create_playlist(
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    except Exception:
+    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise
@@ -133,16 +134,13 @@ async def update_playlist(
             detail="You do not have permission to update this playlist",
         )
 
-    try:
-        playlist = await playlist_service.update_playlist(
-            db,
-            playlist,
-            title=update_in.title,
-            description=update_in.description,
-            is_private=update_in.is_private,
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    playlist = await playlist_service.update_playlist(
+        db,
+        playlist,
+        title=update_in.title,
+        description=update_in.description,
+        is_private=update_in.is_private,
+    )
 
     # 重新加载完整关联数据
     playlist = await playlist_service.get_playlist_by_id(db, playlist.id)
@@ -199,10 +197,7 @@ async def add_music_to_playlist(
             detail="You do not have permission to modify this playlist",
         )
 
-    try:
-        await playlist_service.add_music_to_playlist(db, playlist_id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await playlist_service.add_music_to_playlist(db, playlist_id, music_id)
 
     # 重新加载完整关联数据
     playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
@@ -232,7 +227,4 @@ async def remove_music_from_playlist(
             detail="You do not have permission to modify this playlist",
         )
 
-    try:
-        await playlist_service.remove_music_from_playlist(db, playlist_id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await playlist_service.remove_music_from_playlist(db, playlist_id, music_id)

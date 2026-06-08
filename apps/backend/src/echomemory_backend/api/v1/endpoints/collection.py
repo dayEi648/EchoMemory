@@ -8,7 +8,6 @@ from echomemory_backend.schemas.collection import (
     ReleaseOut,
 )
 from echomemory_backend.services import collection_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -25,10 +24,7 @@ async def collect_music(
     music_id: int,
 ):
     """收藏音乐。已收藏则静默返回。"""
-    try:
-        return await collection_service.collect_music(db, current_user.id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await collection_service.collect_music(db, current_user.id, music_id)
 
 
 @router.delete("/musics/{music_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -67,10 +63,7 @@ async def collect_album(
     album_id: int,
 ):
     """收藏专辑。已收藏则静默返回。"""
-    try:
-        return await collection_service.collect_album(db, current_user.id, album_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await collection_service.collect_album(db, current_user.id, album_id)
 
 
 @router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -111,10 +104,7 @@ async def collect_playlist(
     playlist_id: int,
 ):
     """收藏歌单。已收藏则静默返回。"""
-    try:
-        return await collection_service.collect_playlist(db, current_user.id, playlist_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await collection_service.collect_playlist(db, current_user.id, playlist_id)
 
 
 @router.delete("/playlists/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -153,10 +143,7 @@ async def release_music(
     music_id: int,
 ):
     """标记音乐为已发布。已标记则静默返回。"""
-    try:
-        return await collection_service.release_music(db, current_user.id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await collection_service.release_music(db, current_user.id, music_id)
 
 
 @router.delete("/releases/{music_id}", status_code=status.HTTP_204_NO_CONTENT)

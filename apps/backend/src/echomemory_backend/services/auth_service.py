@@ -14,7 +14,8 @@ from echomemory_backend.core.redis_client import (
 from echomemory_backend.core.security import create_access_token, get_password_hash, verify_password
 from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.schemas.user import Token, UserCreate
-from echomemory_backend.services.user_service import BusinessError, create_user, get_user_by_id, get_user_by_username
+from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.user_service import create_user, get_user_by_id, get_user_by_username
 
 
 async def _issue_tokens(user_id: int) -> Token:

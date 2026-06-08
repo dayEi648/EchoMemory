@@ -3,7 +3,6 @@ from fastapi import APIRouter, HTTPException, Query, status
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.schemas.comment import CommentCreate, CommentOut
 from echomemory_backend.services import comment_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/comments", tags=["comments"])
 
@@ -15,17 +14,14 @@ async def create_comment(
     data: CommentCreate,
 ):
     """发表评论。支持回复（parent_id）。"""
-    try:
-        return await comment_service.create_comment(
-            db,
-            user_id=current_user.id,
-            target_type=data.target_type,
-            target_id=data.target_id,
-            content=data.content,
-            parent_id=data.parent_id,
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await comment_service.create_comment(
+        db,
+        user_id=current_user.id,
+        target_type=data.target_type,
+        target_id=data.target_id,
+        content=data.content,
+        parent_id=data.parent_id,
+    )
 
 
 @router.get("/{target_type}/{target_id}", response_model=list[CommentOut])
@@ -37,12 +33,9 @@ async def list_comments(
     offset: int = Query(0, ge=0),
 ):
     """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。公开接口，无需登录。"""
-    try:
-        return await comment_service.list_comments(
-            db, target_type=target_type, target_id=target_id, limit=limit, offset=offset
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await comment_service.list_comments(
+        db, target_type=target_type, target_id=target_id, limit=limit, offset=offset
+    )
 
 
 @router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -52,10 +45,7 @@ async def delete_comment(
     comment_id: int,
 ):
     """软删除自己的评论。"""
-    try:
-        await comment_service.delete_comment(db, current_user.id, comment_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await comment_service.delete_comment(db, current_user.id, comment_id)
     return None
 
 
@@ -66,10 +56,7 @@ async def like_comment(
     comment_id: int,
 ):
     """点赞评论。已点赞则静默成功。"""
-    try:
-        await comment_service.like_comment(db, current_user.id, comment_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await comment_service.like_comment(db, current_user.id, comment_id)
     return None
 
 
@@ -91,10 +78,7 @@ async def dislike_comment(
     comment_id: int,
 ):
     """点踩评论。已点踩则静默成功。"""
-    try:
-        await comment_service.dislike_comment(db, current_user.id, comment_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await comment_service.dislike_comment(db, current_user.id, comment_id)
     return None
 
 

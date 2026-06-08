@@ -7,7 +7,8 @@ from echomemory_backend.core.utils import parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import UserAdminUpdate, UserBanAction
-from echomemory_backend.services.user_service import BusinessError, get_user_by_id
+from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.user_service import get_user_by_id
 
 
 async def list_users(

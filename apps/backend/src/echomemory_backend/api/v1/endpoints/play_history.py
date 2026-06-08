@@ -6,7 +6,6 @@ from echomemory_backend.schemas.play_history import (
     PlayHistoryOut,
 )
 from echomemory_backend.services import play_history_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/play-history", tags=["play-history"])
 
@@ -19,10 +18,7 @@ async def record_play(
 ):
     """记录一次播放。"""
     user_id = current_user.id
-    try:
-        await play_history_service.create_play_history(db, user_id, data.music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await play_history_service.create_play_history(db, user_id, data.music_id)
 
     # 重新加载关联数据以匹配 PlayHistoryOut
     histories = await play_history_service.list_play_history(
@@ -51,12 +47,9 @@ async def delete_play_history(
     history_id: int,
 ):
     """删除单条播放记录。"""
-    try:
-        await play_history_service.delete_play_history(
-            db, current_user.id, history_id
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await play_history_service.delete_play_history(
+        db, current_user.id, history_id
+    )
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.core import oss_client
@@ -9,7 +10,7 @@ from echomemory_backend.schemas.album import (
     AlbumUpdate,
 )
 from echomemory_backend.services import album_service
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -96,7 +97,7 @@ async def create_album(
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    except Exception:
+    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise
@@ -120,17 +121,14 @@ async def admin_update_album(
             status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
         )
 
-    try:
-        album = await album_service.update_album(
-            db,
-            album,
-            title=update_in.title,
-            description=update_in.description,
-            source=update_in.source,
-            author_ids=update_in.author_ids,
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    album = await album_service.update_album(
+        db,
+        album,
+        title=update_in.title,
+        description=update_in.description,
+        source=update_in.source,
+        author_ids=update_in.author_ids,
+    )
 
     album = await album_service.get_album_by_id(db, album.id)
     return album
@@ -171,10 +169,7 @@ async def add_music_to_album(
             status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
         )
 
-    try:
-        await album_service.add_music_to_album(db, album_id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await album_service.add_music_to_album(db, album_id, music_id)
 
     album = await album_service.get_album_by_id(db, album_id)
     return album
@@ -197,10 +192,7 @@ async def remove_music_from_album(
             status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
         )
 
-    try:
-        await album_service.remove_music_from_album(db, album_id, music_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await album_service.remove_music_from_album(db, album_id, music_id)
 
     return None
 

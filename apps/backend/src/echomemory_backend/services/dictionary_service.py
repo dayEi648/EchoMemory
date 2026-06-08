@@ -20,7 +20,7 @@ from echomemory_backend.models.music import (
 from echomemory_backend.models.playlist import PlaylistEmotionTag, PlaylistInterestTag
 from echomemory_backend.models.user import User
 from echomemory_backend.models.user_tag import UserEmotionTag, UserInterestTag
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 # 字典类型到 ORM 模型的映射
 _MODEL_MAP = {
@@ -102,10 +102,16 @@ async def get_dictionary_item_by_id(db: AsyncSession, dictionary_type: str, item
         item_id: 要查询的字典项主键 ID。
 
     Returns:
-        找到的字典项实例，不存在时返回 None。
+        找到的字典项实例。
+
+    Raises:
+        BusinessError: 字典项不存在时抛出 404。
     """
     model = _get_model(dictionary_type)
-    return await db.get(model, item_id)
+    item = await db.get(model, item_id)
+    if item is None:
+        raise BusinessError("Dictionary item not found", 404)
+    return item
 
 
 async def list_dictionary_items(

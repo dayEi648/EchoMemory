@@ -19,7 +19,7 @@ from echomemory_backend.services.auth_service import (
     refresh_user_token,
     register_user,
 )
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -113,10 +113,7 @@ async def login(db: SessionDep, user_in: UserLogin) -> Token:
 @router.post("/refresh", response_model=Token)
 async def refresh_token(db: SessionDep, data: TokenRefresh) -> Token:
     """轮换 refresh token 并签发新的 token 对。"""
-    try:
-        return await refresh_user_token(db, data.refresh_token)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await refresh_user_token(db, data.refresh_token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

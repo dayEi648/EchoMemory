@@ -7,7 +7,6 @@ from echomemory_backend.schemas.dictionary import (
     DictionaryItemUpdate,
 )
 from echomemory_backend.services import dictionary_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -20,12 +19,9 @@ async def create_dictionary_item(
     item_in: DictionaryItemCreate,
 ):
     """管理员：创建字典项。"""
-    try:
-        return await dictionary_service.create_dictionary_item(
-            db, dictionary_type, item_in.name
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await dictionary_service.create_dictionary_item(
+        db, dictionary_type, item_in.name
+    )
 
 
 @router.get("/{dictionary_type}", response_model=list[DictionaryItemOut])
@@ -36,12 +32,9 @@ async def list_dictionary_items(
     offset: int = Query(0, ge=0),
 ):
     """公开：分页列出字典项。"""
-    try:
-        return await dictionary_service.list_dictionary_items(
-            db, dictionary_type, limit=limit, offset=offset
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await dictionary_service.list_dictionary_items(
+        db, dictionary_type, limit=limit, offset=offset
+    )
 
 
 @router.get("/{dictionary_type}/{item_id}", response_model=DictionaryItemOut)
@@ -51,14 +44,9 @@ async def get_dictionary_item(
     item_id: int,
 ):
     """公开：获取单个字典项。"""
-    try:
-        item = await dictionary_service.get_dictionary_item_by_id(
-            db, dictionary_type, item_id
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dictionary item not found")
+    item = await dictionary_service.get_dictionary_item_by_id(
+        db, dictionary_type, item_id
+    )
     return item
 
 
@@ -76,12 +64,9 @@ async def update_dictionary_item(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Name is required for update",
         )
-    try:
-        return await dictionary_service.update_dictionary_item(
-            db, dictionary_type, item_id, item_in.name
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    return await dictionary_service.update_dictionary_item(
+        db, dictionary_type, item_id, item_in.name
+    )
 
 
 @router.delete("/{dictionary_type}/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -92,8 +77,5 @@ async def delete_dictionary_item(
     item_id: int,
 ):
     """管理员：删除字典项（仅当未被引用时）。"""
-    try:
-        await dictionary_service.delete_dictionary_item(db, dictionary_type, item_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    await dictionary_service.delete_dictionary_item(db, dictionary_type, item_id)
     return None

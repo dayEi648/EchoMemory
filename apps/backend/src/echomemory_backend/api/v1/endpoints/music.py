@@ -3,13 +3,13 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate
 from echomemory_backend.services import music_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/music", tags=["music"])
 
@@ -168,7 +168,7 @@ async def import_music(
     except HTTPException:
         # HTTPException 是校验错误，不清理已上传文件（因为没上传或已校验失败）
         raise
-    except Exception:
+    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         # 任何其他异常（OSS 上传失败或数据库失败），清理已上传的 OSS 文件
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
@@ -193,23 +193,20 @@ async def admin_update_music(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
 
-    try:
-        music = await music_service.update_music(
-            db,
-            music,
-            title=update_in.title,
-            is_vip=update_in.is_vip,
-            source=update_in.source,
-            style_id=update_in.style_id,
-            language_id=update_in.language_id,
-            release_date=update_in.release_date,
-            author_ids=update_in.author_ids,
-            instrument_ids=update_in.instrument_ids,
-            emotion_tag_ids=update_in.emotion_tag_ids,
-            interest_tag_ids=update_in.interest_tag_ids,
-        )
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    music = await music_service.update_music(
+        db,
+        music,
+        title=update_in.title,
+        is_vip=update_in.is_vip,
+        source=update_in.source,
+        style_id=update_in.style_id,
+        language_id=update_in.language_id,
+        release_date=update_in.release_date,
+        author_ids=update_in.author_ids,
+        instrument_ids=update_in.instrument_ids,
+        emotion_tag_ids=update_in.emotion_tag_ids,
+        interest_tag_ids=update_in.interest_tag_ids,
+    )
 
     # 重新加载完整关联数据以匹配 MusicOut
     music = await music_service.get_music_by_id(db, music.id)

@@ -13,7 +13,8 @@ from echomemory_backend.models.music import (
     MusicInstrument,
     MusicInterestTag,
 )
-from echomemory_backend.services.user_service import BusinessError, get_user_by_id
+from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.user_service import get_user_by_id
 
 
 async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[int]) -> None:

@@ -10,7 +10,7 @@ from echomemory_backend.models.playlist import (
     PlaylistInterestTag,
     PlaylistMusic,
 )
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 
 async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:

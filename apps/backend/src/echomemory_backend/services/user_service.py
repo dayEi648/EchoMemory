@@ -2,22 +2,9 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.models.user import User, UserFollow
 from echomemory_backend.schemas.user import UserCreate, UserUpdate
-
-
-class BusinessError(Exception):
-    """业务规则被违反时抛出。
-
-    Attributes:
-        detail: 人类可读的错误信息。
-        status_code: 建议的 HTTP 状态码。
-    """
-
-    def __init__(self, detail: str, status_code: int = 400):
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:

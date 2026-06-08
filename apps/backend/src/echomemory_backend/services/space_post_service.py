@@ -1,10 +1,9 @@
 from sqlalchemy import desc, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
-from echomemory_backend.services.user_service import BusinessError
+from echomemory_backend.core.exceptions import BusinessError
 
 
 async def create_space_post(
@@ -152,12 +151,13 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
     Returns:
         None。
     """
+    existing = await db.get(SpacePostLike, (post_id, user_id))
+    if existing is not None:
+        return
+
     like = SpacePostLike(post_id=post_id, user_id=user_id)
     db.add(like)
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
+    await db.commit()
 
 
 async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:

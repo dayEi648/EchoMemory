@@ -1,12 +1,12 @@
 import os
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
 from echomemory_backend.core.oss_client import delete_object_by_url, upload_image_to_oss
 from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
-from echomemory_backend.services.user_service import BusinessError
 
 router = APIRouter(prefix="/space-posts", tags=["space-posts"])
 
@@ -56,7 +56,7 @@ async def create_space_post(
         )
     except HTTPException:
         raise
-    except Exception:
+    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:
             await delete_object_by_url(url)
         raise
@@ -166,10 +166,7 @@ async def admin_hard_delete_space_post(
     post_id: int,
 ):
     """管理员硬删除动态，并清理已上传的 OSS 图片。"""
-    try:
-        image_urls = await space_post_service.hard_delete_space_post(db, post_id)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+    image_urls = await space_post_service.hard_delete_space_post(db, post_id)
 
     for url in image_urls:
         await delete_object_by_url(url)
