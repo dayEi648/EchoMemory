@@ -234,6 +234,8 @@ async def update_playlist(
 async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     """删除歌单（级联删除关联表记录）。
 
+    删除前先同步减少歌单内所有音乐的 collect_count。
+
     Args:
         db: SQLAlchemy 异步 Session。
         playlist: 待删除的歌单实例。
@@ -241,6 +243,20 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     Returns:
         None。
     """
+    # 先同步 collect_count，避免级联删除 PlaylistMusic 时遗漏计数维护
+    music_ids_result = await db.execute(
+        select(PlaylistMusic.music_id).where(PlaylistMusic.playlist_id == playlist.id)
+    )
+    for music_id in music_ids_result.scalars().all():
+        music = await db.get(Music, music_id)
+        if music is not None:
+            music.collect_count -= 1
+
+    # 若 musics 已被加载到 session（如通过 selectinload），显式删除以避免 ORM 级联冲突
+    if hasattr(playlist, "musics") and playlist.musics:
+        for pm in list(playlist.musics):
+            await db.delete(pm)
+
     await db.delete(playlist)
     await db.commit()
 
@@ -280,6 +296,7 @@ async def add_music_to_playlist(
         playlist_id=playlist_id, music_id=music_id, ordinal=max_ordinal + 1
     )
     db.add(playlist_music)
+    music.collect_count += 1
     await db.commit()
     await db.refresh(playlist_music)
     return playlist_music
@@ -307,5 +324,8 @@ async def remove_music_from_playlist(
     if playlist_music is None:
         raise BusinessError("Music not found in playlist", 404)
 
+    music = await db.get(Music, music_id)
+    if music is not None:
+        music.collect_count -= 1
     await db.delete(playlist_music)
     await db.commit()

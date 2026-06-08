@@ -364,6 +364,10 @@ class TestAddRemoveMusic:
         assert resp.status_code == 200
         assert len(resp.json()["musics"]) == 1
 
+        # 验证 collect_count 同步
+        await db_session.refresh(music)
+        assert music.collect_count == 1
+
     async def test_add_unpublished_music(self, client: TestClient, db_session: AsyncSession):
         user = await _create_user(db_session, "add_unpub_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="AddUnpubPL")
@@ -405,6 +409,10 @@ class TestAddRemoveMusic:
         music = await _create_music_directly(db_session, title="SongToRemove")
         await _add_music_to_playlist_directly(db_session, playlist.id, music.id)
 
+        # 直接添加不触发 service 计数维护，手动同步初始值
+        music.collect_count = 1
+        await db_session.commit()
+
         resp = client.delete(
             f"{BASE_URL}/{playlist.id}/musics/{music.id}",
             headers=_auth_header(user),
@@ -415,6 +423,10 @@ class TestAddRemoveMusic:
         assert resp.status_code == 200
         assert resp.json()["musics"] == []
 
+        # 验证 collect_count 同步
+        await db_session.refresh(music)
+        assert music.collect_count == 0
+
     async def test_remove_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
         user = await _create_user(db_session, "remove_nx_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="RemoveNxPL")
@@ -424,3 +436,77 @@ class TestAddRemoveMusic:
             headers=_auth_header(user),
         )
         assert resp.status_code == 404
+
+
+# ============================================================================
+# collect_count 维护验证
+# ============================================================================
+
+
+class TestCollectCountOnAddRemove:
+    async def test_delete_playlist_syncs_collect_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "del_pl_count_user")
+        playlist = await _create_playlist_directly(db_session, user.id, title="DelCountPL")
+        music1 = await _create_music_directly(db_session, title="Song1")
+        music2 = await _create_music_directly(db_session, title="Song2")
+
+        # 通过 API 添加两首音乐（触发计数维护）
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music1.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music2.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        await db_session.refresh(music1)
+        await db_session.refresh(music2)
+        assert music1.collect_count == 1
+        assert music2.collect_count == 1
+
+        # 删除歌单
+        resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 204
+
+        await db_session.refresh(music1)
+        await db_session.refresh(music2)
+        assert music1.collect_count == 0
+        assert music2.collect_count == 0
+
+    async def test_collect_count_multiple_playlists(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "multi_pl_user")
+        playlist1 = await _create_playlist_directly(db_session, user.id, title="MultiPL1")
+        playlist2 = await _create_playlist_directly(db_session, user.id, title="MultiPL2")
+        music = await _create_music_directly(db_session, title="SharedSong")
+
+        # 同一首音乐加入两个歌单
+        resp = client.post(
+            f"{BASE_URL}/{playlist1.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+        resp = client.post(
+            f"{BASE_URL}/{playlist2.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        await db_session.refresh(music)
+        assert music.collect_count == 2
+
+        # 从其中一个歌单移除
+        resp = client.delete(
+            f"{BASE_URL}/{playlist1.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 204
+
+        await db_session.refresh(music)
+        assert music.collect_count == 1
