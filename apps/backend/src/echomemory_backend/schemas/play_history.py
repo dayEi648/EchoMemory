@@ -27,3 +27,4 @@ class PlayHistoryCreate(BaseModel):
     """记录播放历史的请求体。"""
 
     music_id: int
+    playlist_id: int | None = None

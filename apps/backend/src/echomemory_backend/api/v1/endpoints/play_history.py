@@ -18,7 +18,9 @@ async def record_play(
 ):
     """记录一次播放。"""
     user_id = current_user.id
-    await play_history_service.create_play_history(db, user_id, data.music_id)
+    await play_history_service.create_play_history(
+        db, user_id, data.music_id, playlist_id=data.playlist_id
+    )
 
     # 重新加载关联数据以匹配 PlayHistoryOut
     histories = await play_history_service.list_play_history(

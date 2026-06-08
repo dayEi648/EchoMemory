@@ -6,10 +6,14 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
+from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
 
 BASE_URL = "/api/v1/play-history"
@@ -68,6 +72,40 @@ async def _create_play_history_directly(
     return history
 
 
+async def _create_album_directly(
+    db: AsyncSession, title: str = "TestAlbum"
+) -> Album:
+    album = Album(title=title)
+    db.add(album)
+    await db.commit()
+    await db.refresh(album)
+    return album
+
+
+async def _create_playlist_directly(
+    db: AsyncSession, user_id: int, title: str = "TestPlaylist"
+) -> Playlist:
+    playlist = Playlist(title=title, user_id=user_id)
+    db.add(playlist)
+    await db.commit()
+    await db.refresh(playlist)
+    return playlist
+
+
+async def _add_music_to_album(
+    db: AsyncSession, album_id: int, music_id: int, ordinal: int = 0
+) -> None:
+    db.add(AlbumMusic(album_id=album_id, music_id=music_id, ordinal=ordinal))
+    await db.commit()
+
+
+async def _add_music_to_playlist(
+    db: AsyncSession, playlist_id: int, music_id: int, ordinal: int = 0
+) -> None:
+    db.add(PlaylistMusic(playlist_id=playlist_id, music_id=music_id, ordinal=ordinal))
+    await db.commit()
+
+
 # ---------------------------------------------------------------------------
 # 记录播放测试
 # ---------------------------------------------------------------------------
@@ -87,6 +125,93 @@ class TestRecordPlay:
         assert data["music"]["id"] == music.id
         assert data["music"]["title"] == music.title
         assert "played_at" in data
+
+    async def test_record_play_increments_play_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "record_count")
+        music = await _create_music_directly(db_session, title="CountSong")
+        assert music.play_count == 0
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id},
+        )
+        assert resp.status_code == 201
+
+        # 重新加载音乐记录以验证播放次数递增
+        result = await db_session.execute(select(Music).where(Music.id == music.id))
+        updated_music = result.scalar_one()
+        await db_session.refresh(updated_music)
+        assert updated_music.play_count == 1
+
+    async def test_record_play_increments_album_play_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "album_count")
+        music = await _create_music_directly(db_session, title="AlbumSong")
+        album = await _create_album_directly(db_session, title="MyAlbum")
+        await _add_music_to_album(db_session, album.id, music.id)
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id},
+        )
+        assert resp.status_code == 201
+
+        result = await db_session.execute(select(Album).where(Album.id == album.id))
+        updated_album = result.scalar_one()
+        await db_session.refresh(updated_album)
+        assert updated_album.play_count == 1
+
+    async def test_record_play_increments_playlist_play_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "playlist_count")
+        music = await _create_music_directly(db_session, title="PlaylistSong")
+        playlist = await _create_playlist_directly(db_session, user.id, title="MyPlaylist")
+        await _add_music_to_playlist(db_session, playlist.id, music.id)
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id, "playlist_id": playlist.id},
+        )
+        assert resp.status_code == 201
+
+        result = await db_session.execute(select(Playlist).where(Playlist.id == playlist.id))
+        updated_playlist = result.scalar_one()
+        await db_session.refresh(updated_playlist)
+        assert updated_playlist.play_count == 1
+
+    async def test_record_play_with_nonexistent_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "playlist_nx")
+        music = await _create_music_directly(db_session, title="PlaylistNxSong")
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id, "playlist_id": 99999},
+        )
+        assert resp.status_code == 404
+
+    async def test_record_play_with_music_not_in_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        user = await _create_user(db_session, "playlist_not_in")
+        music = await _create_music_directly(db_session, title="NotInPlaylistSong")
+        playlist = await _create_playlist_directly(db_session, user.id, title="EmptyPlaylist")
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id, "playlist_id": playlist.id},
+        )
+        assert resp.status_code == 400
 
     async def test_record_play_unpublished_music(
         self, client: TestClient, db_session: AsyncSession
