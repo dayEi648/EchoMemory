@@ -130,8 +130,6 @@ def mock_oss_uploads(monkeypatch):
 class TestAdminCreateAlbum:
     async def test_create_album_success(self, client: TestClient, db_session: AsyncSession):
         admin = await _create_user(db_session, "admin_album", role=UserRole.ADMIN.value)
-        etag = await _get_first_emotion_tag(db_session)
-        itag = await _get_first_interest_tag(db_session)
 
         resp = client.post(
             ADMIN_BASE_URL,
@@ -140,8 +138,6 @@ class TestAdminCreateAlbum:
                 "title": "MyAlbum",
                 "description": "A test album",
                 "source": "TestSource",
-                "emotion_tag_ids": etag.id,
-                "interest_tag_ids": itag.id,
             },
             files={
                 "cover_icon": ("icon.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
@@ -155,8 +151,8 @@ class TestAdminCreateAlbum:
         assert data["source"] == "TestSource"
         assert data["cover_icon_url"] == "https://fake-oss.example.com/albums/cover.jpg"
         assert data["cover_url"] == "https://fake-oss.example.com/albums/cover.jpg"
-        assert len(data["emotion_tags"]) == 1
-        assert len(data["interest_tags"]) == 1
+        assert data["emotion_tags"] == []
+        assert data["interest_tags"] == []
 
 
 class TestPublicGetAlbum:
@@ -277,7 +273,6 @@ class TestAdminUpdateAlbum:
     async def test_update_album_success(self, client: TestClient, db_session: AsyncSession):
         admin = await _create_user(db_session, "admin_update_a", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="OldAlbumTitle")
-        etag = await _get_first_emotion_tag(db_session)
 
         resp = client.patch(
             f"{ADMIN_BASE_URL}/{album.id}",
@@ -286,7 +281,6 @@ class TestAdminUpdateAlbum:
                 "title": "NewAlbumTitle",
                 "description": "Updated description",
                 "source": "UpdatedSource",
-                "emotion_tag_ids": [etag.id],
             },
         )
         assert resp.status_code == 200
@@ -294,7 +288,6 @@ class TestAdminUpdateAlbum:
         assert data["title"] == "NewAlbumTitle"
         assert data["description"] == "Updated description"
         assert data["source"] == "UpdatedSource"
-        assert len(data["emotion_tags"]) == 1
 
     async def test_update_nonexistent_album(self, client: TestClient, db_session: AsyncSession):
         admin = await _create_user(db_session, "admin_update_nx", role=UserRole.ADMIN.value)
@@ -302,17 +295,6 @@ class TestAdminUpdateAlbum:
             f"{ADMIN_BASE_URL}/99999",
             headers=_auth_header(admin),
             json={"title": "GhostAlbum"},
-        )
-        assert resp.status_code == 404
-
-    async def test_update_with_invalid_tag(self, client: TestClient, db_session: AsyncSession):
-        admin = await _create_user(db_session, "admin_update_bad", role=UserRole.ADMIN.value)
-        album = await _create_album_directly(db_session, title="AlbumBadTag")
-
-        resp = client.patch(
-            f"{ADMIN_BASE_URL}/{album.id}",
-            headers=_auth_header(admin),
-            json={"emotion_tag_ids": [99999]},
         )
         assert resp.status_code == 404
 

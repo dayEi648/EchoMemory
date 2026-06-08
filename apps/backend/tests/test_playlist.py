@@ -129,8 +129,6 @@ def mock_oss_uploads(monkeypatch):
 class TestCreatePlaylist:
     async def test_create_playlist_success(self, client: TestClient, db_session: AsyncSession):
         user = await _create_user(db_session, "create_pl_user")
-        etag = await _get_first_emotion_tag(db_session)
-        itag = await _get_first_interest_tag(db_session)
 
         resp = client.post(
             BASE_URL + "/",
@@ -139,8 +137,6 @@ class TestCreatePlaylist:
                 "title": "MyPlaylist",
                 "description": "A test playlist",
                 "is_private": "false",
-                "emotion_tag_ids": etag.id,
-                "interest_tag_ids": itag.id,
             },
             files={
                 "cover_icon": ("cover.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
@@ -152,8 +148,8 @@ class TestCreatePlaylist:
         assert data["description"] == "A test playlist"
         assert data["is_private"] is False
         assert data["cover_icon_url"] == "https://fake-oss.example.com/playlists/cover.jpg"
-        assert len(data["emotion_tags"]) == 1
-        assert len(data["interest_tags"]) == 1
+        assert data["emotion_tags"] == []
+        assert data["interest_tags"] == []
         assert data["user"]["id"] == user.id
 
     async def test_create_playlist_without_cover(self, client: TestClient, db_session: AsyncSession):
@@ -294,7 +290,6 @@ class TestUpdatePlaylist:
         playlist = await _create_playlist_directly(
             db_session, user.id, title="OldTitle", is_private=False
         )
-        etag = await _get_first_emotion_tag(db_session)
 
         resp = client.patch(
             f"{BASE_URL}/{playlist.id}",
@@ -303,7 +298,6 @@ class TestUpdatePlaylist:
                 "title": "NewTitle",
                 "description": "Updated desc",
                 "is_private": True,
-                "emotion_tag_ids": [etag.id],
             },
         )
         assert resp.status_code == 200
@@ -311,7 +305,6 @@ class TestUpdatePlaylist:
         assert data["title"] == "NewTitle"
         assert data["description"] == "Updated desc"
         assert data["is_private"] is True
-        assert len(data["emotion_tags"]) == 1
 
     async def test_update_others_playlist(self, client: TestClient, db_session: AsyncSession):
         owner = await _create_user(db_session, "update_other_owner")

@@ -147,10 +147,10 @@ async def create_album(
     cover_icon_url: str | None = None,
     cover_url: str | None = None,
     author_ids: list[int] | None = None,
-    emotion_tag_ids: list[int] | None = None,
-    interest_tag_ids: list[int] | None = None,
 ) -> Album:
     """创建专辑及其关联关系。
+
+    标签由系统根据歌曲收藏自动计算，不允许手动传入。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -160,8 +160,6 @@ async def create_album(
         cover_icon_url: 封面图标 URL，可选。
         cover_url: 封面 URL，可选。
         author_ids: 作者用户 ID 列表，可选。
-        emotion_tag_ids: 情感标签 ID 列表，可选。
-        interest_tag_ids: 兴趣标签 ID 列表，可选。
 
     Returns:
         创建的专辑实例。
@@ -181,10 +179,6 @@ async def create_album(
 
     if author_ids:
         await _set_album_authors(db, album, author_ids)
-    if emotion_tag_ids:
-        await _set_album_emotion_tags(db, album, emotion_tag_ids)
-    if interest_tag_ids:
-        await _set_album_interest_tags(db, album, interest_tag_ids)
 
     try:
         await db.commit()
@@ -309,10 +303,10 @@ async def update_album(
     description: str | None = None,
     source: str | None = None,
     author_ids: list[int] | None = None,
-    emotion_tag_ids: list[int] | None = None,
-    interest_tag_ids: list[int] | None = None,
 ) -> Album:
-    """更新专辑文本信息及关联关系（不处理文件）。
+    """更新专辑文本信息及关联关系（不处理文件和标签）。
+
+    标签由系统根据歌曲收藏自动计算，不允许手动传入。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -321,14 +315,12 @@ async def update_album(
         description: 新描述，可选。
         source: 新来源，可选。
         author_ids: 新的作者 ID 列表，可选，会覆盖原有作者。
-        emotion_tag_ids: 新的情感标签 ID 列表，可选，会覆盖原有标签。
-        interest_tag_ids: 新的兴趣标签 ID 列表，可选，会覆盖原有标签。
 
     Returns:
         更新后的专辑实例。
 
     Raises:
-        BusinessError: 作者不存在、标签不存在或数据库约束冲突时抛出。
+        BusinessError: 作者不存在或数据库约束冲突时抛出。
     """
     if title is not None:
         album.title = title
@@ -339,10 +331,6 @@ async def update_album(
 
     if author_ids is not None:
         await _set_album_authors(db, album, author_ids)
-    if emotion_tag_ids is not None:
-        await _set_album_emotion_tags(db, album, emotion_tag_ids)
-    if interest_tag_ids is not None:
-        await _set_album_interest_tags(db, album, interest_tag_ids)
 
     try:
         await db.commit()

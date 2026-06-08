@@ -113,10 +113,10 @@ async def create_playlist(
     description: str | None = None,
     is_private: bool = False,
     cover_icon_url: str | None = None,
-    emotion_tag_ids: list[int] | None = None,
-    interest_tag_ids: list[int] | None = None,
 ) -> Playlist:
-    """创建歌单及标签关联。
+    """创建歌单。
+
+    标签由系统根据歌曲收藏自动计算，不允许手动传入。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -125,14 +125,9 @@ async def create_playlist(
         description: 歌单描述，可选。
         is_private: 是否私密，默认 False。
         cover_icon_url: 封面图标 URL，可选。
-        emotion_tag_ids: 情感标签 ID 列表，可选。
-        interest_tag_ids: 兴趣标签 ID 列表，可选。
 
     Returns:
         创建的歌单实例。
-
-    Raises:
-        BusinessError: 标签不存在时抛出。
     """
     playlist = Playlist(
         title=title,
@@ -142,13 +137,6 @@ async def create_playlist(
         cover_icon_url=cover_icon_url,
     )
     db.add(playlist)
-    await db.flush()
-
-    if emotion_tag_ids:
-        await _set_playlist_emotion_tags(db, playlist, emotion_tag_ids)
-    if interest_tag_ids:
-        await _set_playlist_interest_tags(db, playlist, interest_tag_ids)
-
     await db.commit()
     await db.refresh(playlist)
     return playlist
@@ -216,10 +204,10 @@ async def update_playlist(
     title: str | None = None,
     description: str | None = None,
     is_private: bool | None = None,
-    emotion_tag_ids: list[int] | None = None,
-    interest_tag_ids: list[int] | None = None,
 ) -> Playlist:
-    """更新歌单文本字段及标签关联（覆盖式）。
+    """更新歌单文本字段。
+
+    标签由系统根据歌曲收藏自动计算，不允许手动传入。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -227,14 +215,9 @@ async def update_playlist(
         title: 新标题，可选。
         description: 新描述，可选。
         is_private: 新隐私状态，可选。
-        emotion_tag_ids: 新的情感标签 ID 列表，可选，会覆盖原有标签。
-        interest_tag_ids: 新的兴趣标签 ID 列表，可选，会覆盖原有标签。
 
     Returns:
         更新后的歌单实例。
-
-    Raises:
-        BusinessError: 标签不存在时抛出。
     """
     if title is not None:
         playlist.title = title
@@ -242,11 +225,6 @@ async def update_playlist(
         playlist.description = description
     if is_private is not None:
         playlist.is_private = is_private
-
-    if emotion_tag_ids is not None:
-        await _set_playlist_emotion_tags(db, playlist, emotion_tag_ids)
-    if interest_tag_ids is not None:
-        await _set_playlist_interest_tags(db, playlist, interest_tag_ids)
 
     await db.commit()
     await db.refresh(playlist)

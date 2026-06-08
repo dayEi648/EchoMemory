@@ -20,13 +20,12 @@ async def create_playlist(
     title: str = Form(..., min_length=1, max_length=128),
     description: str | None = Form(None, max_length=500),
     is_private: bool = Form(False),
-    emotion_tag_ids: list[int] = Form([]),
-    interest_tag_ids: list[int] = Form([]),
     cover_icon: UploadFile | None = File(None),
 ):
     """创建歌单。
 
     接收 multipart/form-data，可选上传封面图片。
+    标签由系统根据歌曲收藏自动计算，不允许手动编辑。
     """
     user_id = current_user.id
     cover_icon_url: str | None = None
@@ -59,8 +58,6 @@ async def create_playlist(
             description=description,
             is_private=is_private,
             cover_icon_url=cover_icon_url,
-            emotion_tag_ids=emotion_tag_ids or None,
-            interest_tag_ids=interest_tag_ids or None,
         )
     except HTTPException:
         raise
@@ -123,7 +120,7 @@ async def update_playlist(
     playlist_id: int,
     update_in: PlaylistUpdate,
 ):
-    """修改歌单信息（仅文本字段和标签，不含封面替换）。"""
+    """修改歌单信息（仅文本字段，不含封面替换和标签编辑）。"""
     playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
     if playlist is None:
         raise HTTPException(
@@ -143,8 +140,6 @@ async def update_playlist(
             title=update_in.title,
             description=update_in.description,
             is_private=update_in.is_private,
-            emotion_tag_ids=update_in.emotion_tag_ids,
-            interest_tag_ids=update_in.interest_tag_ids,
         )
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)

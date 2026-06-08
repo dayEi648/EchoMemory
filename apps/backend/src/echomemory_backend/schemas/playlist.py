@@ -136,10 +136,8 @@ class PlaylistListOut(BaseModel):
 
 
 class PlaylistUpdate(BaseModel):
-    """修改歌单信息的请求体（不含封面替换）。"""
+    """修改歌单信息的请求体（不含封面替换和标签编辑）。"""
 
     title: str | None = Field(None, min_length=1, max_length=128)
     description: str | None = Field(None, max_length=500)
     is_private: bool | None = None
-    emotion_tag_ids: list[int] | None = None
-    interest_tag_ids: list[int] | None = None

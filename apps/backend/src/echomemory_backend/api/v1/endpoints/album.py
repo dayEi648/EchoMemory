@@ -50,12 +50,11 @@ async def create_album(
     cover_icon: UploadFile = File(...),
     cover: UploadFile = File(...),
     author_ids: list[int] = Form([]),
-    emotion_tag_ids: list[int] = Form([]),
-    interest_tag_ids: list[int] = Form([]),
 ):
     """管理员创建专辑。
 
     封面图片通过上传方式提供，服务端自动上传到 OSS 并生成 URL。
+    标签由系统根据歌曲收藏自动计算，不允许手动编辑。
     """
     # 文件类型校验
     if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
@@ -89,8 +88,6 @@ async def create_album(
             cover_icon_url=cover_icon_url,
             cover_url=cover_url,
             author_ids=author_ids or None,
-            emotion_tag_ids=emotion_tag_ids or None,
-            interest_tag_ids=interest_tag_ids or None,
         )
     except HTTPException:
         raise
@@ -116,7 +113,7 @@ async def admin_update_album(
     album_id: int,
     update_in: AlbumUpdate,
 ):
-    """管理员修改专辑信息（不含文件替换）。"""
+    """管理员修改专辑信息（不含文件替换和标签编辑）。"""
     album = await album_service.get_album_by_id(db, album_id)
     if album is None or album.is_deleted:
         raise HTTPException(
@@ -131,8 +128,6 @@ async def admin_update_album(
             description=update_in.description,
             source=update_in.source,
             author_ids=update_in.author_ids,
-            emotion_tag_ids=update_in.emotion_tag_ids,
-            interest_tag_ids=update_in.interest_tag_ids,
         )
     except BusinessError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail)

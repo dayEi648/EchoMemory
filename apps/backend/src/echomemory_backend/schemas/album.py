@@ -146,16 +146,12 @@ class AlbumCreate(BaseModel):
     description: str | None = Field(None, max_length=500)
     source: str | None = Field(None, max_length=50)
     author_ids: list[int] | None = None
-    emotion_tag_ids: list[int] | None = None
-    interest_tag_ids: list[int] | None = None
 
 
 class AlbumUpdate(BaseModel):
-    """管理员修改专辑信息的请求体（不含文件）。"""
+    """管理员修改专辑信息的请求体（不含文件和标签编辑）。"""
 
     title: str | None = Field(None, min_length=1, max_length=128)
     description: str | None = Field(None, max_length=500)
     source: str | None = Field(None, max_length=50)
     author_ids: list[int] | None = None
-    emotion_tag_ids: list[int] | None = None
-    interest_tag_ids: list[int] | None = None
