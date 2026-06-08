@@ -75,13 +75,14 @@ async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
-async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str) -> User:
+async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str, avatar_url: str | None = None) -> User:
     """在验证唯一性约束后创建新用户。
 
     Args:
         db: SQLAlchemy AsyncSession。
         user_in: 用户创建 Schema。
         password_hash: 已哈希的密码字符串。
+        avatar_url: 可选的头像 URL。
 
     Raises:
         BusinessError: 用户名、邮箱或手机号已存在时抛出。
@@ -103,6 +104,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str)
         birth=user_in.birth,
         bio=user_in.bio,
         city_id=user_in.city_id,
+        avatar_url=avatar_url,
     )
     db.add(user)
     try:
@@ -115,7 +117,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str)
 
 
 async def update_user_profile(
-    db: AsyncSession, current_user: User, user_in: UserUpdate
+    db: AsyncSession, current_user: User, user_in: UserUpdate, avatar_url: str | None = None
 ) -> User:
     """更新当前用户的个人资料。
 
@@ -123,6 +125,7 @@ async def update_user_profile(
         db: SQLAlchemy AsyncSession。
         current_user: 待更新的用户。
         user_in: 更新内容。
+        avatar_url: 可选的新头像 URL。
 
     Raises:
         BusinessError: 新邮箱或手机号已被占用时抛出。
@@ -147,6 +150,8 @@ async def update_user_profile(
         current_user.bio = user_in.bio
     if user_in.city_id is not None:
         current_user.city_id = user_in.city_id
+    if avatar_url is not None:
+        current_user.avatar_url = avatar_url
 
     try:
         await db.commit()
@@ -253,23 +258,6 @@ async def get_followers(
         .offset(offset)
     )
     return list((await db.execute(stmt)).scalars().all())
-
-
-async def update_user_avatar(db: AsyncSession, user: User, avatar_url: str) -> User:
-    """更新用户头像 URL。
-
-    Args:
-        db: SQLAlchemy AsyncSession。
-        user: 待更新的用户。
-        avatar_url: OSS 返回的新头像 URL。
-
-    Returns:
-        更新后的用户实例。
-    """
-    user.avatar_url = avatar_url
-    await db.commit()
-    await db.refresh(user)
-    return user
 
 
 async def search_users(

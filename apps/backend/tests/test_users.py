@@ -11,7 +11,6 @@ from echomemory_backend.models.user import User, UserFollow
 
 BASE = "/api/v1/users"
 ME_URL = f"{BASE}/me"
-AVATAR_URL = f"{BASE}/me/avatar"
 SEARCH_URL = f"{BASE}/"
 FOLLOW_URL = f"{BASE}/follow"
 UNFOLLOW_URL = f"{BASE}/unfollow"
@@ -52,7 +51,7 @@ class TestUpdateMe:
         resp = client.patch(
             ME_URL,
             headers=_auth_header(user),
-            json={"nickname": "NewName"},
+            data={"nickname": "NewName"},
         )
         assert resp.status_code == 200
         assert resp.json()["nickname"] == "NewName"
@@ -63,13 +62,44 @@ class TestUpdateMe:
         resp = client.patch(
             ME_URL,
             headers=_auth_header(user),
-            json={"email": "taken@example.com"},
+            data={"email": "taken@example.com"},
         )
         assert resp.status_code == 409
 
     async def test_update_unauthorized(self, client: TestClient):
-        resp = client.patch(ME_URL, json={"nickname": "x"})
+        resp = client.patch(ME_URL, data={"nickname": "x"})
         assert resp.status_code == 401
+
+    async def test_update_avatar(self, client: TestClient, db_session: AsyncSession, monkeypatch):
+        async def fake_upload(*args, **kwargs):
+            return "https://fake-oss.example.com/avatars/updated.jpg"
+
+        monkeypatch.setattr(
+            "echomemory_backend.api.v1.endpoints.users.oss_client.upload_image_to_oss",
+            fake_upload,
+        )
+
+        user = await _create_user(db_session, "avatar_update_user")
+        resp = client.patch(
+            ME_URL,
+            headers=_auth_header(user),
+            data={"nickname": "NewName"},
+            files={"avatar": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["nickname"] == "NewName"
+        assert data["avatar_url"] == "https://fake-oss.example.com/avatars/updated.jpg"
+
+    async def test_update_invalid_avatar_type(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user(db_session, "bad_avatar_update")
+        resp = client.patch(
+            ME_URL,
+            headers=_auth_header(user),
+            data={"nickname": "NewName"},
+            files={"avatar": ("readme.txt", b"not an image", "text/plain")},
+        )
+        assert resp.status_code == 422
 
 
 class TestGetUser:
@@ -234,37 +264,4 @@ class TestAdmin:
         assert data["safety_score"] == 5
 
 
-class TestUploadAvatar:
-    async def test_upload_avatar_success(self, client: TestClient, db_session: AsyncSession, monkeypatch):
-        async def fake_upload(*args, **kwargs):
-            return "https://fake-oss.example.com/avatars/1_test.jpg"
 
-        monkeypatch.setattr(
-            "echomemory_backend.api.v1.endpoints.users.upload_image_to_oss", fake_upload
-        )
-
-        user = await _create_user(db_session, "avatar_user")
-        resp = client.post(
-            AVATAR_URL,
-            headers=_auth_header(user),
-            files={"file": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["avatar_url"] == "https://fake-oss.example.com/avatars/1_test.jpg"
-
-    async def test_upload_avatar_invalid_file_type(self, client: TestClient, db_session: AsyncSession):
-        user = await _create_user(db_session, "bad_avatar")
-        resp = client.post(
-            AVATAR_URL,
-            headers=_auth_header(user),
-            files={"file": ("readme.txt", b"not an image", "text/plain")},
-        )
-        assert resp.status_code == 422
-
-    async def test_upload_avatar_unauthorized(self, client: TestClient):
-        resp = client.post(
-            AVATAR_URL,
-            files={"file": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
-        )
-        assert resp.status_code == 401

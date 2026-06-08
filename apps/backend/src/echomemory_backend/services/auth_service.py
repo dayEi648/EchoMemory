@@ -28,18 +28,19 @@ async def _issue_tokens(user_id: int) -> Token:
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
-async def register_user(db: AsyncSession, user_in: UserCreate) -> Token:
+async def register_user(db: AsyncSession, user_in: UserCreate, avatar_url: str | None = None) -> Token:
     """注册新用户并返回初始 token 对。
 
     Args:
         db: SQLAlchemy AsyncSession。
         user_in: 用户创建 Schema。
+        avatar_url: 可选的头像 URL。
 
     Raises:
         BusinessError: 唯一性约束冲突时抛出。
     """
     password_hash = get_password_hash(user_in.password)
-    user = await create_user(db, user_in, password_hash)
+    user = await create_user(db, user_in, password_hash, avatar_url)
     return await _issue_tokens(user.id)
 
 

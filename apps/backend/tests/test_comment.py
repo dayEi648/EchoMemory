@@ -343,10 +343,7 @@ class TestListComments:
         await _create_comment_directly(db_session, user.id, "Comment A", music_id=music.id)
         await _create_comment_directly(db_session, user.id, "Comment B", music_id=music.id)
 
-        resp = client.get(
-            f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
-        )
+        resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 2
@@ -362,10 +359,7 @@ class TestListComments:
             db_session, user.id, "Reply", music_id=music.id, parent_id=root.id, root_id=root.id
         )
 
-        resp = client.get(
-            f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
-        )
+        resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
@@ -379,10 +373,7 @@ class TestListComments:
             db_session, user.id, "Deleted", music_id=music.id, is_deleted=True
         )
 
-        resp = client.get(
-            f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
-        )
+        resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
@@ -392,10 +383,7 @@ class TestListComments:
         user = await _create_user(db_session, "list_empty_user")
         music = await _create_music_directly(db_session)
 
-        resp = client.get(
-            f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
-        )
+        resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -407,7 +395,6 @@ class TestListComments:
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
@@ -415,7 +402,6 @@ class TestListComments:
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
@@ -423,7 +409,6 @@ class TestListComments:
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
-            headers=_auth_header(user),
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
@@ -433,7 +418,8 @@ class TestListComments:
         music = await _create_music_directly(db_session)
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
-        assert resp.status_code == 401
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 # ============================================================================

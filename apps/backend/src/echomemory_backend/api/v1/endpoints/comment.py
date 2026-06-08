@@ -31,13 +31,12 @@ async def create_comment(
 @router.get("/{target_type}/{target_id}", response_model=list[CommentOut])
 async def list_comments(
     db: SessionDep,
-    current_user: ActiveUser,
     target_type: str,
     target_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。"""
+    """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。公开接口，无需登录。"""
     try:
         return await comment_service.list_comments(
             db, target_type=target_type, target_id=target_id, limit=limit, offset=offset

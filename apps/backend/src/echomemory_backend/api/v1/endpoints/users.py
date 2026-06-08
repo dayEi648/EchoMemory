@@ -1,8 +1,10 @@
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
+from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
-from echomemory_backend.core.oss_client import upload_image_to_oss
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
     FollowCreate,
@@ -24,53 +26,72 @@ from echomemory_backend.services import user_tag_service
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+def _parse_user_update_form(
+    nickname: str | None = Form(None, min_length=1, max_length=32),
+    email: str | None = Form(None),
+    phone: str | None = Form(None, max_length=20),
+    gender: int | None = Form(None, ge=0, le=2),
+    birth: str | None = Form(None),
+    bio: str | None = Form(None),
+    city_id: int | None = Form(None),
+) -> UserUpdate:
+    """将 multipart form 字段解析为 UserUpdate Schema。"""
+    data = {}
+    if nickname is not None:
+        data["nickname"] = nickname
+    if email is not None:
+        data["email"] = email
+    if phone is not None:
+        data["phone"] = phone
+    if gender is not None:
+        data["gender"] = gender
+    if birth is not None:
+        data["birth"] = birth
+    if bio is not None:
+        data["bio"] = bio
+    if city_id is not None:
+        data["city_id"] = city_id
+    return UserUpdate(**data)
+
+
 @router.patch("/me", response_model=UserMeOut)
 async def update_me(
-    db: SessionDep, current_user: ActiveUser, user_in: UserUpdate
-) -> User:
-    """更新当前用户自己的个人资料。"""
-    try:
-        return await user_service.update_user_profile(db, current_user, user_in)
-    except BusinessError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-
-
-@router.post("/me/avatar", response_model=UserMeOut)
-async def upload_avatar(
     db: SessionDep,
     current_user: ActiveUser,
-    file: UploadFile = File(...),
+    user_in: Annotated[UserUpdate, Depends(_parse_user_update_form)],
+    avatar: UploadFile | None = File(None),
 ) -> User:
-    """上传新的头像图片。
-
-    图片将被压缩至 ≤ 2 MB 后上传到 OSS。
-    返回的 URL 会持久化保存为用户头像。
-    """
-    # 校验文件类型
-    if file.content_type is None or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Only image files are allowed",
-        )
+    """更新当前用户自己的个人资料。可选上传新头像图片。"""
+    avatar_url: str | None = None
+    if avatar is not None:
+        if avatar.content_type is None or not avatar.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Avatar must be an image file",
+            )
+        try:
+            avatar_url = await oss_client.upload_image_to_oss(
+                avatar.file,
+                folder=settings.oss_avatar_prefix,
+                filename_prefix=str(current_user.id),
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(exc),
+            ) from exc
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
 
     try:
-        avatar_url = await upload_image_to_oss(
-            file.file,
-            folder=settings.oss_avatar_prefix,
-            filename_prefix=str(current_user.id),
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(exc),
-        ) from exc
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        ) from exc
-
-    return await user_service.update_user_avatar(db, current_user, avatar_url)
+        return await user_service.update_user_profile(db, current_user, user_in, avatar_url)
+    except BusinessError as exc:
+        if avatar_url:
+            await oss_client.delete_object_by_url(avatar_url)
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.get("/me/emotion-tags", response_model=list[UserTagOut])

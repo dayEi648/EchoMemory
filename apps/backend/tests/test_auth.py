@@ -31,7 +31,7 @@ class TestRegister:
     async def test_register_success(self, client: TestClient):
         resp = client.post(
             REGISTER_URL,
-            json={"username": "alice", "password": "secret123", "nickname": "Alice"},
+            data={"username": "alice", "password": "secret123", "nickname": "Alice"},
         )
         assert resp.status_code == 201
         data = resp.json()
@@ -55,18 +55,18 @@ class TestRegister:
     async def test_register_duplicate_username(self, client: TestClient):
         client.post(
             REGISTER_URL,
-            json={"username": "bob", "password": "secret123", "nickname": "Bob"},
+            data={"username": "bob", "password": "secret123", "nickname": "Bob"},
         )
         resp = client.post(
             REGISTER_URL,
-            json={"username": "bob", "password": "secret123", "nickname": "Bob2"},
+            data={"username": "bob", "password": "secret123", "nickname": "Bob2"},
         )
         assert resp.status_code == 409
 
     async def test_register_duplicate_email(self, client: TestClient):
         client.post(
             REGISTER_URL,
-            json={
+            data={
                 "username": "carol",
                 "password": "secret123",
                 "nickname": "Carol",
@@ -75,7 +75,7 @@ class TestRegister:
         )
         resp = client.post(
             REGISTER_URL,
-            json={
+            data={
                 "username": "carol2",
                 "password": "secret123",
                 "nickname": "Carol2",
@@ -87,7 +87,7 @@ class TestRegister:
     async def test_register_validation_short_password(self, client: TestClient):
         resp = client.post(
             REGISTER_URL,
-            json={"username": "dave", "password": "123", "nickname": "Dave"},
+            data={"username": "dave", "password": "123", "nickname": "Dave"},
         )
         assert resp.status_code == 422
 
