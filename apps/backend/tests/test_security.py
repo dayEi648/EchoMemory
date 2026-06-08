@@ -30,16 +30,17 @@ class TestPasswordHashing:
 
 class TestAccessToken:
     def test_create_and_decode_success(self):
-        token = create_access_token(subject=42)
+        token = create_access_token(subject=42, version=3)
         payload = decode_access_token(token)
         assert payload is not None
         assert payload["sub"] == "42"
         assert payload["type"] == "access"
+        assert payload["ver"] == 3
 
     async def test_decode_expired_token_returns_none(self):
         from datetime import timedelta
 
-        token = create_access_token(subject=1, expires_delta=timedelta(seconds=-1))
+        token = create_access_token(subject=1, version=0, expires_delta=timedelta(seconds=-1))
         await asyncio.sleep(0.1)
         payload = decode_access_token(token)
         assert payload is None

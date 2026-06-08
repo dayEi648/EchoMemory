@@ -126,7 +126,7 @@ class TestLogin:
 class TestRefresh:
     async def test_refresh_success(self, client: TestClient, db_session: AsyncSession):
         user = await _create_user_directly(db_session, username="refresh_user", password="secret")
-        await rc.store_refresh_token("valid_rt", user.id)
+        await rc.store_refresh_token("valid_rt", user.id, version=0)
 
         resp = client.post(REFRESH_URL, json={"refresh_token": "valid_rt"})
         assert resp.status_code == 200
@@ -141,14 +141,22 @@ class TestRefresh:
         resp = client.post(REFRESH_URL, json={"refresh_token": "bogus"})
         assert resp.status_code == 401
 
+    async def test_refresh_version_mismatch(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="refresh_version", password="secret")
+        await rc.store_refresh_token("old_rt", user.id, version=0)
+        await rc.increment_user_token_version(user.id)
+
+        resp = client.post(REFRESH_URL, json={"refresh_token": "old_rt"})
+        assert resp.status_code == 401
+
 
 class TestLogout:
     async def test_logout_success(self, client: TestClient, db_session: AsyncSession):
         from echomemory_backend.core.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_user", password="secret")
-        await rc.store_refresh_token("logout_rt", user.id)
-        token = create_access_token(subject=user.id)
+        await rc.store_refresh_token("logout_rt", user.id, version=0)
+        token = create_access_token(subject=user.id, version=0)
 
         resp = client.post(
             LOGOUT_URL,
@@ -159,6 +167,28 @@ class TestLogout:
 
         assert await rc.get_refresh_token_user_id("logout_rt") is None
         assert await rc.is_access_token_blacklisted(token) is True
+        assert await rc.is_refresh_token_blacklisted("logout_rt") is True
+
+    async def test_logout_increments_version(self, client: TestClient, db_session: AsyncSession):
+        from echomemory_backend.core.security import create_access_token
+
+        user = await _create_user_directly(db_session, username="logout_version", password="secret")
+        await rc.store_refresh_token("logout_rt2", user.id, version=0)
+        token = create_access_token(subject=user.id, version=0)
+
+        resp = client.post(
+            LOGOUT_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"refresh_token": "logout_rt2"},
+        )
+        assert resp.status_code == 204
+
+        # version 已递增，旧 token 失效
+        me_resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
+        assert me_resp.status_code == 401
+
+        refresh_resp = client.post(REFRESH_URL, json={"refresh_token": "logout_rt2"})
+        assert refresh_resp.status_code == 401
 
 
 class TestGetMe:
@@ -166,7 +196,7 @@ class TestGetMe:
         user = await _create_user_directly(db_session, username="me_user", password="secret")
         from echomemory_backend.core.security import create_access_token
 
-        token = create_access_token(subject=user.id)
+        token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         data = resp.json()
@@ -186,7 +216,7 @@ class TestGetMe:
         await db_session.commit()
         from echomemory_backend.core.security import create_access_token
 
-        token = create_access_token(subject=user.id)
+        token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
 
@@ -194,7 +224,17 @@ class TestGetMe:
         user = await _create_user_directly(db_session, username="blacklisted", password="secret")
         from echomemory_backend.core.security import create_access_token
 
-        token = create_access_token(subject=user.id)
+        token = create_access_token(subject=user.id, version=0)
         await rc.blacklist_access_token(token)
+        resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401
+
+    async def test_get_me_version_mismatch(self, client: TestClient, db_session: AsyncSession):
+        user = await _create_user_directly(db_session, username="versioned", password="secret")
+        from echomemory_backend.core.security import create_access_token
+
+        # 模拟 version 已被递增（如 logout / ban 后）
+        await rc.increment_user_token_version(user.id)
+        token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401

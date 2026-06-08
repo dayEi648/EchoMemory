@@ -4,7 +4,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import is_access_token_blacklisted
+from echomemory_backend.core.redis_client import (
+    get_user_token_version,
+    is_access_token_blacklisted,
+)
 from echomemory_backend.core.security import decode_access_token
 from echomemory_backend.db.session import AsyncSessionLocal
 from echomemory_backend.models.enums import UserRole, UserStatus
@@ -29,7 +32,7 @@ TokenDep = Annotated[str, Depends(oauth2_scheme)]
 async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     """通过 JWT access token 解析当前用户。
 
-    校验 token 黑名单状态，解码 token，并确认用户存在且未被软删除。
+    校验 token 黑名单状态、token version，解码 token，并确认用户存在且未被软删除。
     """
     if await is_access_token_blacklisted(token):
         raise HTTPException(
@@ -60,6 +63,17 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Token version 校验：若用户 token version 已递增，旧 token 立即失效
+    token_version = payload.get("ver")
+    current_version = await get_user_token_version(user_id_int)
+    if token_version != current_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user = await db.get(User, user_id_int)
     if user is None:
         raise HTTPException(

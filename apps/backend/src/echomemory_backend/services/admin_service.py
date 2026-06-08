@@ -2,6 +2,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.redis_client import increment_user_token_version
 from echomemory_backend.core.utils import parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
@@ -50,6 +51,9 @@ async def update_user_as_admin(
 ) -> User:
     """以管理员身份更新用户信息。
 
+    若修改了影响账户可用性的字段（status、role），会自动递增用户 token version，
+    强制该用户所有已签发 token 失效。
+
     Args:
         db: SQLAlchemy AsyncSession。
         admin: 执行操作的管理员。
@@ -78,10 +82,15 @@ async def update_user_as_admin(
     ):
         raise BusinessError("Cannot promote user to super-admin", 403)
 
+    # 记录是否修改了影响账户可用性的字段
+    should_invalidate_tokens = False
+
     if user_in.role is not None:
         user.role = user_in.role
+        should_invalidate_tokens = True
     if user_in.status is not None:
         user.status = user_in.status
+        should_invalidate_tokens = True
     if user_in.safety_score is not None:
         user.safety_score = user_in.safety_score
     if user_in.is_verified is not None:
@@ -99,11 +108,18 @@ async def update_user_as_admin(
         await db.rollback()
         raise BusinessError("Invalid user state combination", 400)
     await db.refresh(user)
+
+    # 若修改了 status 或 role，强制该用户所有 token 失效
+    if should_invalidate_tokens:
+        await increment_user_token_version(target_user_id)
+
     return user
 
 
 async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: UserBanAction) -> User:
     """封禁用户。
+
+    封禁完成后自动递增用户 token version，强制该用户所有已签发 token 失效。
 
     Args:
         db: SQLAlchemy AsyncSession。
@@ -134,11 +150,17 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
         await db.rollback()
         raise BusinessError("Invalid ban state or duration", 400)
     await db.refresh(user)
+
+    # 封禁后强制该用户所有 token 失效
+    await increment_user_token_version(target_user_id)
+
     return user
 
 
 async def unban_user(db: AsyncSession, admin: User, target_user_id: int) -> User:
     """解封用户。
+
+    解封后不自动恢复旧 token 的有效性（用户需重新登录），因此不递减 version。
 
     Args:
         db: SQLAlchemy AsyncSession。

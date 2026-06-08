@@ -13,22 +13,34 @@ def _patch_redis(fake_redis):
 
 class TestRefreshToken:
     async def test_store_and_get(self):
-        await rc.store_refresh_token("rt_abc", 42)
+        await rc.store_refresh_token("rt_abc", 42, version=3)
         assert await rc.get_refresh_token_user_id("rt_abc") == "42"
+        uid, ver = await rc.get_refresh_token_data("rt_abc")
+        assert uid == 42
+        assert ver == 3
 
     async def test_get_nonexistent_returns_none(self):
         assert await rc.get_refresh_token_user_id("not_exists") is None
+        assert await rc.get_refresh_token_data("not_exists") == (None, None)
 
     async def test_delete_removes_token(self):
-        await rc.store_refresh_token("rt_del", 1)
+        await rc.store_refresh_token("rt_del", 1, version=0)
         await rc.delete_refresh_token("rt_del")
         assert await rc.get_refresh_token_user_id("rt_del") is None
 
     async def test_ttl_expires(self, fake_redis):
-        await rc.store_refresh_token("rt_ttl", 99, ttl_seconds=1)
+        await rc.store_refresh_token("rt_ttl", 99, version=0, ttl_seconds=1)
         assert await rc.get_refresh_token_user_id("rt_ttl") == "99"
         await asyncio.sleep(1.1)
         assert await rc.get_refresh_token_user_id("rt_ttl") is None
+
+    async def test_legacy_format_compat(self):
+        """旧格式纯 user_id 字符串应兼容解析。"""
+        await rc.redis_client.set(f"{rc.REFRESH_PREFIX}:rt_legacy", "123")
+        assert await rc.get_refresh_token_user_id("rt_legacy") == "123"
+        uid, ver = await rc.get_refresh_token_data("rt_legacy")
+        assert uid == 123
+        assert ver is None
 
 
 class TestBlacklist:
@@ -44,6 +56,32 @@ class TestBlacklist:
         assert await rc.is_access_token_blacklisted("at_ttl") is True
         await asyncio.sleep(1.1)
         assert await rc.is_access_token_blacklisted("at_ttl") is False
+
+    async def test_refresh_blacklist(self):
+        await rc.blacklist_refresh_token("rt_banned")
+        assert await rc.is_refresh_token_blacklisted("rt_banned") is True
+        assert await rc.is_refresh_token_blacklisted("rt_clean") is False
+
+
+class TestUserTokenVersion:
+    async def test_get_default_version(self):
+        assert await rc.get_user_token_version(999) == 0
+
+    async def test_increment_and_get(self):
+        v1 = await rc.increment_user_token_version(1)
+        assert v1 == 1
+        assert await rc.get_user_token_version(1) == 1
+
+        v2 = await rc.increment_user_token_version(1)
+        assert v2 == 2
+        assert await rc.get_user_token_version(1) == 2
+
+    async def test_isolated_per_user(self):
+        await rc.increment_user_token_version(10)
+        await rc.increment_user_token_version(10)
+        await rc.increment_user_token_version(20)
+        assert await rc.get_user_token_version(10) == 2
+        assert await rc.get_user_token_version(20) == 1
 
 
 class TestGenerateRefreshToken:

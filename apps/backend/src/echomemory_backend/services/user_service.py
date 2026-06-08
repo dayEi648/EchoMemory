@@ -121,6 +121,9 @@ async def update_user_profile(
 ) -> User:
     """更新当前用户的个人资料。
 
+    注意：若未来支持修改密码，必须在此处调用
+    `increment_user_token_version(current_user.id)` 以强制该用户所有已签发 token 失效。
+
     Args:
         db: SQLAlchemy AsyncSession。
         current_user: 待更新的用户。
