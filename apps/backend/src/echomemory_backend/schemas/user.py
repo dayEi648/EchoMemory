@@ -18,7 +18,7 @@ class UserCreate(UserBase):
     gender: int = Field(default=0, ge=0, le=2)
     birth: date | None = None
     bio: str | None = None
-    city_id: int | None = None
+    city: str | None = None
 
 
 class UserUpdate(BaseModel):
@@ -28,7 +28,7 @@ class UserUpdate(BaseModel):
     gender: int | None = Field(None, ge=0, le=2)
     birth: date | None = None
     bio: str | None = None
-    city_id: int | None = None
+    city: str | None = None
 
 
 class UserAdminUpdate(BaseModel):
@@ -82,7 +82,7 @@ class UserOut(BaseModel):
     role: int
     level: int
     exp: int
-    city_id: int | None = None
+    city: str | None = None
     birth: date | None = None
     bio: str | None = None
     is_verified: bool

@@ -116,7 +116,7 @@ def clean_tables():
     with sync_test_engine.begin() as conn:
         conn.execute(text("""
             TRUNCATE TABLE user_follows, users, musics, music_authors, music_instruments,
-            music_emotion_tags, music_interest_tags, styles, languages, cities,
+            music_emotion_tags, music_interest_tags, styles, languages, 
             instruments, emotion_tags, interest_tags, albums, album_authors, album_musics,
             album_emotion_tags, album_interest_tags, playlists, playlist_musics,
             playlist_emotion_tags, playlist_interest_tags, comments, comment_likes,

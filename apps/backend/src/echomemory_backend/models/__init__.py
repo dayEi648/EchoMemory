@@ -19,7 +19,6 @@ from echomemory_backend.models.comment import (
     CommentLike,
 )
 from echomemory_backend.models.dictionary import (
-    City,
     EmotionTag,
     Instrument,
     InterestTag,
@@ -62,7 +61,6 @@ __all__ = [
     "AlbumEmotionTag",
     "AlbumInterestTag",
     "AlbumMusic",
-    "City",
     "Comment",
     "CommentDislike",
     "CommentLike",

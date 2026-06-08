@@ -90,7 +90,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str,
         gender=user_in.gender,
         birth=user_in.birth,
         bio=user_in.bio,
-        city_id=user_in.city_id,
+        city=user_in.city,
         avatar_url=avatar_url,
     )
     db.add(user)
@@ -138,8 +138,8 @@ async def update_user_profile(
         current_user.birth = user_in.birth
     if user_in.bio is not None:
         current_user.bio = user_in.bio
-    if user_in.city_id is not None:
-        current_user.city_id = user_in.city_id
+    if user_in.city is not None:
+        current_user.city = user_in.city
     if avatar_url is not None:
         current_user.avatar_url = avatar_url
 

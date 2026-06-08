@@ -7,7 +7,6 @@ from echomemory_backend.db.base import Base
 
 if TYPE_CHECKING:
     from echomemory_backend.models.music import Music, MusicInstrument
-    from echomemory_backend.models.user import User
 
 
 class LevelConfig(Base):
@@ -36,15 +35,6 @@ class Style(Base):
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
 
     musics: Mapped[list["Music"]] = relationship("Music", back_populates="style")
-
-
-class City(Base):
-    __tablename__ = "cities"
-
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-
-    users: Mapped[list["User"]] = relationship("User", back_populates="city")
 
 
 class Instrument(Base):

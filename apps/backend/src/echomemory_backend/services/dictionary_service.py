@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.models.album import AlbumEmotionTag, AlbumInterestTag
 from echomemory_backend.models.dictionary import (
-    City,
     EmotionTag,
     Instrument,
     InterestTag,
@@ -26,7 +25,7 @@ from echomemory_backend.core.exceptions import BusinessError
 _MODEL_MAP = {
     "styles": Style,
     "languages": Language,
-    "cities": City,
+
     "instruments": Instrument,
     "emotion_tags": EmotionTag,
     "interest_tags": InterestTag,
@@ -36,7 +35,7 @@ _MODEL_MAP = {
 _REF_CHECKS = {
     "styles": [(Music, "style_id", "音乐")],
     "languages": [(Music, "language_id", "音乐")],
-    "cities": [(User, "city_id", "用户")],
+
     "instruments": [(MusicInstrument, "instrument_id", "音乐")],
     "emotion_tags": [
         (MusicEmotionTag, "emotion_tag_id", "音乐"),

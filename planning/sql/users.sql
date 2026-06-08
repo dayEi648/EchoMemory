@@ -16,7 +16,7 @@ CREATE TABLE users (
     is_deleted    BOOLEAN DEFAULT FALSE NOT NULL,             -- 软删除标记
     exp           INTEGER DEFAULT 0 NOT NULL CONSTRAINT chk_users_exp_nonnegative CHECK (exp >= 0),              -- 经验值，决定等级
     level         SMALLINT DEFAULT 0 NOT NULL CONSTRAINT chk_users_level_nonnegative CHECK (level >= 0),         -- 当前等级，由触发器自动维护
-    city_id       SMALLINT REFERENCES cities(id),             -- 居住地字典 ID
+    city          VARCHAR(50),                                 -- 居住城市
     birth         DATE,                                        -- 出生日期
     bio           TEXT,                                        -- 个人简介
     is_verified   BOOLEAN DEFAULT FALSE NOT NULL,             -- 是否通过专业/官方认证

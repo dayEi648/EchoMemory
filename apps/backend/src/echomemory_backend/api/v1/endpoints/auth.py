@@ -33,7 +33,7 @@ def _parse_user_create_form(
     gender: int = Form(0, ge=0, le=2),
     birth: str | None = Form(None),
     bio: str | None = Form(None),
-    city_id: int | None = Form(None),
+    city: str | None = Form(None),
 ) -> UserCreate:
     """将 multipart form 字段解析为 UserCreate Schema。"""
     data = {
@@ -50,8 +50,8 @@ def _parse_user_create_form(
         data["birth"] = birth
     if bio is not None:
         data["bio"] = bio
-    if city_id is not None:
-        data["city_id"] = city_id
+    if city is not None:
+        data["city"] = city
     return UserCreate(**data)
 
 

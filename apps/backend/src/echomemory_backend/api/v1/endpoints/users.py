@@ -33,7 +33,7 @@ def _parse_user_update_form(
     gender: int | None = Form(None, ge=0, le=2),
     birth: str | None = Form(None),
     bio: str | None = Form(None),
-    city_id: int | None = Form(None),
+    city: str | None = Form(None),
 ) -> UserUpdate:
     """将 multipart form 字段解析为 UserUpdate Schema。"""
     data = {}
@@ -49,8 +49,8 @@ def _parse_user_update_form(
         data["birth"] = birth
     if bio is not None:
         data["bio"] = bio
-    if city_id is not None:
-        data["city_id"] = city_id
+    if city is not None:
+        data["city"] = city
     return UserUpdate(**data)
 
 

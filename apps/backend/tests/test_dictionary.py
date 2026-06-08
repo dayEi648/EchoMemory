@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.security import create_access_token, get_password_hash
-from echomemory_backend.models.dictionary import City, EmotionTag, Instrument, InterestTag, Language, Style
+from echomemory_backend.models.dictionary import EmotionTag, Instrument, InterestTag, Language, Style
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.user import User
@@ -243,7 +243,7 @@ class TestAllDictionaryTypes:
         [
             ("styles", Style),
             ("languages", Language),
-            ("cities", City),
+            
             ("instruments", Instrument),
             ("emotion_tags", EmotionTag),
             ("interest_tags", InterestTag),

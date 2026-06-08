@@ -23,7 +23,6 @@ from echomemory_backend.db.base import Base
 
 if TYPE_CHECKING:
     from echomemory_backend.models.comment import Comment
-    from echomemory_backend.models.dictionary import City
     from echomemory_backend.models.music import Music
     from echomemory_backend.models.play_history import PlayHistory
     from echomemory_backend.models.playlist import Playlist
@@ -46,7 +45,7 @@ class User(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     exp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     level: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
-    city_id: Mapped[int | None] = mapped_column(SmallInteger, ForeignKey("cities.id"))
+    city: Mapped[str | None] = mapped_column(String(50))
     birth: Mapped[date | None] = mapped_column(Date)
     bio: Mapped[str | None] = mapped_column(Text)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -112,7 +111,6 @@ class User(Base):
         ),
     )
 
-    city: Mapped["City | None"] = relationship("City", back_populates="users")
     playlists: Mapped[list["Playlist"]] = relationship("Playlist", back_populates="user")
     comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="user")
     space_posts: Mapped[list["SpacePost"]] = relationship(
