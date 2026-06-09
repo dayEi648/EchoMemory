@@ -224,3 +224,12 @@ __marimo__/
 CLAUDE.md
 error/node_modules/
 apps/frontend/node_modules/
+logs/
+temp/
+
+# Tauri / Rust
+apps/frontend/src-tauri/gen/
+apps/frontend/src-tauri/target/
+
+# Project temporary files
+planning/error/
