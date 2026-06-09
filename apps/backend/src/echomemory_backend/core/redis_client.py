@@ -1,3 +1,5 @@
+"""Redis 客户端模块，提供 refresh token 存取、黑名单管理及用户 token version 操作。"""
+
 import json
 import secrets
 

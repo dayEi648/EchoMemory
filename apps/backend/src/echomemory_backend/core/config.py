@@ -1,3 +1,5 @@
+"""应用配置模块，从环境变量与 .env 文件加载全局设置。"""
+
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

@@ -1,7 +1,16 @@
+"""专辑业务服务模块。
+
+提供专辑的创建、查询、更新、删除及歌曲关联管理等服务功能。
+"""
+
+import logging
+
 from sqlalchemy import delete, desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger(__name__)
 
 from echomemory_backend.models.album import (
     Album,
@@ -10,7 +19,6 @@ from echomemory_backend.models.album import (
     AlbumInterestTag,
     AlbumMusic,
 )
-from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.music import (
     Music,
     MusicEmotionTag,
@@ -18,51 +26,11 @@ from echomemory_backend.models.music import (
 )
 from echomemory_backend.models.user import User
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.dictionary_reference_service import (
+    validate_emotion_tags_exist,
+    validate_interest_tags_exist,
+)
 from echomemory_backend.services.user_service import get_user_by_id
-
-
-async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验情感标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 待校验的情感标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Emotion tags not found: {sorted(missing)}", 404)
-
-
-async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验兴趣标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 待校验的兴趣标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Interest tags not found: {sorted(missing)}", 404)
 
 
 async def _set_album_authors(
@@ -111,7 +79,7 @@ async def _set_album_emotion_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await _validate_emotion_tags_exist(db, tag_ids)
+    await validate_emotion_tags_exist(db, tag_ids)
     await db.execute(
         delete(AlbumEmotionTag).where(AlbumEmotionTag.album_id == album.id)
     )
@@ -135,7 +103,7 @@ async def _set_album_interest_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await _validate_interest_tags_exist(db, tag_ids)
+    await validate_interest_tags_exist(db, tag_ids)
     await db.execute(
         delete(AlbumInterestTag).where(AlbumInterestTag.album_id == album.id)
     )
@@ -213,6 +181,9 @@ async def create_album(
     Raises:
         BusinessError: 作者不存在或数据库约束冲突时抛出。
     """
+    if author_ids and any(i <= 0 for i in author_ids):
+        raise BusinessError("Invalid author ID", 400)
+
     album = Album(
         title=title,
         description=description,
@@ -230,7 +201,8 @@ async def create_album(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise BusinessError(f"Invalid reference in album data: {exc}", 400)
+        logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
+        raise BusinessError("Invalid reference in album data", 400)
     await db.refresh(album)
     return album
 
@@ -382,7 +354,8 @@ async def update_album(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise BusinessError(f"Invalid reference in album data: {exc}", 400)
+        logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
+        raise BusinessError("Invalid reference in album data", 400)
     await db.refresh(album)
     return album
 

@@ -1,7 +1,10 @@
+"""专辑相关 API 端点，提供管理员专辑管理接口与公开查询接口。"""
+
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
     AlbumCreate,
@@ -13,28 +16,6 @@ from echomemory_backend.services import album_service
 from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/albums", tags=["albums"])
-
-
-async def _upload_optional_image(
-    file: UploadFile | None, folder: str, prefix: str
-) -> str | None:
-    """上传可选图片文件到 OSS，失败时抛出 HTTPException。"""
-    if file is None:
-        return None
-    if file.content_type is None or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{prefix} must be an image file",
-        )
-    try:
-        return await oss_client.upload_image_to_oss(
-            file.file, folder=folder, filename_prefix=prefix
-        )
-    except (ValueError, RuntimeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -92,11 +73,11 @@ async def create_album(
         )
     except HTTPException:
         raise
-    except BusinessError as exc:
+    except BusinessError:
         # 业务校验失败时清理已上传 OSS 文件
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        raise
     except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)

@@ -1,3 +1,5 @@
+"""定义项目中使用的枚举类型。"""
+
 from enum import IntEnum
 
 

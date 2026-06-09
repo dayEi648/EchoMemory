@@ -1,4 +1,6 @@
-from sqlalchemy import desc, select
+"""评论业务服务模块，提供评论的创建、查询、删除、点赞/点踩等核心操作。"""
+
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -34,7 +36,7 @@ async def _validate_target_exists(
             raise BusinessError("Target not found", 404)
     elif target_type == "playlist":
         target = await db.get(Playlist, target_id)
-        if target is None:
+        if target is None or target.is_private:
             raise BusinessError("Target not found", 404)
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
@@ -146,18 +148,22 @@ async def create_comment(
     db.add(comment)
     await db.flush()
 
-    # 维护目标实体或父评论的计数
+    # 维护目标实体或父评论的计数（原子 UPDATE）
     if parent_id is None:
         target_cls = {"music": Music, "playlist": Playlist, "space_post": SpacePost}[
             target_type
         ]
-        target = await db.get(target_cls, target_id)
-        if target is not None:
-            target.comment_count += 1
+        await db.execute(
+            update(target_cls)
+            .where(target_cls.id == target_id)
+            .values(comment_count=target_cls.comment_count + 1)
+        )
     else:
-        parent = await db.get(Comment, parent_id)
-        if parent is not None:
-            parent.reply_count += 1
+        await db.execute(
+            update(Comment)
+            .where(Comment.id == parent_id)
+            .values(reply_count=Comment.reply_count + 1)
+        )
 
     comment_id = comment.id
     await db.commit()
@@ -230,24 +236,35 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
 
     comment.is_deleted = True
 
-    # 维护目标实体或父评论的计数
+    # 维护目标实体或父评论的计数（原子 UPDATE + 防负保护）
     if comment.parent_id is None:
         if comment.music_id is not None:
-            music = await db.get(Music, comment.music_id)
-            if music is not None:
-                music.comment_count -= 1
+            await db.execute(
+                update(Music)
+                .where(Music.id == comment.music_id, Music.comment_count > 0)
+                .values(comment_count=Music.comment_count - 1)
+            )
         elif comment.playlist_id is not None:
-            playlist = await db.get(Playlist, comment.playlist_id)
-            if playlist is not None:
-                playlist.comment_count -= 1
+            await db.execute(
+                update(Playlist)
+                .where(Playlist.id == comment.playlist_id, Playlist.comment_count > 0)
+                .values(comment_count=Playlist.comment_count - 1)
+            )
         elif comment.space_post_id is not None:
-            post = await db.get(SpacePost, comment.space_post_id)
-            if post is not None:
-                post.comment_count -= 1
+            await db.execute(
+                update(SpacePost)
+                .where(
+                    SpacePost.id == comment.space_post_id,
+                    SpacePost.comment_count > 0,
+                )
+                .values(comment_count=SpacePost.comment_count - 1)
+            )
     else:
-        parent = await db.get(Comment, comment.parent_id)
-        if parent is not None:
-            parent.reply_count -= 1
+        await db.execute(
+            update(Comment)
+            .where(Comment.id == comment.parent_id, Comment.reply_count > 0)
+            .values(reply_count=Comment.reply_count - 1)
+        )
 
     await db.commit()
 
@@ -275,7 +292,11 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
         return
 
     db.add(CommentLike(comment_id=comment_id, user_id=user_id))
-    comment.like_count += 1
+    await db.execute(
+        update(Comment)
+        .where(Comment.id == comment_id)
+        .values(like_count=Comment.like_count + 1)
+    )
     await db.commit()
 
 
@@ -292,10 +313,12 @@ async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
     """
     existing = await db.get(CommentLike, (comment_id, user_id))
     if existing is not None:
-        comment = await db.get(Comment, comment_id)
-        if comment is not None:
-            comment.like_count -= 1
         await db.delete(existing)
+        await db.execute(
+            update(Comment)
+            .where(Comment.id == comment_id, Comment.like_count > 0)
+            .values(like_count=Comment.like_count - 1)
+        )
         await db.commit()
 
 
@@ -322,7 +345,11 @@ async def dislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> No
         return
 
     db.add(CommentDislike(comment_id=comment_id, user_id=user_id))
-    comment.dislike_count += 1
+    await db.execute(
+        update(Comment)
+        .where(Comment.id == comment_id)
+        .values(dislike_count=Comment.dislike_count + 1)
+    )
     await db.commit()
 
 
@@ -339,8 +366,10 @@ async def undislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> 
     """
     existing = await db.get(CommentDislike, (comment_id, user_id))
     if existing is not None:
-        comment = await db.get(Comment, comment_id)
-        if comment is not None:
-            comment.dislike_count -= 1
         await db.delete(existing)
+        await db.execute(
+            update(Comment)
+            .where(Comment.id == comment_id, Comment.dislike_count > 0)
+            .values(dislike_count=Comment.dislike_count - 1)
+        )
         await db.commit()

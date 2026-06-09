@@ -1,3 +1,5 @@
+"""API 依赖注入模块，提供数据库会话、用户认证与权限校验的 FastAPI 依赖。"""
+
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -26,7 +28,10 @@ async def get_db() -> AsyncSession:
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
+"""数据库会话依赖类型，用于在路由中注入异步 SQLAlchemy Session。"""
+
 TokenDep = Annotated[str, Depends(oauth2_scheme)]
+"""JWT Token 依赖类型，用于从请求中提取 OAuth2 Bearer Token。"""
 
 
 async def get_current_user(db: SessionDep, token: TokenDep) -> User:
@@ -91,6 +96,7 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+"""当前已认证用户依赖类型，自动校验 token 并注入用户对象。"""
 
 
 async def get_current_active_user(current_user: CurrentUser) -> User:
@@ -104,6 +110,7 @@ async def get_current_active_user(current_user: CurrentUser) -> User:
 
 
 ActiveUser = Annotated[User, Depends(get_current_active_user)]
+"""当前活跃用户依赖类型，确保用户账号未被封禁。"""
 
 
 async def require_admin(current_user: ActiveUser) -> User:
@@ -117,3 +124,4 @@ async def require_admin(current_user: ActiveUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+"""管理员用户依赖类型，要求用户具有 admin 或 super-admin 权限。"""

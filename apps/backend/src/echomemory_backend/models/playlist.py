@@ -1,3 +1,5 @@
+"""定义歌单相关的数据库 ORM 模型。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
 
 
 class Playlist(Base):
+    """歌单模型，表示用户创建的音乐播放列表。"""
+
     __tablename__ = "playlists"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -90,6 +94,8 @@ class Playlist(Base):
 
 
 class PlaylistMusic(Base):
+    """歌单-音乐关联模型，记录歌单中包含的音乐及其顺序。"""
+
     __tablename__ = "playlist_musics"
 
     playlist_id: Mapped[int] = mapped_column(
@@ -115,6 +121,8 @@ class PlaylistMusic(Base):
 
 
 class PlaylistEmotionTag(Base):
+    """歌单-情感标签关联模型，记录歌单关联的情感标签。"""
+
     __tablename__ = "playlist_emotion_tags"
 
     playlist_id: Mapped[int] = mapped_column(
@@ -134,6 +142,8 @@ class PlaylistEmotionTag(Base):
 
 
 class PlaylistInterestTag(Base):
+    """歌单-兴趣标签关联模型，记录歌单关联的兴趣标签。"""
+
     __tablename__ = "playlist_interest_tags"
 
     playlist_id: Mapped[int] = mapped_column(

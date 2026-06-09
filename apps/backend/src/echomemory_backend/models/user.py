@@ -1,3 +1,5 @@
+"""定义用户相关的数据库模型，包括用户基本信息与关注关系。"""
+
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 
 
 class User(Base):
+    """用户数据模型，存储平台用户的基本信息、状态及关联关系。"""
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -128,6 +131,8 @@ class User(Base):
 
 
 class UserFollow(Base):
+    """用户关注关系数据模型，记录用户之间的关注行为。"""
+
     __tablename__ = "user_follows"
 
     follower_id: Mapped[int] = mapped_column(

@@ -1,3 +1,5 @@
+"""用户标签服务模块，负责根据听歌历史与歌单标签重新计算并管理用户的情绪/兴趣标签。"""
+
 from collections import Counter
 
 from sqlalchemy import delete, desc, select
@@ -29,7 +31,9 @@ def _top_tag_ids_with_tie(counter: Counter, min_rank: int = 5) -> list[int]:
     return [tag_id for tag_id, count in sorted_items if count >= threshold]
 
 
-async def recalculate_user_tags(db: AsyncSession, user_id: int) -> None:
+async def recalculate_user_tags(
+    db: AsyncSession, user_id: int, *, commit: bool = True
+) -> None:
     """根据用户听歌历史和歌单标签，重新计算并覆盖写入用户的情绪/兴趣标签。
 
     情绪标签与兴趣标签独立计算。各自合并听歌历史中音乐的标签与该用户所有
@@ -39,6 +43,8 @@ async def recalculate_user_tags(db: AsyncSession, user_id: int) -> None:
     Args:
         db: SQLAlchemy 异步 Session。
         user_id: 要重新计算标签的用户主键。
+        commit: 是否在计算完成后自动提交事务，默认 True。
+            若由外部事务统一控制，可传入 False。
     """
     # ------------------------------------------------------------------
     # 情绪标签
@@ -91,7 +97,8 @@ async def recalculate_user_tags(db: AsyncSession, user_id: int) -> None:
     for tag_id in top_interest_ids:
         db.add(UserInterestTag(user_id=user_id, interest_tag_id=tag_id))
 
-    await db.commit()
+    if commit:
+        await db.commit()
 
 
 async def list_user_emotion_tags(db: AsyncSession, user_id: int) -> list[dict]:

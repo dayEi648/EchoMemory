@@ -1,3 +1,5 @@
+"""音乐相关 API 端点，提供管理员导入/修改/上下架及公开搜索/列表/详情查询接口。"""
+
 import os
 import uuid
 from datetime import date
@@ -6,6 +8,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, sta
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate
@@ -14,32 +17,15 @@ from echomemory_backend.services import music_service
 router = APIRouter(prefix="/music", tags=["music"])
 
 
+_ALLOWED_FILE_EXTS = {"mp3", "flac", "wav", "ogg", "aac", "lrc", "jpg", "jpeg", "png"}
+
+
 def _safe_ext(filename: str | None, default: str) -> str:
-    """从上传文件名中安全地提取扩展名。"""
+    """从上传文件名中安全地提取扩展名，不在白名单时回退到默认值。"""
     if not filename:
         return default
     ext = os.path.splitext(filename)[1].lstrip(".").lower()
-    return ext if ext else default
-
-
-async def _upload_optional_image(file: UploadFile | None, folder: str, prefix: str) -> str | None:
-    """上传可选图片文件到 OSS，失败时抛出 HTTPException。"""
-    if file is None:
-        return None
-    if file.content_type is None or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"{prefix} must be an image file",
-        )
-    try:
-        return await oss_client.upload_image_to_oss(
-            file.file, folder=folder, filename_prefix=prefix
-        )
-    except (ValueError, RuntimeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-        )
+    return ext if ext in _ALLOWED_FILE_EXTS else default
 
 
 # ---------------------------------------------------------------------------
@@ -55,8 +41,8 @@ async def import_music(
     cover_icon: UploadFile = File(...),
     is_vip: bool = Form(False),
     source: str | None = Form(None, max_length=50),
-    style_id: int | None = Form(None),
-    language_id: int | None = Form(None),
+    style_id: int | None = Form(None, gt=0),
+    language_id: int | None = Form(None, gt=0),
     release_date: str | None = Form(None, description="格式: YYYY-MM-DD"),
     author_ids: list[int] = Form([]),
     instrument_ids: list[int] = Form([]),
@@ -129,11 +115,11 @@ async def import_music(
         )
         uploaded_urls.append(cover_icon_url)
 
-        cover_home_url = await _upload_optional_image(cover_home, "music_covers", "home")
+        cover_home_url = await upload_optional_image(cover_home, "music_covers", "home")
         if cover_home_url:
             uploaded_urls.append(cover_home_url)
 
-        cover_play_url = await _upload_optional_image(cover_play, "music_covers", "play")
+        cover_play_url = await upload_optional_image(cover_play, "music_covers", "play")
         if cover_play_url:
             uploaded_urls.append(cover_play_url)
 
@@ -166,7 +152,8 @@ async def import_music(
             cover_play_url=cover_play_url,
         )
     except HTTPException:
-        # HTTPException 是校验错误，不清理已上传文件（因为没上传或已校验失败）
+        for url in uploaded_urls:
+            await oss_client.delete_object_by_url(url)
         raise
     except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         # 任何其他异常（OSS 上传失败或数据库失败），清理已上传的 OSS 文件

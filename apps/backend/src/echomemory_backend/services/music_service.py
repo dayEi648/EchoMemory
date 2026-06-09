@@ -1,3 +1,6 @@
+"""提供音乐记录的创建、查询、更新及关联关系管理服务。"""
+
+import logging
 from datetime import date
 
 from sqlalchemy import delete, desc, select
@@ -5,8 +8,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+logger = logging.getLogger(__name__)
+
 from echomemory_backend.models.album import AlbumMusic
-from echomemory_backend.models.dictionary import EmotionTag, Instrument, InterestTag
 from echomemory_backend.models.music import (
     Music,
     MusicAuthor,
@@ -16,6 +20,11 @@ from echomemory_backend.models.music import (
 )
 from echomemory_backend.models.playlist import PlaylistMusic
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.dictionary_reference_service import (
+    validate_emotion_tags_exist,
+    validate_instruments_exist,
+    validate_interest_tags_exist,
+)
 from echomemory_backend.services.user_service import get_user_by_id
 
 
@@ -47,72 +56,6 @@ async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[in
         )
 
 
-async def _validate_instruments_exist(db: AsyncSession, instrument_ids: list[int]) -> None:
-    """批量校验乐器 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        instrument_ids: 要校验的乐器 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
-    """
-    if not instrument_ids:
-        return
-    stmt = select(Instrument.id).where(Instrument.id.in_(instrument_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(instrument_ids) - existing
-    if missing:
-        raise BusinessError(f"Instruments not found: {sorted(missing)}", 404)
-
-
-async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验情绪标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 要校验的情绪标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的情绪标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Emotion tags not found: {sorted(missing)}", 404)
-
-
-async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验兴趣标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 要校验的兴趣标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的兴趣标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Interest tags not found: {sorted(missing)}", 404)
-
-
 async def _set_music_instruments(
     db: AsyncSession, music: Music, instrument_ids: list[int]
 ) -> None:
@@ -129,7 +72,7 @@ async def _set_music_instruments(
     Raises:
         BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
     """
-    await _validate_instruments_exist(db, instrument_ids)
+    await validate_instruments_exist(db, instrument_ids)
     await db.execute(
         delete(MusicInstrument).where(MusicInstrument.music_id == music.id)
     )
@@ -155,7 +98,7 @@ async def _set_music_emotion_tags(
     Raises:
         BusinessError: 存在不存在的情绪标签 ID 时抛出，状态码 404。
     """
-    await _validate_emotion_tags_exist(db, tag_ids)
+    await validate_emotion_tags_exist(db, tag_ids)
     await db.execute(
         delete(MusicEmotionTag).where(MusicEmotionTag.music_id == music.id)
     )
@@ -179,7 +122,7 @@ async def _set_music_interest_tags(
     Raises:
         BusinessError: 存在不存在的兴趣标签 ID 时抛出，状态码 404。
     """
-    await _validate_interest_tags_exist(db, tag_ids)
+    await validate_interest_tags_exist(db, tag_ids)
     await db.execute(
         delete(MusicInterestTag).where(MusicInterestTag.music_id == music.id)
     )
@@ -213,6 +156,15 @@ async def create_music(
     Raises:
         BusinessError: 作者不存在或数据库约束冲突时抛出。
     """
+    if author_ids and any(i <= 0 for i in author_ids):
+        raise BusinessError("Invalid author ID", 400)
+    if instrument_ids and any(i <= 0 for i in instrument_ids):
+        raise BusinessError("Invalid instrument ID", 400)
+    if emotion_tag_ids and any(i <= 0 for i in emotion_tag_ids):
+        raise BusinessError("Invalid emotion tag ID", 400)
+    if interest_tag_ids and any(i <= 0 for i in interest_tag_ids):
+        raise BusinessError("Invalid interest tag ID", 400)
+
     music = Music(
         title=title,
         is_vip=is_vip,
@@ -242,7 +194,8 @@ async def create_music(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise BusinessError(f"Invalid reference in music data: {exc}", 400)
+        logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
+        raise BusinessError("Invalid reference in music data", 400)
     await db.refresh(music)
     return music
 
@@ -452,7 +405,8 @@ async def update_music(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise BusinessError(f"Invalid reference in music data: {exc}", 400)
+        logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
+        raise BusinessError("Invalid reference in music data", 400)
     await db.refresh(music)
     return music
 

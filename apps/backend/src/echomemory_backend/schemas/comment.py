@@ -1,3 +1,5 @@
+"""评论相关的 Pydantic Schema 定义。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -33,6 +35,14 @@ class CommentOut(BaseModel):
     @field_validator("user", mode="before")
     @classmethod
     def _flatten_user(cls, v):
+        """将 user ORM 对象扁平化为字典。
+
+        Args:
+            v: 用户 ORM 对象或 None。
+
+        Returns:
+            包含用户精简信息的字典，或 None。
+        """
         if v is None:
             return None
         return {

@@ -128,7 +128,10 @@ def mock_oss_uploads(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestAdminCreateAlbum:
+    """测试管理员创建专辑接口。"""
+
     async def test_create_album_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常创建专辑，包含封面上传和基础字段校验。"""
         admin = await _create_user(db_session, "admin_album", role=UserRole.ADMIN.value)
 
         resp = client.post(
@@ -156,7 +159,10 @@ class TestAdminCreateAlbum:
 
 
 class TestPublicGetAlbum:
+    """测试公开获取专辑详情接口。"""
+
     async def test_get_album_detail_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常获取专辑详情，返回 200 并包含专辑标题。"""
         album = await _create_album_directly(
             db_session,
             title="PublicAlbum",
@@ -170,9 +176,12 @@ class TestPublicGetAlbum:
 
 
 class TestAdminSoftDeleteAlbum:
+    """测试管理员软删除专辑接口。"""
+
     async def test_deleted_album_not_publicly_visible(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试软删除后专辑对公众不可见，返回 404。"""
         admin = await _create_user(db_session, "admin_del", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="ToDeleteAlbum")
 
@@ -187,7 +196,10 @@ class TestAdminSoftDeleteAlbum:
 
 
 class TestAdminAddMusicToAlbum:
+    """测试管理员向专辑添加歌曲接口。"""
+
     async def test_add_music_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常将歌曲加入专辑，详情中应包含该歌曲。"""
         admin = await _create_user(db_session, "admin_add_m", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="AlbumWithMusic")
         music = await _create_music_directly(db_session, title="SongInAlbum")
@@ -205,6 +217,7 @@ class TestAdminAddMusicToAlbum:
     async def test_add_music_already_in_another_album(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试将已属于其他专辑的歌曲加入本专辑时返回 409 冲突。"""
         admin = await _create_user(db_session, "admin_conflict", role=UserRole.ADMIN.value)
         album_a = await _create_album_directly(db_session, title="AlbumA")
         album_b = await _create_album_directly(db_session, title="AlbumB")
@@ -218,6 +231,7 @@ class TestAdminAddMusicToAlbum:
         assert resp.status_code == 409
 
     async def test_add_duplicate_music(self, client: TestClient, db_session: AsyncSession):
+        """测试重复向专辑添加同一首歌曲时返回 409 冲突。"""
         admin = await _create_user(db_session, "admin_dup_m", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="AlbumDup")
         music = await _create_music_directly(db_session, title="DupSong")
@@ -230,6 +244,7 @@ class TestAdminAddMusicToAlbum:
         assert resp.status_code == 409
 
     async def test_add_unpublished_music(self, client: TestClient, db_session: AsyncSession):
+        """测试向专辑添加未发布的歌曲时返回 404。"""
         admin = await _create_user(db_session, "admin_unpub_m", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="AlbumUnpub")
         music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
@@ -242,6 +257,8 @@ class TestAdminAddMusicToAlbum:
 
 
 class TestAlbumTagSync:
+    """测试专辑标签同步逻辑（添加/移除歌曲时自动聚合标签）。"""
+
     async def test_add_music_syncs_tags_to_album(
         self, client: TestClient, db_session: AsyncSession
     ):
@@ -353,7 +370,10 @@ class TestAlbumTagSync:
 
 
 class TestAdminRemoveMusicFromAlbum:
+    """测试管理员从专辑移除歌曲接口。"""
+
     async def test_remove_music_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常从专辑移除歌曲，详情中不再包含该歌曲。"""
         admin = await _create_user(db_session, "admin_remove_m", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="AlbumRemove")
         music = await _create_music_directly(db_session, title="SongToRemove")
@@ -370,6 +390,7 @@ class TestAdminRemoveMusicFromAlbum:
         assert resp.json()["musics"] == []
 
     async def test_remove_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
+        """测试从专辑移除不存在的歌曲时返回 404。"""
         admin = await _create_user(db_session, "admin_remove_nx", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="AlbumRemoveNx")
 
@@ -381,7 +402,10 @@ class TestAdminRemoveMusicFromAlbum:
 
 
 class TestAdminUpdateAlbum:
+    """测试管理员更新专辑信息接口。"""
+
     async def test_update_album_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常更新专辑标题、描述和来源，返回更新后的数据。"""
         admin = await _create_user(db_session, "admin_update_a", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="OldAlbumTitle")
 
@@ -401,6 +425,7 @@ class TestAdminUpdateAlbum:
         assert data["source"] == "UpdatedSource"
 
     async def test_update_nonexistent_album(self, client: TestClient, db_session: AsyncSession):
+        """测试更新不存在的专辑时返回 404。"""
         admin = await _create_user(db_session, "admin_update_nx", role=UserRole.ADMIN.value)
         resp = client.patch(
             f"{ADMIN_BASE_URL}/99999",
@@ -411,7 +436,10 @@ class TestAdminUpdateAlbum:
 
 
 class TestAdminCreateAlbumValidation:
+    """测试管理员创建专辑时的参数校验与权限控制。"""
+
     async def test_create_missing_cover_icon(self, client: TestClient, db_session: AsyncSession):
+        """测试缺少封面图标时创建专辑返回 422 校验错误。"""
         admin = await _create_user(db_session, "admin_no_icon", role=UserRole.ADMIN.value)
 
         resp = client.post(
@@ -425,6 +453,7 @@ class TestAdminCreateAlbumValidation:
         assert resp.status_code == 422
 
     async def test_create_invalid_cover_type(self, client: TestClient, db_session: AsyncSession):
+        """测试上传非图片类型封面时返回 422 校验错误。"""
         admin = await _create_user(db_session, "admin_bad_cover", role=UserRole.ADMIN.value)
 
         resp = client.post(
@@ -439,6 +468,7 @@ class TestAdminCreateAlbumValidation:
         assert resp.status_code == 422
 
     async def test_normal_user_cannot_create(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限创建专辑时返回 403。"""
         user = await _create_user(db_session, "normal_create_a")
 
         resp = client.post(
@@ -454,7 +484,10 @@ class TestAdminCreateAlbumValidation:
 
 
 class TestListAlbums:
+    """测试专辑列表查询接口。"""
+
     async def test_list_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
+        """测试列表自动排除已软删除的专辑。"""
         await _create_album_directly(db_session, title="VisibleAlbum1")
         await _create_album_directly(db_session, title="VisibleAlbum2")
         await _create_album_directly(db_session, title="DeletedAlbum", is_deleted=True)
@@ -468,6 +501,7 @@ class TestListAlbums:
         assert "DeletedAlbum" not in titles
 
     async def test_list_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试专辑列表分页参数生效，返回指定数量结果。"""
         for i in range(5):
             await _create_album_directly(db_session, title=f"PaginatedAlbum{i}")
 
@@ -477,7 +511,10 @@ class TestListAlbums:
 
 
 class TestSearchAlbums:
+    """测试专辑搜索接口。"""
+
     async def test_search_by_title(self, client: TestClient, db_session: AsyncSession):
+        """测试按标题关键词搜索专辑，返回匹配结果。"""
         await _create_album_directly(db_session, title="Amazing Album")
         await _create_album_directly(db_session, title="Boring Album")
 
@@ -488,6 +525,7 @@ class TestSearchAlbums:
         assert data[0]["title"] == "Amazing Album"
 
     async def test_search_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
+        """测试搜索结果自动排除已软删除的专辑。"""
         await _create_album_directly(db_session, title="SearchableAlbum")
         await _create_album_directly(db_session, title="DeletedSearchAlbum", is_deleted=True)
 

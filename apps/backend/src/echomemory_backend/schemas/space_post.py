@@ -1,3 +1,5 @@
+"""空间动态相关的 Pydantic Schema 定义。"""
+
 from datetime import datetime
 from typing import Any
 

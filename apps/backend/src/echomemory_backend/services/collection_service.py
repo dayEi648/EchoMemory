@@ -1,4 +1,6 @@
-from sqlalchemy import desc, select
+"""用户收藏服务模块，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
+
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -62,7 +64,7 @@ async def collect_music(db: AsyncSession, user_id: int, music_id: int) -> UserMu
         BusinessError: 音乐不存在时抛出 404。
     """
     music = await db.get(Music, music_id)
-    if music is None:
+    if music is None or not music.is_published:
         raise BusinessError("Music not found", 404)
 
     existing = await db.get(UserMusicCollection, (user_id, music_id))
@@ -71,6 +73,11 @@ async def collect_music(db: AsyncSession, user_id: int, music_id: int) -> UserMu
 
     collection = UserMusicCollection(user_id=user_id, music_id=music_id)
     db.add(collection)
+    await db.execute(
+        update(Music)
+        .where(Music.id == music_id)
+        .values(collect_count=Music.collect_count + 1)
+    )
     await db.commit()
     return await _get_music_collection_with_relations(db, user_id, music_id)
 
@@ -174,6 +181,11 @@ async def collect_album(db: AsyncSession, user_id: int, album_id: int) -> UserAl
 
     collection = UserAlbumCollection(user_id=user_id, album_id=album_id)
     db.add(collection)
+    await db.execute(
+        update(Album)
+        .where(Album.id == album_id)
+        .values(collect_count=Album.collect_count + 1)
+    )
     await db.commit()
     return await _get_album_collection_with_relations(db, user_id, album_id)
 
@@ -266,7 +278,7 @@ async def collect_playlist(
         BusinessError: 歌单不存在时抛出 404。
     """
     playlist = await db.get(Playlist, playlist_id)
-    if playlist is None:
+    if playlist is None or playlist.is_private:
         raise BusinessError("Playlist not found", 404)
 
     existing = await db.get(UserPlaylistCollection, (user_id, playlist_id))
@@ -275,6 +287,11 @@ async def collect_playlist(
 
     collection = UserPlaylistCollection(user_id=user_id, playlist_id=playlist_id)
     db.add(collection)
+    await db.execute(
+        update(Playlist)
+        .where(Playlist.id == playlist_id)
+        .values(collect_count=Playlist.collect_count + 1)
+    )
     await db.commit()
     return await _get_playlist_collection_with_relations(db, user_id, playlist_id)
 
@@ -369,7 +386,7 @@ async def release_music(db: AsyncSession, user_id: int, music_id: int) -> UserMu
         BusinessError: 音乐不存在时抛出 404。
     """
     music = await db.get(Music, music_id)
-    if music is None:
+    if music is None or not music.is_published:
         raise BusinessError("Music not found", 404)
 
     existing = await db.get(UserMusicRelease, (user_id, music_id))

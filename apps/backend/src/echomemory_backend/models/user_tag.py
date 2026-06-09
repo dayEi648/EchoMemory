@@ -1,3 +1,5 @@
+"""用户与标签的关联模型模块，定义用户情绪标签和用户兴趣标签的多对多关联表。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -12,6 +14,8 @@ if TYPE_CHECKING:
 
 
 class UserEmotionTag(Base):
+    """用户与情绪标签的关联表模型。"""
+
     __tablename__ = "user_emotion_tags"
 
     user_id: Mapped[int] = mapped_column(
@@ -31,6 +35,8 @@ class UserEmotionTag(Base):
 
 
 class UserInterestTag(Base):
+    """用户与兴趣标签的关联表模型。"""
+
     __tablename__ = "user_interest_tags"
 
     user_id: Mapped[int] = mapped_column(

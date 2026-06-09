@@ -1,3 +1,5 @@
+"""音乐模块的 Pydantic Schema 定义，涵盖音乐详情、列表项及更新请求等模型。"""
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -73,6 +75,7 @@ class MusicOut(BaseModel):
     @field_validator("authors", mode="before")
     @classmethod
     def _flatten_authors(cls, v):
+        """将关联模型列表展平为作者输出字典列表。"""
         if not v:
             return []
         return [
@@ -89,6 +92,7 @@ class MusicOut(BaseModel):
     @field_validator("instruments", mode="before")
     @classmethod
     def _flatten_instruments(cls, v):
+        """将关联模型列表展平为乐器输出字典列表。"""
         if not v:
             return []
         return [
@@ -99,6 +103,7 @@ class MusicOut(BaseModel):
     @field_validator("emotion_tags", mode="before")
     @classmethod
     def _flatten_emotion_tags(cls, v):
+        """将关联模型列表展平为情绪标签输出字典列表。"""
         if not v:
             return []
         return [
@@ -109,6 +114,7 @@ class MusicOut(BaseModel):
     @field_validator("interest_tags", mode="before")
     @classmethod
     def _flatten_interest_tags(cls, v):
+        """将关联模型列表展平为兴趣标签输出字典列表。"""
         if not v:
             return []
         return [
@@ -134,6 +140,7 @@ class MusicListOut(BaseModel):
     @field_validator("authors", mode="before")
     @classmethod
     def _flatten_authors(cls, v):
+        """将关联模型列表展平为作者输出字典列表。"""
         if not v:
             return []
         return [

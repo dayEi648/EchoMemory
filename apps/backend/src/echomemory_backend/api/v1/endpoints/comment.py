@@ -1,3 +1,5 @@
+"""评论相关 API 端点，提供评论的增删查及互动（点赞/点踩）功能。"""
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep

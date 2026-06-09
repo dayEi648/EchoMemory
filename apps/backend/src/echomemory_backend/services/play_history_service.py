@@ -1,3 +1,9 @@
+"""播放历史服务层。
+
+提供播放历史记录的创建、查询、删除及清空等核心业务逻辑，
+并在创建播放历史时同步递增音乐、专辑和歌单的播放次数。
+"""
+
 from sqlalchemy import delete, desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -45,6 +51,7 @@ async def create_play_history(
 
     history = PlayHistory(user_id=user_id, music_id=music_id)
     db.add(history)
+    await db.flush()  # 确保播放历史记录对后续查询可见
 
     # 递增音乐播放量
     await db.execute(
@@ -72,13 +79,12 @@ async def create_play_history(
             .values(play_count=Playlist.play_count + 1)
         )
 
-    await db.commit()
-
-    # 自动重新计算用户标签
+    # 自动重新计算用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
-    await recalculate_user_tags(db, user_id)
+    await recalculate_user_tags(db, user_id, commit=False)
 
+    await db.commit()
     await db.refresh(history)
     return history
 

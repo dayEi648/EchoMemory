@@ -1,21 +1,28 @@
+"""空间动态（Space Post）API 路由端点，支持用户发布、查看、点赞、删除动态及管理员硬删除。"""
+
 import os
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
-from echomemory_backend.core.oss_client import delete_object_by_url, upload_image_to_oss
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.core.oss_client import delete_object_by_url
 from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
 
 router = APIRouter(prefix="/space-posts", tags=["space-posts"])
 
 
+_ALLOWED_FILE_EXTS = {"mp3", "flac", "wav", "ogg", "aac", "lrc", "jpg", "jpeg", "png"}
+
+
 def _safe_ext(filename: str | None, default: str) -> str:
+    """从上传文件名中安全地提取扩展名，不在白名单时回退到默认值。"""
     if not filename:
         return default
     ext = os.path.splitext(filename)[1].lstrip(".").lower()
-    return ext if ext else default
+    return ext if ext in _ALLOWED_FILE_EXTS else default
 
 
 # ---------------------------------------------------------------------------
@@ -31,21 +38,22 @@ async def create_space_post(
     files: list[UploadFile] = File([]),
 ):
     """创建空间动态。支持文字 + 可选多图上传。"""
+    if not content and not files:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Content or at least one file is required",
+        )
     uploaded_urls: list[str] = []
     try:
         for file in files:
-            if file.content_type is None or not file.content_type.startswith("image/"):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Invalid file type: {file.content_type}",
-                )
-            url = await upload_image_to_oss(
-                file.file,
+            url = await upload_optional_image(
+                file,
                 folder="space_post_images",
-                filename_prefix=str(current_user.id),
-                ext=_safe_ext(file.filename, "jpg"),
+                prefix=str(current_user.id),
+                detail_name="File",
             )
-            uploaded_urls.append(url)
+            if url:
+                uploaded_urls.append(url)
 
         post = await space_post_service.create_space_post(
             db,
@@ -55,6 +63,8 @@ async def create_space_post(
             image_urls=uploaded_urls,
         )
     except HTTPException:
+        for url in uploaded_urls:
+            await delete_object_by_url(url)
         raise
     except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:

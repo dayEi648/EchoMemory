@@ -46,6 +46,7 @@ def parse_iso8601_duration(value: str | None) -> timedelta | None:
     hours = 0
     minutes = 0
     seconds = 0
+    has_component = False
 
     if "T" in s:
         date_part, time_part = s.split("T", 1)
@@ -57,24 +58,32 @@ def parse_iso8601_duration(value: str | None) -> timedelta | None:
     if date_part:
         import re
 
-        m = re.match(r"(\d+)D", date_part)
+        m = re.fullmatch(r"(\d+)D", date_part)
         if m:
             days = int(m.group(1))
-        elif date_part:
+            has_component = True
+        else:
             raise ValueError(f"Unsupported ISO 8601 duration date part: {date_part}")
 
     # 解析时间部分
     if time_part:
         import re
 
-        m = re.match(r"(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", time_part)
+        m = re.fullmatch(r"(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", time_part)
         if not m:
             raise ValueError(f"Unsupported ISO 8601 duration time part: {time_part}")
         if m.group(1):
             hours = int(m.group(1))
+            has_component = True
         if m.group(2):
             minutes = int(m.group(2))
+            has_component = True
         if m.group(3):
             seconds = int(m.group(3))
+            has_component = True
+
+    # 空 duration（如 "P"、"PT"）视为非法
+    if not has_component:
+        raise ValueError("ISO 8601 duration must contain at least one component")
 
     return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)

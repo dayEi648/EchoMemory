@@ -1,7 +1,13 @@
+"""歌单（Playlist）相关 API 端点。
+
+提供歌单的创建、查询、更新、删除以及歌单内歌曲的增删操作。
+"""
+
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.playlist import PlaylistListOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import playlist_service
@@ -32,24 +38,14 @@ async def create_playlist(
     cover_icon_url: str | None = None
     uploaded_urls: list[str] = []
 
-    if cover_icon is not None:
-        if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Cover icon must be an image file",
-            )
-        try:
-            cover_icon_url = await oss_client.upload_image_to_oss(
-                cover_icon.file,
-                folder="playlist_covers",
-                filename_prefix="icon",
-            )
-            uploaded_urls.append(cover_icon_url)
-        except (ValueError, RuntimeError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            )
+    cover_icon_url = await upload_optional_image(
+        cover_icon,
+        folder="playlist_covers",
+        prefix="icon",
+        detail_name="Cover icon",
+    )
+    if cover_icon_url:
+        uploaded_urls.append(cover_icon_url)
 
     try:
         playlist = await playlist_service.create_playlist(
@@ -62,10 +58,10 @@ async def create_playlist(
         )
     except HTTPException:
         raise
-    except BusinessError as exc:
+    except BusinessError:
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        raise
     except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)

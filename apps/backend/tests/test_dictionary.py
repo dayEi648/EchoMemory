@@ -55,7 +55,10 @@ async def _create_language(db: AsyncSession, name: str) -> Language:
 # ---------------------------------------------------------------------------
 
 class TestListDictionaryItems:
+    """测试字典项列表查询公开接口。"""
+
     async def test_list_styles_with_data(self, client: TestClient, db_session: AsyncSession):
+        """测试正常查询风格列表并返回已有数据。"""
         await _create_style(db_session, "Rock")
         await _create_style(db_session, "Jazz")
         resp = client.get(f"{BASE_URL}/styles")
@@ -66,6 +69,7 @@ class TestListDictionaryItems:
         assert "Jazz" in names
 
     async def test_list_languages(self, client: TestClient, db_session: AsyncSession):
+        """测试正常查询语言列表并返回已有数据。"""
         await _create_language(db_session, "English")
         resp = client.get(f"{BASE_URL}/languages")
         assert resp.status_code == 200
@@ -74,10 +78,12 @@ class TestListDictionaryItems:
         assert "English" in names
 
     async def test_list_unknown_type(self, client: TestClient):
+        """测试查询不存在的字典类型时返回 400。"""
         resp = client.get(f"{BASE_URL}/unknown_type")
         assert resp.status_code == 400
 
     async def test_list_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试字典列表的分页参数生效。"""
         for i in range(5):
             await _create_style(db_session, f"Style{i}")
         resp = client.get(f"{BASE_URL}/styles", params={"limit": 2, "offset": 0})
@@ -86,17 +92,22 @@ class TestListDictionaryItems:
 
 
 class TestGetDictionaryItem:
+    """测试字典项详情查询公开接口。"""
+
     async def test_get_existing_item(self, client: TestClient, db_session: AsyncSession):
+        """测试正常获取存在的字典项详情。"""
         style = await _create_style(db_session, "Blues")
         resp = client.get(f"{BASE_URL}/styles/{style.id}")
         assert resp.status_code == 200
         assert resp.json()["name"] == "Blues"
 
     async def test_get_nonexistent_item(self, client: TestClient):
+        """测试获取不存在的字典项时返回 404。"""
         resp = client.get(f"{BASE_URL}/styles/999")
         assert resp.status_code == 404
 
     async def test_get_unknown_type(self, client: TestClient):
+        """测试获取未知字典类型详情时返回 400。"""
         resp = client.get(f"{BASE_URL}/unknown_type/1")
         assert resp.status_code == 400
 
@@ -106,7 +117,10 @@ class TestGetDictionaryItem:
 # ---------------------------------------------------------------------------
 
 class TestCreateDictionaryItem:
+    """测试字典项创建管理员接口。"""
+
     async def test_admin_create_style(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员正常创建风格字典项。"""
         admin = await _create_user(db_session, "admin_create", role=UserRole.ADMIN.value)
         resp = client.post(
             f"{BASE_URL}/styles",
@@ -119,6 +133,7 @@ class TestCreateDictionaryItem:
         assert "id" in data
 
     async def test_normal_user_cannot_create(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限创建字典项时返回 403。"""
         user = await _create_user(db_session, "normal_create")
         resp = client.post(
             f"{BASE_URL}/styles",
@@ -128,6 +143,7 @@ class TestCreateDictionaryItem:
         assert resp.status_code == 403
 
     async def test_create_duplicate_name(self, client: TestClient, db_session: AsyncSession):
+        """测试创建同名字典项时返回 409。"""
         admin = await _create_user(db_session, "admin_dup", role=UserRole.ADMIN.value)
         await _create_style(db_session, "Classical")
         resp = client.post(
@@ -138,6 +154,7 @@ class TestCreateDictionaryItem:
         assert resp.status_code == 409
 
     async def test_create_invalid_type(self, client: TestClient, db_session: AsyncSession):
+        """测试创建未知字典类型时返回 400。"""
         admin = await _create_user(db_session, "admin_inv", role=UserRole.ADMIN.value)
         resp = client.post(
             f"{BASE_URL}/bad_type",
@@ -148,7 +165,10 @@ class TestCreateDictionaryItem:
 
 
 class TestUpdateDictionaryItem:
+    """测试字典项更新管理员接口。"""
+
     async def test_admin_update_style(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员正常更新风格字典项。"""
         admin = await _create_user(db_session, "admin_update", role=UserRole.ADMIN.value)
         style = await _create_style(db_session, "OldName")
         resp = client.patch(
@@ -160,6 +180,7 @@ class TestUpdateDictionaryItem:
         assert resp.json()["name"] == "NewName"
 
     async def test_normal_user_cannot_update(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限更新字典项时返回 403。"""
         user = await _create_user(db_session, "normal_update")
         style = await _create_style(db_session, "Protected")
         resp = client.patch(
@@ -170,6 +191,7 @@ class TestUpdateDictionaryItem:
         assert resp.status_code == 403
 
     async def test_update_nonexistent_item(self, client: TestClient, db_session: AsyncSession):
+        """测试更新不存在的字典项时返回 404。"""
         admin = await _create_user(db_session, "admin_nx", role=UserRole.ADMIN.value)
         resp = client.patch(
             f"{BASE_URL}/styles/999",
@@ -179,6 +201,7 @@ class TestUpdateDictionaryItem:
         assert resp.status_code == 404
 
     async def test_update_missing_name(self, client: TestClient, db_session: AsyncSession):
+        """测试更新时缺少名称字段返回 422。"""
         admin = await _create_user(db_session, "admin_no_name", role=UserRole.ADMIN.value)
         style = await _create_style(db_session, "Something")
         resp = client.patch(
@@ -190,7 +213,10 @@ class TestUpdateDictionaryItem:
 
 
 class TestDeleteDictionaryItem:
+    """测试字典项删除管理员接口。"""
+
     async def test_admin_delete_style(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员正常删除风格字典项。"""
         admin = await _create_user(db_session, "admin_del", role=UserRole.ADMIN.value)
         style = await _create_style(db_session, "ToDelete")
         resp = client.delete(
@@ -204,6 +230,7 @@ class TestDeleteDictionaryItem:
         assert (await db_session.execute(stmt)).scalar_one_or_none() is None
 
     async def test_normal_user_cannot_delete(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限删除字典项时返回 403。"""
         user = await _create_user(db_session, "normal_del")
         style = await _create_style(db_session, "ProtectedDel")
         resp = client.delete(
@@ -213,6 +240,7 @@ class TestDeleteDictionaryItem:
         assert resp.status_code == 403
 
     async def test_delete_referenced_style_blocked(self, client: TestClient, db_session: AsyncSession):
+        """测试删除已被音乐引用的字典项时返回 409。"""
         admin = await _create_user(db_session, "admin_ref", role=UserRole.ADMIN.value)
         style = await _create_style(db_session, "Referenced")
         # 创建一首引用该 style 的音乐
@@ -227,6 +255,7 @@ class TestDeleteDictionaryItem:
         assert resp.status_code == 409
 
     async def test_delete_nonexistent_item(self, client: TestClient, db_session: AsyncSession):
+        """测试删除不存在的字典项时返回 404。"""
         admin = await _create_user(db_session, "admin_nxdel", role=UserRole.ADMIN.value)
         resp = client.delete(
             f"{BASE_URL}/styles/999",
@@ -252,6 +281,7 @@ class TestAllDictionaryTypes:
     async def test_create_and_list_each_type(
         self, client: TestClient, db_session: AsyncSession, dtype: str, model
     ):
+        """测试每种字典类型都能正常创建、列表和详情查询。"""
         admin = await _create_user(db_session, f"admin_{dtype}", role=UserRole.ADMIN.value)
         # 创建
         resp = client.post(

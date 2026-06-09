@@ -1,3 +1,5 @@
+"""空间动态（SpacePost）相关的 ORM 模型定义模块。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -24,6 +26,8 @@ if TYPE_CHECKING:
 
 
 class SpacePost(Base):
+    """用户空间动态帖子模型。"""
+
     __tablename__ = "space_posts"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -78,6 +82,8 @@ class SpacePost(Base):
 
 
 class SpacePostImage(Base):
+    """空间动态关联的图片模型。"""
+
     __tablename__ = "space_post_images"
 
     post_id: Mapped[int] = mapped_column(
@@ -101,6 +107,8 @@ class SpacePostImage(Base):
 
 
 class SpacePostLike(Base):
+    """空间动态点赞记录模型。"""
+
     __tablename__ = "space_post_likes"
 
     post_id: Mapped[int] = mapped_column(

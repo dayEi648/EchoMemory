@@ -1,5 +1,6 @@
 """OSS（阿里云对象存储服务）客户端封装 —— 异步接口，同步实现跑在线程池中。"""
 
+import logging
 import uuid
 from typing import BinaryIO
 
@@ -8,6 +9,8 @@ from anyio import to_thread
 
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.image_utils import compress_image_to_memory
+
+logger = logging.getLogger(__name__)
 
 
 def _get_bucket() -> oss2.Bucket:
@@ -37,6 +40,33 @@ def _build_oss_url(object_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 内容类型到扩展名的安全映射
+# ---------------------------------------------------------------------------
+
+_CONTENT_TYPE_TO_EXT = {
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/flac": "flac",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/ogg": "ogg",
+    "audio/aac": "aac",
+    "text/plain": "lrc",
+    "application/octet-stream": "lrc",
+}
+
+_DANGEROUS_EXTS = {"exe", "bat", "sh", "cmd", "ps1", "dll", "jar", "msi", "vbs", "js"}
+
+
+def _resolve_ext(file: BinaryIO, fallback_ext: str) -> str:
+    """根据文件的 content_type 映射安全扩展名，未映射时使用 fallback_ext。"""
+    content_type = getattr(file, "content_type", None)
+    if content_type in _CONTENT_TYPE_TO_EXT:
+        return _CONTENT_TYPE_TO_EXT[content_type]
+    return fallback_ext
+
+
+# ---------------------------------------------------------------------------
 # 同步内部实现
 # ---------------------------------------------------------------------------
 
@@ -57,7 +87,7 @@ def _upload_image_to_oss_sync(
     return _build_oss_url(object_key)
 
 
-_MAX_AUDIO_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+_MAX_AUDIO_SIZE_BYTES = 30 * 1024 * 1024  # 30 MB
 _MAX_LYRICS_SIZE_BYTES = 1 * 1024 * 1024  # 1 MB
 
 _ALLOWED_AUDIO_TYPES = {
@@ -99,8 +129,13 @@ def _upload_file_to_oss_sync(
             f"File too large: {size} bytes. Maximum allowed: {max_size} bytes"
         )
 
+    # 根据 content_type 映射扩展名，优先于客户端传入的 fallback
+    resolved_ext = _resolve_ext(file, ext)
+    if resolved_ext.lower() in _DANGEROUS_EXTS:
+        raise ValueError(f"Dangerous file extension not allowed: {resolved_ext}")
+
     bucket = _get_bucket()
-    object_key = f"{folder}/{filename_prefix}_{uuid.uuid4().hex}.{ext}"
+    object_key = f"{folder}/{filename_prefix}_{uuid.uuid4().hex}.{resolved_ext}"
 
     try:
         bucket.put_object(object_key, file)
@@ -111,7 +146,7 @@ def _upload_file_to_oss_sync(
 
 
 def _delete_object_by_url_sync(url: str) -> None:
-    """根据 URL 删除 OSS 对象（同步实现）。删除失败时静默忽略。"""
+    """根据 URL 删除 OSS 对象（同步实现）。删除失败时记录日志但不抛异常。"""
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
@@ -121,8 +156,13 @@ def _delete_object_by_url_sync(url: str) -> None:
     try:
         bucket = _get_bucket()
         bucket.delete_object(object_key)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "Failed to delete OSS object: %s, url=%s, object_key=%s",
+            exc,
+            url,
+            object_key,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -190,5 +230,5 @@ async def upload_lyrics_to_oss(
 
 
 async def delete_object_by_url(url: str) -> None:
-    """根据 URL 删除 OSS 对象。删除失败时静默忽略。"""
+    """根据 URL 删除 OSS 对象。删除失败时记录日志但不抛异常。"""
     await to_thread.run_sync(_delete_object_by_url_sync, url)

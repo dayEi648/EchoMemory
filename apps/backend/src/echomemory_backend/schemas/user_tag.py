@@ -1,3 +1,5 @@
+"""用户标签相关的 Pydantic Schema 定义。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict

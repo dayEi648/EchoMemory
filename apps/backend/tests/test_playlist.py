@@ -127,7 +127,10 @@ def mock_oss_uploads(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestCreatePlaylist:
+    """测试创建歌单相关接口。"""
+
     async def test_create_playlist_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常创建歌单，包含封面与基本信息。"""
         user = await _create_user(db_session, "create_pl_user")
 
         resp = client.post(
@@ -153,6 +156,7 @@ class TestCreatePlaylist:
         assert data["user"]["id"] == user.id
 
     async def test_create_playlist_without_cover(self, client: TestClient, db_session: AsyncSession):
+        """测试不上传封面时仍可成功创建歌单。"""
         user = await _create_user(db_session, "create_pl_nocover")
 
         resp = client.post(
@@ -166,6 +170,7 @@ class TestCreatePlaylist:
         assert data["cover_icon_url"] is None
 
     async def test_create_playlist_missing_title(self, client: TestClient, db_session: AsyncSession):
+        """测试缺少必填标题时返回 422 校验错误。"""
         user = await _create_user(db_session, "create_pl_notitle")
 
         resp = client.post(
@@ -176,6 +181,7 @@ class TestCreatePlaylist:
         assert resp.status_code == 422
 
     async def test_create_playlist_unauthorized(self, client: TestClient):
+        """测试未登录用户创建歌单时返回 401。"""
         resp = client.post(
             BASE_URL + "/",
             data={"title": "HackPlaylist"},
@@ -188,7 +194,10 @@ class TestCreatePlaylist:
 # ---------------------------------------------------------------------------
 
 class TestListPlaylists:
+    """测试查询歌单列表相关接口。"""
+
     async def test_list_my_playlists(self, client: TestClient, db_session: AsyncSession):
+        """测试仅返回当前用户自己的歌单，不包含他人歌单。"""
         user_a = await _create_user(db_session, "list_pl_a")
         user_b = await _create_user(db_session, "list_pl_b")
 
@@ -205,6 +214,7 @@ class TestListPlaylists:
         assert "PlaylistB1" not in titles
 
     async def test_list_playlists_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试歌单列表的分页参数（limit/offset）生效。"""
         user = await _create_user(db_session, "list_pl_page")
         for i in range(5):
             await _create_playlist_directly(db_session, user.id, title=f"Playlist{i}")
@@ -239,7 +249,10 @@ class TestListPlaylists:
 # ---------------------------------------------------------------------------
 
 class TestGetPlaylist:
+    """测试查询歌单详情相关接口。"""
+
     async def test_get_own_playlist_detail(self, client: TestClient, db_session: AsyncSession):
+        """测试获取自己创建的歌单详情，包含歌曲列表。"""
         user = await _create_user(db_session, "get_own")
         music = await _create_music_directly(db_session, title="SongInPlaylist")
         playlist = await _create_playlist_directly(db_session, user.id, title="OwnPlaylist")
@@ -254,6 +267,7 @@ class TestGetPlaylist:
         assert data["musics"][0]["music"]["title"] == "SongInPlaylist"
 
     async def test_get_public_playlist_detail(self, client: TestClient, db_session: AsyncSession):
+        """测试其他用户可正常访问公开歌单详情。"""
         owner = await _create_user(db_session, "get_pub_owner")
         viewer = await _create_user(db_session, "get_pub_viewer")
         playlist = await _create_playlist_directly(
@@ -265,6 +279,7 @@ class TestGetPlaylist:
         assert resp.json()["title"] == "PublicPlaylist"
 
     async def test_get_private_playlist_of_others(self, client: TestClient, db_session: AsyncSession):
+        """测试非所有者访问他人私有歌单时返回 403。"""
         owner = await _create_user(db_session, "get_priv_owner")
         viewer = await _create_user(db_session, "get_priv_viewer")
         playlist = await _create_playlist_directly(
@@ -275,6 +290,7 @@ class TestGetPlaylist:
         assert resp.status_code == 403
 
     async def test_get_nonexistent_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试访问不存在的歌单时返回 404。"""
         user = await _create_user(db_session, "get_nx")
         resp = client.get(f"{BASE_URL}/99999", headers=_auth_header(user))
         assert resp.status_code == 404
@@ -285,7 +301,10 @@ class TestGetPlaylist:
 # ---------------------------------------------------------------------------
 
 class TestUpdatePlaylist:
+    """测试修改歌单相关接口。"""
+
     async def test_update_playlist_success(self, client: TestClient, db_session: AsyncSession):
+        """测试歌单所有者成功更新歌单标题、描述及私有状态。"""
         user = await _create_user(db_session, "update_own")
         playlist = await _create_playlist_directly(
             db_session, user.id, title="OldTitle", is_private=False
@@ -307,6 +326,7 @@ class TestUpdatePlaylist:
         assert data["is_private"] is True
 
     async def test_update_others_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试非所有者尝试修改他人歌单时返回 403。"""
         owner = await _create_user(db_session, "update_other_owner")
         hacker = await _create_user(db_session, "update_other_hacker")
         playlist = await _create_playlist_directly(db_session, owner.id, title="Protected")
@@ -324,7 +344,10 @@ class TestUpdatePlaylist:
 # ---------------------------------------------------------------------------
 
 class TestDeletePlaylist:
+    """测试删除歌单相关接口。"""
+
     async def test_delete_playlist_success(self, client: TestClient, db_session: AsyncSession):
+        """测试歌单所有者成功删除歌单，删除后无法再次访问。"""
         user = await _create_user(db_session, "delete_own")
         playlist = await _create_playlist_directly(db_session, user.id, title="ToDelete")
 
@@ -335,6 +358,7 @@ class TestDeletePlaylist:
         assert resp.status_code == 404
 
     async def test_delete_others_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试非所有者尝试删除他人歌单时返回 403。"""
         owner = await _create_user(db_session, "delete_other_owner")
         hacker = await _create_user(db_session, "delete_other_hacker")
         playlist = await _create_playlist_directly(db_session, owner.id, title="Protected")
@@ -348,7 +372,10 @@ class TestDeletePlaylist:
 # ---------------------------------------------------------------------------
 
 class TestAddRemoveMusic:
+    """测试向歌单添加/移除歌曲相关接口。"""
+
     async def test_add_music_success(self, client: TestClient, db_session: AsyncSession):
+        """测试成功向歌单添加歌曲，并同步更新 collect_count。"""
         user = await _create_user(db_session, "add_music_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="AddMusicPL")
         music = await _create_music_directly(db_session, title="SongToAdd")
@@ -369,6 +396,7 @@ class TestAddRemoveMusic:
         assert music.collect_count == 1
 
     async def test_add_unpublished_music(self, client: TestClient, db_session: AsyncSession):
+        """测试向歌单添加未发布的音乐时返回 404。"""
         user = await _create_user(db_session, "add_unpub_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="AddUnpubPL")
         music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
@@ -380,6 +408,7 @@ class TestAddRemoveMusic:
         assert resp.status_code == 404
 
     async def test_add_duplicate_music(self, client: TestClient, db_session: AsyncSession):
+        """测试向歌单重复添加同一首歌曲时返回 409。"""
         user = await _create_user(db_session, "add_dup_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="AddDupPL")
         music = await _create_music_directly(db_session, title="DupSong")
@@ -392,6 +421,7 @@ class TestAddRemoveMusic:
         assert resp.status_code == 409
 
     async def test_add_music_to_others_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试非所有者向他人歌单添加歌曲时返回 403。"""
         owner = await _create_user(db_session, "add_other_owner")
         hacker = await _create_user(db_session, "add_other_hacker")
         playlist = await _create_playlist_directly(db_session, owner.id, title="ProtectedPL")
@@ -404,6 +434,7 @@ class TestAddRemoveMusic:
         assert resp.status_code == 403
 
     async def test_remove_music_success(self, client: TestClient, db_session: AsyncSession):
+        """测试成功从歌单移除歌曲，歌单中不再包含该歌曲。"""
         user = await _create_user(db_session, "remove_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="RemovePL")
         music = await _create_music_directly(db_session, title="SongToRemove")
@@ -423,11 +454,12 @@ class TestAddRemoveMusic:
         assert resp.status_code == 200
         assert resp.json()["musics"] == []
 
-        # 验证 collect_count 同步
+        # 验证 collect_count 不变（只增不减）
         await db_session.refresh(music)
-        assert music.collect_count == 0
+        assert music.collect_count == 1
 
     async def test_remove_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
+        """测试从歌单移除不存在的歌曲时返回 404。"""
         user = await _create_user(db_session, "remove_nx_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="RemoveNxPL")
 
@@ -443,6 +475,8 @@ class TestAddRemoveMusic:
 # ============================================================================
 
 class TestPlaylistTagSync:
+    """测试歌单标签随歌曲增删自动同步。"""
+
     async def test_add_music_syncs_tags_to_playlist(
         self, client: TestClient, db_session: AsyncSession
     ):
@@ -559,9 +593,12 @@ class TestPlaylistTagSync:
 
 
 class TestCollectCountOnAddRemove:
+    """测试 collect_count 在歌单增删操作中的维护行为。"""
+
     async def test_delete_playlist_syncs_collect_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试删除歌单后，歌曲的 collect_count 保持只增不减。"""
         user = await _create_user(db_session, "del_pl_count_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="DelCountPL")
         music1 = await _create_music_directly(db_session, title="Song1")
@@ -590,12 +627,14 @@ class TestCollectCountOnAddRemove:
 
         await db_session.refresh(music1)
         await db_session.refresh(music2)
-        assert music1.collect_count == 0
-        assert music2.collect_count == 0
+        # collect_count 只增不减，删除歌单后不递减
+        assert music1.collect_count == 1
+        assert music2.collect_count == 1
 
     async def test_collect_count_multiple_playlists(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试同一首歌曲被加入多个歌单时 collect_count 正确累加，移除后不递减。"""
         user = await _create_user(db_session, "multi_pl_user")
         playlist1 = await _create_playlist_directly(db_session, user.id, title="MultiPL1")
         playlist2 = await _create_playlist_directly(db_session, user.id, title="MultiPL2")
@@ -624,4 +663,5 @@ class TestCollectCountOnAddRemove:
         assert resp.status_code == 204
 
         await db_session.refresh(music)
-        assert music.collect_count == 1
+        # collect_count 只增不减，从歌单移除后不递减
+        assert music.collect_count == 2

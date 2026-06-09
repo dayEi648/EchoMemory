@@ -111,7 +111,10 @@ async def _add_music_to_playlist(
 # ---------------------------------------------------------------------------
 
 class TestRecordPlay:
+    """测试记录播放功能。"""
+
     async def test_record_play_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常记录播放历史。"""
         user = await _create_user(db_session, "record_user")
         music = await _create_music_directly(db_session, title="PublishedSong")
 
@@ -129,6 +132,7 @@ class TestRecordPlay:
     async def test_record_play_increments_play_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试记录播放时歌曲播放次数递增。"""
         user = await _create_user(db_session, "record_count")
         music = await _create_music_directly(db_session, title="CountSong")
         assert music.play_count == 0
@@ -149,6 +153,7 @@ class TestRecordPlay:
     async def test_record_play_increments_album_play_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试记录播放时专辑播放次数递增。"""
         user = await _create_user(db_session, "album_count")
         music = await _create_music_directly(db_session, title="AlbumSong")
         album = await _create_album_directly(db_session, title="MyAlbum")
@@ -169,6 +174,7 @@ class TestRecordPlay:
     async def test_record_play_increments_playlist_play_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试记录播放时歌单播放次数递增。"""
         user = await _create_user(db_session, "playlist_count")
         music = await _create_music_directly(db_session, title="PlaylistSong")
         playlist = await _create_playlist_directly(db_session, user.id, title="MyPlaylist")
@@ -189,6 +195,7 @@ class TestRecordPlay:
     async def test_record_play_with_nonexistent_playlist(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试使用不存在的歌单 ID 记录播放时返回 404。"""
         user = await _create_user(db_session, "playlist_nx")
         music = await _create_music_directly(db_session, title="PlaylistNxSong")
 
@@ -202,6 +209,7 @@ class TestRecordPlay:
     async def test_record_play_with_music_not_in_playlist(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试记录不在歌单中的歌曲播放时返回 400。"""
         user = await _create_user(db_session, "playlist_not_in")
         music = await _create_music_directly(db_session, title="NotInPlaylistSong")
         playlist = await _create_playlist_directly(db_session, user.id, title="EmptyPlaylist")
@@ -216,6 +224,7 @@ class TestRecordPlay:
     async def test_record_play_unpublished_music(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试对未发布音乐记录播放时返回 404。"""
         user = await _create_user(db_session, "record_unpub")
         music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
 
@@ -229,6 +238,7 @@ class TestRecordPlay:
     async def test_record_play_nonexistent_music(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试对不存在的音乐记录播放时返回 404。"""
         user = await _create_user(db_session, "record_nx")
 
         resp = client.post(
@@ -239,6 +249,7 @@ class TestRecordPlay:
         assert resp.status_code == 404
 
     async def test_record_play_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户记录播放时返回 401。"""
         music = await _create_music_directly(db_session)
 
         resp = client.post(
@@ -253,9 +264,12 @@ class TestRecordPlay:
 # ---------------------------------------------------------------------------
 
 class TestListPlayHistory:
+    """测试查询播放历史功能。"""
+
     async def test_list_play_history_order(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试播放历史按时间倒序返回。"""
         user = await _create_user(db_session, "list_order")
         music = await _create_music_directly(db_session, title="SongOrder")
 
@@ -283,6 +297,7 @@ class TestListPlayHistory:
     async def test_list_play_history_pagination(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试播放历史分页查询。"""
         user = await _create_user(db_session, "list_page")
         music = await _create_music_directly(db_session, title="SongPage")
 
@@ -316,6 +331,7 @@ class TestListPlayHistory:
     async def test_list_play_history_only_own(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试用户只能查看自己的播放历史。"""
         user_a = await _create_user(db_session, "list_own_a")
         user_b = await _create_user(db_session, "list_own_b")
         music = await _create_music_directly(db_session, title="SongOwn")
@@ -329,6 +345,7 @@ class TestListPlayHistory:
         assert len(data) == 1
 
     async def test_list_play_history_unauthorized(self, client: TestClient):
+        """测试未登录用户查询播放历史时返回 401。"""
         resp = client.get(BASE_URL + "/")
         assert resp.status_code == 401
 
@@ -338,9 +355,12 @@ class TestListPlayHistory:
 # ---------------------------------------------------------------------------
 
 class TestDeletePlayHistory:
+    """测试删除播放历史功能。"""
+
     async def test_delete_single_history(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试正常删除单条播放历史。"""
         user = await _create_user(db_session, "delete_single")
         music = await _create_music_directly(db_session, title="SongDelete")
         history = await _create_play_history_directly(db_session, user.id, music.id)
@@ -359,6 +379,7 @@ class TestDeletePlayHistory:
     async def test_delete_others_history(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试删除他人播放历史时返回 404。"""
         user_a = await _create_user(db_session, "delete_other_a")
         user_b = await _create_user(db_session, "delete_other_b")
         music = await _create_music_directly(db_session, title="SongOther")
@@ -373,6 +394,7 @@ class TestDeletePlayHistory:
     async def test_delete_nonexistent_history(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试删除不存在的播放历史时返回 404。"""
         user = await _create_user(db_session, "delete_nx")
 
         resp = client.delete(
@@ -387,7 +409,10 @@ class TestDeletePlayHistory:
 # ---------------------------------------------------------------------------
 
 class TestClearPlayHistory:
+    """测试清空播放历史功能。"""
+
     async def test_clear_history(self, client: TestClient, db_session: AsyncSession):
+        """测试正常清空当前用户的播放历史。"""
         user = await _create_user(db_session, "clear_user")
         music = await _create_music_directly(db_session, title="SongClear")
 
@@ -402,5 +427,6 @@ class TestClearPlayHistory:
         assert resp.json() == []
 
     async def test_clear_history_unauthorized(self, client: TestClient):
+        """测试未登录用户清空播放历史时返回 401。"""
         resp = client.delete(BASE_URL + "/")
         assert resp.status_code == 401

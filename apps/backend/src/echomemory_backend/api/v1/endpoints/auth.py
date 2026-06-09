@@ -1,8 +1,11 @@
+"""认证相关 API 端点，提供用户注册、登录、Token 刷新、登出及当前用户信息查询。"""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep, TokenDep
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
@@ -65,49 +68,25 @@ async def register(
 
     可选上传头像图片，服务端自动压缩并上传到 OSS。
     """
-    avatar_url: str | None = None
-    if avatar is not None:
-        if avatar.content_type is None or not avatar.content_type.startswith("image/"):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Avatar must be an image file",
-            )
-        try:
-            avatar_url = await oss_client.upload_image_to_oss(
-                avatar.file,
-                folder=settings.oss_avatar_prefix,
-                filename_prefix="register",
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=str(exc),
-            ) from exc
-        except RuntimeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            ) from exc
+    avatar_url = await upload_optional_image(
+        avatar,
+        folder=settings.oss_avatar_prefix,
+        prefix="register",
+        detail_name="Avatar",
+    )
 
     try:
         return await register_user(db, user_in, avatar_url)
-    except BusinessError as exc:
+    except BusinessError:
         if avatar_url:
             await oss_client.delete_object_by_url(avatar_url)
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        raise
 
 
 @router.post("/login", response_model=Token)
 async def login(db: SessionDep, user_in: UserLogin) -> Token:
     """验证用户身份，并返回 access token 与 refresh token 对。"""
-    try:
-        return await authenticate_user(db, user_in.username, user_in.password)
-    except BusinessError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail=exc.detail,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    return await authenticate_user(db, user_in.username, user_in.password)
 
 
 @router.post("/refresh", response_model=Token)

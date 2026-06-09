@@ -1,3 +1,5 @@
+"""空间动态（SpacePost）业务服务模块，提供动态的创建、查询、列表、删除及点赞等功能。"""
+
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

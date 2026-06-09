@@ -1,3 +1,5 @@
+"""认证与授权相关的安全工具模块，提供密码哈希、JWT 创建与解码等功能。"""
+
 from datetime import datetime, timedelta, timezone
 from typing import Any
 

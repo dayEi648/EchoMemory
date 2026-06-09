@@ -1,3 +1,8 @@
+"""用户业务逻辑服务层。
+
+提供用户查询、创建、资料更新、关注/取关以及用户搜索等操作。
+"""
+
 from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,11 +80,11 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str,
         BusinessError: 用户名、邮箱或手机号已存在时抛出。
     """
     if await get_user_by_username(db, user_in.username):
-        raise BusinessError("Username already registered", 409)
+        raise BusinessError("用户名已被注册", 409)
     if user_in.email and await get_user_by_email(db, user_in.email):
-        raise BusinessError("Email already registered", 409)
+        raise BusinessError("邮箱已被注册", 409)
     if user_in.phone and await get_user_by_phone(db, user_in.phone):
-        raise BusinessError("Phone already registered", 409)
+        raise BusinessError("手机号已被注册", 409)
 
     user = User(
         username=user_in.username,
@@ -98,7 +103,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str,
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("Username, email or phone already registered", 409)
+        raise BusinessError("用户名、邮箱或手机号已被注册", 409)
     await db.refresh(user)
     return user
 
@@ -122,12 +127,12 @@ async def update_user_profile(
     """
     if user_in.email is not None and user_in.email != current_user.email:
         if await get_user_by_email(db, user_in.email):
-            raise BusinessError("Email already registered", 409)
+            raise BusinessError("邮箱已被注册", 409)
         current_user.email = user_in.email
 
     if user_in.phone is not None and user_in.phone != current_user.phone:
         if await get_user_by_phone(db, user_in.phone):
-            raise BusinessError("Phone already registered", 409)
+            raise BusinessError("手机号已被注册", 409)
         current_user.phone = user_in.phone
 
     if user_in.nickname is not None:
@@ -147,7 +152,7 @@ async def update_user_profile(
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("Email or phone already registered", 409)
+        raise BusinessError("邮箱或手机号已被注册", 409)
     await db.refresh(current_user)
     return current_user
 
@@ -159,18 +164,18 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
         BusinessError: 自己关注自己、目标用户不存在或重复关注时抛出。
     """
     if follower_id == followee_id:
-        raise BusinessError("Cannot follow yourself", 400)
+        raise BusinessError("不能关注自己", 400)
 
     target = await get_user_by_id(db, followee_id)
     if not target or target.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("用户不存在", 404)
 
     stmt = select(UserFollow).where(
         UserFollow.follower_id == follower_id,
         UserFollow.followee_id == followee_id,
     )
     if (await db.execute(stmt)).scalar_one_or_none():
-        raise BusinessError("Already following this user", 409)
+        raise BusinessError("已关注该用户", 409)
 
     follow = UserFollow(follower_id=follower_id, followee_id=followee_id)
     db.add(follow)
@@ -178,7 +183,7 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("Already following this user", 409)
+        raise BusinessError("已关注该用户", 409)
 
 
 async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) -> None:
@@ -193,7 +198,7 @@ async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) ->
     )
     follow = (await db.execute(stmt)).scalar_one_or_none()
     if not follow:
-        raise BusinessError("Not following this user", 404)
+        raise BusinessError("未关注该用户", 404)
     await db.delete(follow)
     await db.commit()
 

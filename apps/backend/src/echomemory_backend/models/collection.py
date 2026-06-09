@@ -1,3 +1,5 @@
+"""定义用户收藏相关的数据库模型。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -14,6 +16,7 @@ if TYPE_CHECKING:
 
 
 class UserMusicRelease(Base):
+    """用户音乐发布关联模型，记录用户发布的音乐。"""
     __tablename__ = "user_music_releases"
 
     user_id: Mapped[int] = mapped_column(
@@ -35,6 +38,7 @@ class UserMusicRelease(Base):
 
 
 class UserMusicCollection(Base):
+    """用户音乐收藏模型，记录用户收藏的单曲。"""
     __tablename__ = "user_music_collections"
 
     user_id: Mapped[int] = mapped_column(
@@ -56,6 +60,7 @@ class UserMusicCollection(Base):
 
 
 class UserAlbumCollection(Base):
+    """用户专辑收藏模型，记录用户收藏的专辑。"""
     __tablename__ = "user_album_collections"
 
     user_id: Mapped[int] = mapped_column(
@@ -77,6 +82,7 @@ class UserAlbumCollection(Base):
 
 
 class UserPlaylistCollection(Base):
+    """用户歌单收藏模型，记录用户收藏的歌单。"""
     __tablename__ = "user_playlist_collections"
 
     user_id: Mapped[int] = mapped_column(

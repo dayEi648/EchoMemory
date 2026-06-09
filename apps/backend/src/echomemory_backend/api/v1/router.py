@@ -1,3 +1,5 @@
+"""API v1 总路由模块，负责聚合并注册所有 v1 版本的子路由。"""
+
 from fastapi import APIRouter
 
 from echomemory_backend.api.v1.endpoints import album, auth, collection, comment, dictionary, music, play_history, playlist, space_post, users

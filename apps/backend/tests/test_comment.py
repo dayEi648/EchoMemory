@@ -120,7 +120,10 @@ async def _create_comment_directly(
 
 
 class TestCreateComment:
+    """测试发表评论相关功能。"""
+
     async def test_create_comment_on_music(self, client: TestClient, db_session: AsyncSession):
+        """测试正常在音乐下发表评论。"""
         user = await _create_user(db_session, "comment_music_user")
         music = await _create_music_directly(db_session, title="SongToComment")
 
@@ -140,6 +143,7 @@ class TestCreateComment:
         assert data["parent_id"] is None
 
     async def test_create_comment_on_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试正常在歌单下发表评论。"""
         user = await _create_user(db_session, "comment_pl_user")
         owner = await _create_user(db_session, "comment_pl_owner")
         playlist = await _create_playlist_directly(db_session, owner.id, title="PLToComment")
@@ -157,6 +161,7 @@ class TestCreateComment:
         assert resp.json()["content"] == "Nice playlist"
 
     async def test_create_comment_on_space_post(self, client: TestClient, db_session: AsyncSession):
+        """测试正常在动态下发表评论。"""
         user = await _create_user(db_session, "comment_sp_user")
         owner = await _create_user(db_session, "comment_sp_owner")
         post = await _create_space_post_directly(db_session, owner.id, content="Original post")
@@ -174,6 +179,7 @@ class TestCreateComment:
         assert resp.json()["content"] == "Nice post"
 
     async def test_create_reply_to_root(self, client: TestClient, db_session: AsyncSession):
+        """测试对根评论发起一级回复。"""
         user = await _create_user(db_session, "reply_user")
         music = await _create_music_directly(db_session, title="SongWithReply")
         root = await _create_comment_directly(
@@ -198,6 +204,7 @@ class TestCreateComment:
         assert data["is_nested_reply"] is False
 
     async def test_create_nested_reply(self, client: TestClient, db_session: AsyncSession):
+        """测试对回复发起嵌套回复（二级及以上）。"""
         user = await _create_user(db_session, "nested_reply_user")
         music = await _create_music_directly(db_session, title="SongWithNested")
         root = await _create_comment_directly(
@@ -224,6 +231,7 @@ class TestCreateComment:
         assert data["is_nested_reply"] is True
 
     async def test_create_comment_invalid_target_type(self, client: TestClient, db_session: AsyncSession):
+        """测试使用无效目标类型发表评论时返回 400。"""
         user = await _create_user(db_session, "comment_invalid_type")
 
         resp = client.post(
@@ -238,6 +246,7 @@ class TestCreateComment:
         assert resp.status_code == 400
 
     async def test_create_comment_nonexistent_target(self, client: TestClient, db_session: AsyncSession):
+        """测试对不存在的目标发表评论时返回 404。"""
         user = await _create_user(db_session, "comment_nx_target")
 
         resp = client.post(
@@ -252,6 +261,7 @@ class TestCreateComment:
         assert resp.status_code == 404
 
     async def test_create_comment_unpublished_music(self, client: TestClient, db_session: AsyncSession):
+        """测试对未发布的音乐发表评论时返回 404。"""
         user = await _create_user(db_session, "comment_unpub")
         music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
 
@@ -266,7 +276,25 @@ class TestCreateComment:
         )
         assert resp.status_code == 404
 
+    async def test_create_comment_on_private_playlist(self, client: TestClient, db_session: AsyncSession):
+        """测试对私密歌单发表评论时返回 404。"""
+        user = await _create_user(db_session, "comment_private_pl")
+        owner = await _create_user(db_session, "comment_private_pl_owner")
+        playlist = await _create_playlist_directly(db_session, owner.id, title="PrivatePL", is_private=True)
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "playlist",
+                "target_id": playlist.id,
+                "content": "Test",
+            },
+        )
+        assert resp.status_code == 404
+
     async def test_create_comment_empty_content(self, client: TestClient, db_session: AsyncSession):
+        """测试发表空内容评论时返回 422。"""
         user = await _create_user(db_session, "comment_empty")
         music = await _create_music_directly(db_session)
 
@@ -282,6 +310,7 @@ class TestCreateComment:
         assert resp.status_code == 422
 
     async def test_create_comment_nonexistent_parent(self, client: TestClient, db_session: AsyncSession):
+        """测试回复不存在的父评论时返回 404。"""
         user = await _create_user(db_session, "comment_nx_parent")
         music = await _create_music_directly(db_session)
 
@@ -298,6 +327,7 @@ class TestCreateComment:
         assert resp.status_code == 404
 
     async def test_create_comment_deleted_parent(self, client: TestClient, db_session: AsyncSession):
+        """测试回复已删除的父评论时返回 404。"""
         user = await _create_user(db_session, "comment_del_parent")
         music = await _create_music_directly(db_session)
         parent = await _create_comment_directly(
@@ -317,6 +347,7 @@ class TestCreateComment:
         assert resp.status_code == 404
 
     async def test_create_comment_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户发表评论时返回 401。"""
         music = await _create_music_directly(db_session)
 
         resp = client.post(
@@ -336,7 +367,10 @@ class TestCreateComment:
 
 
 class TestListComments:
+    """测试获取评论列表相关功能。"""
+
     async def test_list_comments_on_music(self, client: TestClient, db_session: AsyncSession):
+        """测试正常获取音乐下的评论列表。"""
         user = await _create_user(db_session, "list_comment_user")
         music = await _create_music_directly(db_session, title="SongWithComments")
 
@@ -352,6 +386,7 @@ class TestListComments:
         assert "Comment B" in contents
 
     async def test_list_comments_only_roots(self, client: TestClient, db_session: AsyncSession):
+        """测试列表仅返回根评论，不含回复。"""
         user = await _create_user(db_session, "list_roots_user")
         music = await _create_music_directly(db_session)
         root = await _create_comment_directly(db_session, user.id, "Root", music_id=music.id)
@@ -366,6 +401,7 @@ class TestListComments:
         assert data[0]["content"] == "Root"
 
     async def test_list_comments_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
+        """测试评论列表排除已删除的评论。"""
         user = await _create_user(db_session, "list_del_user")
         music = await _create_music_directly(db_session)
         await _create_comment_directly(db_session, user.id, "Visible", music_id=music.id)
@@ -380,6 +416,7 @@ class TestListComments:
         assert data[0]["content"] == "Visible"
 
     async def test_list_comments_empty(self, client: TestClient, db_session: AsyncSession):
+        """测试无评论时返回空列表。"""
         user = await _create_user(db_session, "list_empty_user")
         music = await _create_music_directly(db_session)
 
@@ -388,6 +425,7 @@ class TestListComments:
         assert resp.json() == []
 
     async def test_list_comments_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试评论列表分页功能。"""
         user = await _create_user(db_session, "list_page_user")
         music = await _create_music_directly(db_session)
         for i in range(5):
@@ -415,6 +453,7 @@ class TestListComments:
         assert len(resp.json()) == 1
 
     async def test_list_comments_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户可正常获取评论列表（公开访问）。"""
         music = await _create_music_directly(db_session)
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
@@ -428,7 +467,10 @@ class TestListComments:
 
 
 class TestDeleteComment:
+    """测试删除评论相关功能。"""
+
     async def test_delete_comment_success(self, client: TestClient, db_session: AsyncSession):
+        """测试评论作者正常删除自己的评论并同步计数。"""
         user = await _create_user(db_session, "delete_comment_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -456,6 +498,7 @@ class TestDeleteComment:
         assert music.comment_count == 0
 
     async def test_delete_others_comment(self, client: TestClient, db_session: AsyncSession):
+        """测试删除他人评论时返回 403。"""
         owner = await _create_user(db_session, "delete_comment_owner")
         hacker = await _create_user(db_session, "delete_comment_hacker")
         music = await _create_music_directly(db_session)
@@ -470,6 +513,7 @@ class TestDeleteComment:
         assert resp.status_code == 403
 
     async def test_delete_nonexistent_comment(self, client: TestClient, db_session: AsyncSession):
+        """测试删除不存在的评论时返回 404。"""
         user = await _create_user(db_session, "delete_nx_user")
 
         resp = client.delete(
@@ -479,6 +523,7 @@ class TestDeleteComment:
         assert resp.status_code == 404
 
     async def test_delete_comment_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户删除评论时返回 401。"""
         owner = await _create_user(db_session, "delete_unauth_owner")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -495,7 +540,10 @@ class TestDeleteComment:
 
 
 class TestLikeComment:
+    """测试评论点赞相关功能。"""
+
     async def test_like_comment_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常点赞评论。"""
         user = await _create_user(db_session, "like_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -509,6 +557,7 @@ class TestLikeComment:
         assert resp.status_code == 201
 
     async def test_like_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
+        """测试重复点赞具有幂等性，仅生成一条记录。"""
         user = await _create_user(db_session, "like_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -536,6 +585,7 @@ class TestLikeComment:
         assert len(result.scalars().all()) == 1
 
     async def test_like_nonexistent_comment(self, client: TestClient, db_session: AsyncSession):
+        """测试点赞不存在的评论时返回 404。"""
         user = await _create_user(db_session, "like_nx_user")
 
         resp = client.post(
@@ -545,6 +595,7 @@ class TestLikeComment:
         assert resp.status_code == 404
 
     async def test_like_comment_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户点赞评论时返回 401。"""
         owner = await _create_user(db_session, "like_unauth_owner")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -556,7 +607,10 @@ class TestLikeComment:
 
 
 class TestUnlikeComment:
+    """测试取消评论点赞相关功能。"""
+
     async def test_unlike_comment_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常取消点赞并删除记录。"""
         user = await _create_user(db_session, "unlike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -580,6 +634,7 @@ class TestUnlikeComment:
         assert result.scalar_one_or_none() is None
 
     async def test_unlike_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
+        """测试未点赞时取消点赞具有幂等性，正常返回 204。"""
         user = await _create_user(db_session, "unlike_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -599,7 +654,10 @@ class TestUnlikeComment:
 
 
 class TestDislikeComment:
+    """测试评论点踩相关功能。"""
+
     async def test_dislike_comment_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常点踩评论。"""
         user = await _create_user(db_session, "dislike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -613,6 +671,7 @@ class TestDislikeComment:
         assert resp.status_code == 201
 
     async def test_dislike_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
+        """测试重复点踩具有幂等性，仅生成一条记录。"""
         user = await _create_user(db_session, "dislike_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -640,6 +699,7 @@ class TestDislikeComment:
         assert len(result.scalars().all()) == 1
 
     async def test_dislike_nonexistent_comment(self, client: TestClient, db_session: AsyncSession):
+        """测试点踩不存在的评论时返回 404。"""
         user = await _create_user(db_session, "dislike_nx_user")
 
         resp = client.post(
@@ -649,6 +709,7 @@ class TestDislikeComment:
         assert resp.status_code == 404
 
     async def test_dislike_comment_unauthorized(self, client: TestClient, db_session: AsyncSession):
+        """测试未登录用户点踩评论时返回 401。"""
         owner = await _create_user(db_session, "dislike_unauth_owner")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -660,7 +721,10 @@ class TestDislikeComment:
 
 
 class TestUndislikeComment:
+    """测试取消评论点踩相关功能。"""
+
     async def test_undislike_comment_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常取消点踩并删除记录。"""
         user = await _create_user(db_session, "undislike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -684,6 +748,7 @@ class TestUndislikeComment:
         assert result.scalar_one_or_none() is None
 
     async def test_undislike_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
+        """测试未点踩时取消点踩具有幂等性，正常返回 204。"""
         user = await _create_user(db_session, "undislike_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -703,9 +768,12 @@ class TestUndislikeComment:
 
 
 class TestCommentCountOnCreate:
+    """测试发表评论时评论计数维护。"""
+
     async def test_create_comment_increases_music_comment_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试创建评论后音乐评论计数增加。"""
         user = await _create_user(db_session, "count_music_user")
         music = await _create_music_directly(db_session, title="CountSong")
 
@@ -722,6 +790,7 @@ class TestCommentCountOnCreate:
     async def test_create_comment_increases_playlist_comment_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试创建评论后歌单评论计数增加。"""
         user = await _create_user(db_session, "count_pl_user")
         owner = await _create_user(db_session, "count_pl_owner")
         playlist = await _create_playlist_directly(db_session, owner.id, title="CountPL")
@@ -739,6 +808,7 @@ class TestCommentCountOnCreate:
     async def test_create_comment_increases_space_post_comment_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试创建评论后动态评论计数增加。"""
         user = await _create_user(db_session, "count_sp_user")
         owner = await _create_user(db_session, "count_sp_owner")
         post = await _create_space_post_directly(db_session, owner.id, content="CountPost")
@@ -755,9 +825,12 @@ class TestCommentCountOnCreate:
 
 
 class TestReplyCountOnCreate:
+    """测试创建回复时父评论回复计数维护。"""
+
     async def test_create_reply_increases_parent_reply_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试创建回复后父评论回复计数增加。"""
         user = await _create_user(db_session, "reply_count_user")
         music = await _create_music_directly(db_session)
         root = await _create_comment_directly(
@@ -782,6 +855,7 @@ class TestReplyCountOnCreate:
     async def test_create_nested_reply_increases_parent_reply_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试创建嵌套回复后直接父评论的回复计数增加。"""
         user = await _create_user(db_session, "nested_reply_count_user")
         music = await _create_music_directly(db_session)
         root = await _create_comment_directly(
@@ -808,9 +882,12 @@ class TestReplyCountOnCreate:
 
 
 class TestCommentCountOnDelete:
+    """测试删除评论时评论计数维护。"""
+
     async def test_delete_comment_decreases_music_comment_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试删除评论后音乐评论计数减少。"""
         user = await _create_user(db_session, "del_count_user")
         music = await _create_music_directly(db_session)
 
@@ -835,6 +912,7 @@ class TestCommentCountOnDelete:
     async def test_delete_reply_decreases_parent_reply_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试删除回复后父评论回复计数减少。"""
         user = await _create_user(db_session, "del_reply_count_user")
         music = await _create_music_directly(db_session)
         root = await _create_comment_directly(
@@ -866,9 +944,12 @@ class TestCommentCountOnDelete:
 
 
 class TestLikeCount:
+    """测试点赞时评论点赞计数维护。"""
+
     async def test_like_comment_increases_like_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试点赞后评论点赞计数增加。"""
         user = await _create_user(db_session, "like_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -884,6 +965,7 @@ class TestLikeCount:
     async def test_like_comment_idempotent_like_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试重复点赞不会导致点赞计数异常增加。"""
         user = await _create_user(db_session, "like_count_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -899,6 +981,7 @@ class TestLikeCount:
     async def test_unlike_comment_decreases_like_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试取消点赞后评论点赞计数减少。"""
         user = await _create_user(db_session, "unlike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -917,9 +1000,12 @@ class TestLikeCount:
 
 
 class TestDislikeCount:
+    """测试点踩时评论点踩计数维护。"""
+
     async def test_dislike_comment_increases_dislike_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试点踩后评论点踩计数增加。"""
         user = await _create_user(db_session, "dislike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -935,6 +1021,7 @@ class TestDislikeCount:
     async def test_dislike_comment_idempotent_dislike_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试重复点踩不会导致点踩计数异常增加。"""
         user = await _create_user(db_session, "dislike_count_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
@@ -950,6 +1037,7 @@ class TestDislikeCount:
     async def test_undislike_comment_decreases_dislike_count(
         self, client: TestClient, db_session: AsyncSession
     ):
+        """测试取消点踩后评论点踩计数减少。"""
         user = await _create_user(db_session, "undislike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(

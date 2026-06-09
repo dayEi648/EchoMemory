@@ -1,3 +1,5 @@
+"""字典服务模块，提供音乐平台各类字典项（风格、语言、乐器、情感标签、兴趣标签等）的增删改查功能。"""
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

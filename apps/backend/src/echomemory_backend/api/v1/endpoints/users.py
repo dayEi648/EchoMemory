@@ -1,8 +1,11 @@
+"""用户相关 API 端点，提供用户资料管理、关注关系及管理员操作接口。"""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
+from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
@@ -62,36 +65,19 @@ async def update_me(
     avatar: UploadFile | None = File(None),
 ) -> User:
     """更新当前用户自己的个人资料。可选上传新头像图片。"""
-    avatar_url: str | None = None
-    if avatar is not None:
-        if avatar.content_type is None or not avatar.content_type.startswith("image/"):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Avatar must be an image file",
-            )
-        try:
-            avatar_url = await oss_client.upload_image_to_oss(
-                avatar.file,
-                folder=settings.oss_avatar_prefix,
-                filename_prefix=str(current_user.id),
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=str(exc),
-            ) from exc
-        except RuntimeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(exc),
-            ) from exc
+    avatar_url = await upload_optional_image(
+        avatar,
+        folder=settings.oss_avatar_prefix,
+        prefix=str(current_user.id),
+        detail_name="Avatar",
+    )
 
     try:
         return await user_service.update_user_profile(db, current_user, user_in, avatar_url)
-    except BusinessError as exc:
+    except BusinessError:
         if avatar_url:
             await oss_client.delete_object_by_url(avatar_url)
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+        raise
 
 
 @router.get("/me/emotion-tags", response_model=list[UserTagOut])

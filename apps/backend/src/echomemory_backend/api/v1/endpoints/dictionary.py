@@ -1,3 +1,5 @@
+"""字典管理 API 路由端点，提供字典项的创建、查询、更新与删除接口。"""
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import AdminUser, SessionDep

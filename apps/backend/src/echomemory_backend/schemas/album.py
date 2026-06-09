@@ -1,3 +1,5 @@
+"""专辑相关的 Pydantic Schema 定义，包含输出模型和请求模型。"""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -70,6 +72,7 @@ class AlbumOut(BaseModel):
     @field_validator("authors", mode="before")
     @classmethod
     def _flatten_authors(cls, v):
+        """将关联的作者对象展平为字典列表。"""
         if not v:
             return []
         return [
@@ -86,6 +89,7 @@ class AlbumOut(BaseModel):
     @field_validator("musics", mode="before")
     @classmethod
     def _flatten_musics(cls, v):
+        """将关联的音乐对象展平为字典列表。"""
         if not v:
             return []
         return [
@@ -104,6 +108,7 @@ class AlbumOut(BaseModel):
     @field_validator("emotion_tags", mode="before")
     @classmethod
     def _flatten_emotion_tags(cls, v):
+        """将关联的情绪标签对象展平为字典列表。"""
         if not v:
             return []
         return [
@@ -114,6 +119,7 @@ class AlbumOut(BaseModel):
     @field_validator("interest_tags", mode="before")
     @classmethod
     def _flatten_interest_tags(cls, v):
+        """将关联的兴趣标签对象展平为字典列表。"""
         if not v:
             return []
         return [

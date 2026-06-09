@@ -1,11 +1,17 @@
 """图像处理工具：压缩、格式转换、校验。"""
 
 import io
+import warnings
 from typing import BinaryIO
 
 from PIL import Image
 
+# Pillow decompression bomb 防护：限制单张图像最大像素数（约 9500x9500）
+Image.MAX_IMAGE_PIXELS = 89_478_485
+warnings.simplefilter("error", Image.DecompressionBombWarning)
+
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB 限制
+MAX_IMAGE_INPUT_SIZE_BYTES = 10 * 1024 * 1024  # 输入文件最大 10 MB
 
 
 def compress_image_to_memory(
@@ -25,8 +31,17 @@ def compress_image_to_memory(
         包含压缩后图像的 BytesIO 缓冲区。
 
     Raises:
-        ValueError: 输入不是有效图像时抛出。
+        ValueError: 输入不是有效图像、超过输入大小限制或无法压缩到目标大小时抛出。
     """
+    # 输入大小检查
+    file.seek(0, 2)
+    input_size = file.tell()
+    file.seek(0)
+    if input_size > MAX_IMAGE_INPUT_SIZE_BYTES:
+        raise ValueError(
+            f"Image file exceeds {MAX_IMAGE_INPUT_SIZE_BYTES // (1024 * 1024)}MB limit"
+        )
+
     try:
         with Image.open(file) as img:
             # 转换为 RGB 以确保输出一致（处理 PNG 透明度等情况）
@@ -55,7 +70,13 @@ def compress_image_to_memory(
             resized = img.resize(final_size, Image.Resampling.LANCZOS)
             buffer = io.BytesIO()
             resized.save(buffer, format="JPEG", quality=30, optimize=True)
+
+            if buffer.tell() > max_size:
+                raise ValueError("Unable to compress image to target size")
+
             buffer.seek(0)
             return buffer
     except Exception as exc:
+        if isinstance(exc, ValueError):
+            raise
         raise ValueError("Invalid image file") from exc

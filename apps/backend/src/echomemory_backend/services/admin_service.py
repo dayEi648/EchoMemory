@@ -1,3 +1,5 @@
+"""管理员用户管理服务模块，提供用户列表查询、信息修改、封禁与解封等功能。"""
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

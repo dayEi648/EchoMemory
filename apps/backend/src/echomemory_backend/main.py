@@ -1,11 +1,14 @@
 import asyncio
+import logging
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy import select
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from echomemory_backend.api.v1.router import router as api_v1_router
@@ -21,6 +24,8 @@ from echomemory_backend.models.dictionary import (
     LevelConfig,
     Style,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # 字典表种子数据（应用启动时自动灌入，若表为空）
@@ -110,13 +115,15 @@ async def _seed_dictionary_tables() -> None:
 async def lifespan(app: FastAPI):
     """应用生命周期事件：启动时自动运行 Alembic 数据库迁移并初始化字典数据。"""
     base_dir = Path(__file__).resolve().parent.parent.parent
-    result = subprocess.run(
+    result = await asyncio.to_thread(
+        subprocess.run,
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         capture_output=True,
         text=True,
         cwd=str(base_dir),
     )
     if result.returncode != 0:
+        logger.error("Alembic upgrade failed: %s", result.stderr)
         raise RuntimeError(f"Alembic upgrade failed: {result.stderr}")
 
     await _seed_dictionary_tables()
@@ -134,6 +141,34 @@ async def business_error_handler(request: Request, exc: BusinessError):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """统一处理 FastAPI/Starlette 抛出的 HTTPException。"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """统一处理请求参数校验失败异常。"""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Invalid request parameters"},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """兜底异常处理器，避免未处理异常直接暴露内部细节。"""
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
     )
 
 

@@ -14,6 +14,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
+import { toast } from "sonner";
 import { createMemoryTokenStore, type TokenStore } from "./shared/auth/tokenStore";
 import { ApiError, createUserApi } from "./shared/api/userApi";
 import type { UserMe, UserRole, UserSearchItem, UserStatus } from "./shared/api/types";
@@ -65,14 +66,12 @@ const AuthScreen = ({
 }) => {
   const api = useMemo(() => createUserApi({ baseUrl: API_BASE_URL, tokenStore }), [tokenStore]);
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setLoading(true);
-    setError("");
     try {
       if (mode === "login") {
         await api.login({
@@ -91,7 +90,7 @@ const AuthScreen = ({
       }
       onAuthenticated(await api.getMe());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "认证失败");
+      toast.error(err instanceof Error ? err.message : "认证失败");
     } finally {
       setLoading(false);
     }
@@ -156,7 +155,6 @@ const AuthScreen = ({
               </label>
             </>
           )}
-          {error && <p className="form-error">{error}</p>}
           <button className="primary-button" disabled={loading} type="submit">
             {loading ? "处理中" : mode === "login" ? "进入账户" : "创建账户"}
           </button>
@@ -237,7 +235,6 @@ const Shell = ({
 const HomePage = ({ user, onSearch }: { user: UserMe; onSearch: (q: string) => Promise<UserSearchItem[]> }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchItem[]>([]);
-  const [error, setError] = useState("");
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -246,9 +243,8 @@ const HomePage = ({ user, onSearch }: { user: UserMe; onSearch: (q: string) => P
     }
     try {
       setResults(await onSearch(query.trim()));
-      setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "搜索失败");
+      toast.error(err instanceof Error ? err.message : "搜索失败");
     }
   };
 
@@ -282,7 +278,6 @@ const HomePage = ({ user, onSearch }: { user: UserMe; onSearch: (q: string) => P
             搜索
           </button>
         </div>
-        {error && <p className="form-error">{error}</p>}
         <div className="result-list">
           {results.map((item) => (
             <div className="result-item" key={item.id}>
@@ -298,14 +293,13 @@ const HomePage = ({ user, onSearch }: { user: UserMe; onSearch: (q: string) => P
 };
 
 const ProfilePage = ({ user, onSave }: { user: UserMe; onSave: (input: FormData) => Promise<void> }) => {
-  const [error, setError] = useState("");
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       await onSave(new FormData(event.currentTarget));
-      setError("");
+      toast.success("资料已保存");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      toast.error(err instanceof Error ? err.message : "保存失败");
     }
   };
 
@@ -366,7 +360,6 @@ const ProfilePage = ({ user, onSave }: { user: UserMe; onSave: (input: FormData)
           简介
           <textarea name="bio" defaultValue={user.bio ?? ""} rows={4} />
         </label>
-        {error && <p className="form-error">{error}</p>}
         <button className="primary-button" type="submit">
           保存资料
         </button>
@@ -388,7 +381,6 @@ const AdminPage = ({
 }) => {
   const [users, setUsers] = useState<UserMe[]>([]);
   const [query, setQuery] = useState("");
-  const [error, setError] = useState("");
 
   if (!isAdmin(user)) {
     return (
@@ -403,9 +395,8 @@ const AdminPage = ({
   const load = async () => {
     try {
       setUsers(await listUsers(query));
-      setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      toast.error(err instanceof Error ? err.message : "加载失败");
     }
   };
 
@@ -421,7 +412,6 @@ const AdminPage = ({
           搜索
         </button>
       </div>
-      {error && <p className="form-error">{error}</p>}
       <div className="admin-table">
         {(users.length ? users : [user]).map((item) => (
           <div className="admin-row" key={item.id}>
@@ -462,7 +452,6 @@ export default function App({ tokenStore = appTokenStore, initialRoute = "home" 
   const [route, setRoute] = useState<RouteName>(initialRoute);
   const [user, setUser] = useState<UserMe | null>(null);
   const [loading, setLoading] = useState(Boolean(tokenStore.get()));
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!tokenStore.get()) {
@@ -476,7 +465,7 @@ export default function App({ tokenStore = appTokenStore, initialRoute = "home" 
         if (err instanceof ApiError && err.status === 401) {
           tokenStore.clear();
         }
-        setError(err instanceof Error ? err.message : "加载当前用户失败");
+        toast.error(err instanceof Error ? err.message : "加载当前用户失败");
       })
       .finally(() => setLoading(false));
   }, [api, tokenStore]);
@@ -512,7 +501,6 @@ export default function App({ tokenStore = appTokenStore, initialRoute = "home" 
         setUser(null);
       }}
     >
-      {error && <p className="form-error">{error}</p>}
       {route === "home" && <HomePage user={user} onSearch={api.searchUsers} />}
       {route === "profile" && <ProfilePage user={user} onSave={saveProfile} />}
       {route === "admin" && (

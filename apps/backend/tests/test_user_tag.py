@@ -84,13 +84,17 @@ async def _create_play_history_directly(
 
 
 class TestEmotionTags:
+    """测试用户情绪标签查询接口。"""
+
     async def test_empty_list(self, client: TestClient, db_session: AsyncSession):
+        """测试情绪标签列表为空时返回空数组。"""
         user = await _create_user(db_session, "empty_emotion")
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
         assert resp.json() == []
 
     async def test_list_with_tags(self, client: TestClient, db_session: AsyncSession):
+        """测试情绪标签列表正确返回用户已有的标签。"""
         user = await _create_user(db_session, "emotion_user")
         db_session.add(UserEmotionTag(user_id=user.id, emotion_tag_id=1))
         db_session.add(UserEmotionTag(user_id=user.id, emotion_tag_id=2))
@@ -106,18 +110,23 @@ class TestEmotionTags:
         assert names == {"治愈", "激昂"}
 
     async def test_unauthorized(self, client: TestClient):
+        """测试未授权访问情绪标签接口时返回 401。"""
         resp = client.get(EMOTION_TAGS_URL)
         assert resp.status_code == 401
 
 
 class TestInterestTags:
+    """测试用户兴趣标签查询接口。"""
+
     async def test_empty_list(self, client: TestClient, db_session: AsyncSession):
+        """测试兴趣标签列表为空时返回空数组。"""
         user = await _create_user(db_session, "empty_interest")
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
         assert resp.json() == []
 
     async def test_list_with_tags(self, client: TestClient, db_session: AsyncSession):
+        """测试兴趣标签列表正确返回用户已有的标签。"""
         user = await _create_user(db_session, "interest_user")
         db_session.add(UserInterestTag(user_id=user.id, interest_tag_id=1))
         db_session.add(UserInterestTag(user_id=user.id, interest_tag_id=2))
@@ -133,11 +142,14 @@ class TestInterestTags:
         assert names == {"运动", "学习"}
 
     async def test_unauthorized(self, client: TestClient):
+        """测试未授权访问兴趣标签接口时返回 401。"""
         resp = client.get(INTEREST_TAGS_URL)
         assert resp.status_code == 401
 
 
 class TestRecalculateUserTags:
+    """测试用户标签重新计算功能。"""
+
     async def test_empty_data(self, client: TestClient, db_session: AsyncSession):
         """无听歌历史、无歌单 → 用户标签为空。"""
         user = await _create_user(db_session, "recalc_empty")
@@ -345,5 +357,6 @@ class TestRecalculateUserTags:
         assert data[0]["tag_id"] == 10
 
     async def test_unauthorized_manual_refresh(self, client: TestClient):
+        """测试未授权访问手动刷新标签接口时返回 401。"""
         resp = client.post(RECALCULATE_URL)
         assert resp.status_code == 401

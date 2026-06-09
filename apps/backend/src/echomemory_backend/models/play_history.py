@@ -1,3 +1,5 @@
+"""播放历史记录的数据库模型。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
 
 
 class PlayHistory(Base):
+    """用户音乐播放历史记录模型，记录用户播放音乐的日志。"""
     __tablename__ = "play_history"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

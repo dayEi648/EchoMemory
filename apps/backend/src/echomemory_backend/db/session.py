@@ -1,3 +1,9 @@
+"""数据库会话管理模块。
+
+提供 SQLAlchemy 同步与异步数据库引擎及会话工厂，
+供 Alembic 迁移、测试初始化和应用运行时使用。
+"""
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker

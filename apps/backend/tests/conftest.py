@@ -47,6 +47,17 @@ TEST_ASYNC_DATABASE_URL = (
 # 同步引擎（用于测试初始化、清理表结构，避免事件循环问题）
 sync_test_engine = create_engine(TEST_SYNC_DATABASE_URL)
 
+
+def _make_testing_sessionmaker(engine):
+    """返回统一配置的异步 sessionmaker 工厂。
+
+    关键参数与生产环境 AsyncSessionLocal 保持一致，避免测试与运行时配置漂移。
+    """
+    return async_sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
+    )
+
+
 # Override lifespan to skip Alembic migrations during tests
 @asynccontextmanager
 async def testing_lifespan(app):
@@ -134,9 +145,7 @@ def clean_tables():
 async def db_session():
     """提供一个绑定到当前事件循环的异步 Session（供测试 helper 使用）。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
-    AsyncTestingSessionLocal = async_sessionmaker(
-        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
-    )
+    AsyncTestingSessionLocal = _make_testing_sessionmaker(engine)
     session = AsyncTestingSessionLocal()
     try:
         yield session
@@ -156,9 +165,7 @@ def fake_redis(monkeypatch):
 async def client(fake_redis):
     """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
-    AsyncTestingSessionLocal = async_sessionmaker(
-        autocommit=False, autoflush=False, bind=engine
-    )
+    AsyncTestingSessionLocal = _make_testing_sessionmaker(engine)
 
     async def override_get_db():
         session = AsyncTestingSessionLocal()

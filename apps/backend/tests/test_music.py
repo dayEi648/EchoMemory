@@ -3,6 +3,7 @@
 import io
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,7 +167,10 @@ def mock_oss_uploads(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestAdminImportMusic:
+    """测试管理员导入音乐功能。"""
+
     async def test_import_success(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员成功导入一首完整的音乐。"""
         admin = await _create_user(db_session, "admin_import", role=UserRole.ADMIN.value)
         author = await _create_user(db_session, "author1")
         style = await _create_style(db_session, "Rock")
@@ -210,6 +214,7 @@ class TestAdminImportMusic:
         assert data["source"] == "TestSource"
 
     async def test_import_with_optional_files(self, client: TestClient, db_session: AsyncSession):
+        """测试导入音乐时上传可选文件（歌词、多种封面）。"""
         admin = await _create_user(db_session, "admin_opt", role=UserRole.ADMIN.value)
         resp = client.post(
             ADMIN_IMPORT_URL,
@@ -230,6 +235,7 @@ class TestAdminImportMusic:
         assert data["cover_play_url"] == "https://fake-oss.example.com/covers/test.jpg"
 
     async def test_normal_user_cannot_import(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限调用管理员导入接口。"""
         user = await _create_user(db_session, "normal_import")
         resp = client.post(
             ADMIN_IMPORT_URL,
@@ -243,6 +249,7 @@ class TestAdminImportMusic:
         assert resp.status_code == 403
 
     async def test_import_invalid_audio_type(self, client: TestClient, db_session: AsyncSession):
+        """测试上传非法音频格式时返回 422。"""
         admin = await _create_user(db_session, "admin_bad_audio", role=UserRole.ADMIN.value)
         resp = client.post(
             ADMIN_IMPORT_URL,
@@ -256,6 +263,7 @@ class TestAdminImportMusic:
         assert resp.status_code == 422
 
     async def test_import_missing_cover_icon(self, client: TestClient, db_session: AsyncSession):
+        """测试缺少必填的封面图标时返回 422。"""
         admin = await _create_user(db_session, "admin_no_cover", role=UserRole.ADMIN.value)
         resp = client.post(
             ADMIN_IMPORT_URL,
@@ -268,6 +276,7 @@ class TestAdminImportMusic:
         assert resp.status_code == 422
 
     async def test_import_invalid_release_date(self, client: TestClient, db_session: AsyncSession):
+        """测试传入非法发布日期格式时返回 422。"""
         admin = await _create_user(db_session, "admin_bad_date", role=UserRole.ADMIN.value)
         resp = client.post(
             ADMIN_IMPORT_URL,
@@ -280,13 +289,88 @@ class TestAdminImportMusic:
         )
         assert resp.status_code == 422
 
+    async def test_import_cleans_uploaded_files_when_optional_upload_fails(
+        self,
+        client: TestClient,
+        db_session: AsyncSession,
+        monkeypatch,
+    ):
+        """测试可选文件上传失败时清理此前已上传的 OSS 文件。"""
+        deleted_urls: list[str] = []
+
+        async def fake_audio_upload(*args, **kwargs):
+            return "https://fake-oss.example.com/musics/cleanup.mp3"
+
+        async def fake_cover_upload(*args, **kwargs):
+            return "https://fake-oss.example.com/covers/cleanup.jpg"
+
+        async def fake_optional_upload(*args, **kwargs):
+            raise HTTPException(status_code=422, detail="optional image failed")
+
+        async def fake_delete(url: str):
+            deleted_urls.append(url)
+
+        monkeypatch.setattr(
+            "echomemory_backend.core.oss_client.upload_audio_to_oss",
+            fake_audio_upload,
+        )
+        monkeypatch.setattr(
+            "echomemory_backend.core.oss_client.upload_image_to_oss",
+            fake_cover_upload,
+        )
+        monkeypatch.setattr(
+            "echomemory_backend.api.v1.endpoints.music.upload_optional_image",
+            fake_optional_upload,
+        )
+        monkeypatch.setattr(
+            "echomemory_backend.core.oss_client.delete_object_by_url",
+            fake_delete,
+        )
+
+        admin = await _create_user(
+            db_session,
+            "admin_cleanup_optional",
+            role=UserRole.ADMIN.value,
+        )
+        resp = client.post(
+            ADMIN_IMPORT_URL,
+            headers=_auth_header(admin),
+            data={"title": "CleanupSong"},
+            files={
+                "audio_file": (
+                    "song.mp3",
+                    io.BytesIO(_make_audio_bytes()),
+                    "audio/mpeg",
+                ),
+                "cover_icon": (
+                    "icon.jpg",
+                    io.BytesIO(_make_image_bytes()),
+                    "image/jpeg",
+                ),
+                "cover_home": (
+                    "home.jpg",
+                    io.BytesIO(_make_image_bytes()),
+                    "image/jpeg",
+                ),
+            },
+        )
+
+        assert resp.status_code == 422
+        assert deleted_urls == [
+            "https://fake-oss.example.com/musics/cleanup.mp3",
+            "https://fake-oss.example.com/covers/cleanup.jpg",
+        ]
+
 
 # ---------------------------------------------------------------------------
 # 管理员更新 / 上架 / 下架测试
 # ---------------------------------------------------------------------------
 
 class TestAdminUpdateMusic:
+    """测试管理员更新音乐信息功能。"""
+
     async def test_update_music_info(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员成功更新音乐的标题、VIP 状态和风格。"""
         admin = await _create_user(db_session, "admin_update_m", role=UserRole.ADMIN.value)
         music = await _create_music_directly(db_session, title="OldTitle")
         new_style = await _create_style(db_session, "Jazz")
@@ -307,6 +391,7 @@ class TestAdminUpdateMusic:
         assert data["style"]["name"] == new_style.name
 
     async def test_normal_user_cannot_update(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限调用管理员更新接口。"""
         user = await _create_user(db_session, "normal_update_m")
         music = await _create_music_directly(db_session)
         resp = client.patch(
@@ -317,6 +402,7 @@ class TestAdminUpdateMusic:
         assert resp.status_code == 403
 
     async def test_update_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员更新不存在的音乐时返回 404。"""
         admin = await _create_user(db_session, "admin_nx_m", role=UserRole.ADMIN.value)
         resp = client.patch(
             f"{BASE_URL}/admin/999",
@@ -327,7 +413,10 @@ class TestAdminUpdateMusic:
 
 
 class TestAdminPublishUnpublish:
+    """测试管理员上架与下架音乐功能。"""
+
     async def test_publish_music(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员将未上架音乐变为上架状态。"""
         admin = await _create_user(db_session, "admin_pub", role=UserRole.ADMIN.value)
         music = await _create_music_directly(db_session, is_published=False)
         resp = client.post(
@@ -338,6 +427,7 @@ class TestAdminPublishUnpublish:
         assert resp.json()["is_published"] is True
 
     async def test_unpublish_music(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员将已上架音乐变为下架状态。"""
         admin = await _create_user(db_session, "admin_unpub", role=UserRole.ADMIN.value)
         music = await _create_music_directly(db_session, is_published=True)
         resp = client.post(
@@ -348,6 +438,7 @@ class TestAdminPublishUnpublish:
         assert resp.json()["is_published"] is False
 
     async def test_normal_user_cannot_publish(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限调用管理员上架接口。"""
         user = await _create_user(db_session, "normal_pub")
         music = await _create_music_directly(db_session, is_published=False)
         resp = client.post(
@@ -362,24 +453,32 @@ class TestAdminPublishUnpublish:
 # ---------------------------------------------------------------------------
 
 class TestGetMusic:
+    """测试公开查询单首音乐详情功能。"""
+
     async def test_get_published_music(self, client: TestClient, db_session: AsyncSession):
+        """测试正常获取已上架的音乐详情。"""
         music = await _create_music_directly(db_session, title="PublishedSong")
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 200
         assert resp.json()["title"] == "PublishedSong"
 
     async def test_get_unpublished_music_returns_404(self, client: TestClient, db_session: AsyncSession):
+        """测试获取未上架音乐时返回 404。"""
         music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 404
 
     async def test_get_nonexistent_music(self, client: TestClient):
+        """测试获取不存在的音乐时返回 404。"""
         resp = client.get(f"{BASE_URL}/999")
         assert resp.status_code == 404
 
 
 class TestListMusics:
+    """测试公开查询音乐列表功能。"""
+
     async def test_list_published_only(self, client: TestClient, db_session: AsyncSession):
+        """测试列表仅返回已上架的音乐。"""
         await _create_music_directly(db_session, title="Pub1", is_published=True)
         await _create_music_directly(db_session, title="Pub2", is_published=True)
         await _create_music_directly(db_session, title="Hidden", is_published=False)
@@ -392,6 +491,7 @@ class TestListMusics:
         assert "Hidden" not in titles
 
     async def test_list_filter_by_style(self, client: TestClient, db_session: AsyncSession):
+        """测试按风格 ID 筛选音乐列表。"""
         style = await _create_style(db_session, "Pop")
         await _create_music_directly(db_session, title="PopSong", style_id=style.id)
         await _create_music_directly(db_session, title="OtherSong")
@@ -402,6 +502,7 @@ class TestListMusics:
         assert data[0]["title"] == "PopSong"
 
     async def test_list_filter_by_vip(self, client: TestClient, db_session: AsyncSession):
+        """测试按 VIP 状态筛选音乐列表。"""
         await _create_music_directly(db_session, title="VipSong", is_vip=True)
         await _create_music_directly(db_session, title="FreeSong", is_vip=False)
         resp = client.get(f"{BASE_URL}/", params={"is_vip": True})
@@ -412,6 +513,7 @@ class TestListMusics:
         assert "FreeSong" not in titles
 
     async def test_list_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试音乐列表的分页参数生效。"""
         for i in range(5):
             await _create_music_directly(db_session, title=f"Song{i}")
         resp = client.get(f"{BASE_URL}/", params={"limit": 2, "offset": 0})
@@ -420,7 +522,10 @@ class TestListMusics:
 
 
 class TestSearchMusics:
+    """测试音乐搜索功能。"""
+
     async def test_search_by_title(self, client: TestClient, db_session: AsyncSession):
+        """测试按标题关键字搜索音乐。"""
         await _create_music_directly(db_session, title="Amazing Grace")
         await _create_music_directly(db_session, title="Boring Tune")
         resp = client.get(f"{BASE_URL}/search", params={"q": "Amazing"})
@@ -430,11 +535,13 @@ class TestSearchMusics:
         assert data[0]["title"] == "Amazing Grace"
 
     async def test_search_no_match(self, client: TestClient):
+        """测试无匹配结果时返回空列表。"""
         resp = client.get(f"{BASE_URL}/search", params={"q": "zzzzzzzzz"})
         assert resp.status_code == 200
         assert resp.json() == []
 
     async def test_search_empty_query_returns_all(self, client: TestClient, db_session: AsyncSession):
+        """测试空查询时返回全部已上架音乐。"""
         await _create_music_directly(db_session, title="SongA")
         await _create_music_directly(db_session, title="SongB")
         resp = client.get(f"{BASE_URL}/search")
@@ -450,6 +557,8 @@ class TestSearchMusics:
 # ---------------------------------------------------------------------------
 
 class TestMusicTagCascadeUpdate:
+    """测试音乐标签修改后向专辑和歌单的级联同步功能。"""
+
     async def test_update_music_tags_syncs_album_and_playlist(
         self, client: TestClient, db_session: AsyncSession
     ):

@@ -1,8 +1,12 @@
-from sqlalchemy import delete, desc, func, select
+"""歌单业务逻辑层。
+
+提供歌单的创建、查询、更新、删除，以及歌曲在歌单中的添加与移除等操作。
+"""
+
+from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.music import (
     Music,
     MusicEmotionTag,
@@ -15,50 +19,10 @@ from echomemory_backend.models.playlist import (
     PlaylistMusic,
 )
 from echomemory_backend.core.exceptions import BusinessError
-
-
-async def _validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验情感标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 待校验的情感标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Emotion tags not found: {sorted(missing)}", 404)
-
-
-async def _validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
-    """批量校验兴趣标签 ID 是否存在。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        tag_ids: 待校验的兴趣标签 ID 列表。
-
-    Returns:
-        None。
-
-    Raises:
-        BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
-    """
-    if not tag_ids:
-        return
-    stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Interest tags not found: {sorted(missing)}", 404)
+from echomemory_backend.services.dictionary_reference_service import (
+    validate_emotion_tags_exist,
+    validate_interest_tags_exist,
+)
 
 
 async def _set_playlist_emotion_tags(
@@ -77,7 +41,7 @@ async def _set_playlist_emotion_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await _validate_emotion_tags_exist(db, tag_ids)
+    await validate_emotion_tags_exist(db, tag_ids)
     await db.execute(
         delete(PlaylistEmotionTag).where(PlaylistEmotionTag.playlist_id == playlist.id)
     )
@@ -101,7 +65,7 @@ async def _set_playlist_interest_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await _validate_interest_tags_exist(db, tag_ids)
+    await validate_interest_tags_exist(db, tag_ids)
     await db.execute(
         delete(PlaylistInterestTag).where(PlaylistInterestTag.playlist_id == playlist.id)
     )
@@ -279,7 +243,7 @@ async def update_playlist(
 async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     """删除歌单（级联删除关联表记录）。
 
-    删除前先同步减少歌单内所有音乐的 collect_count。
+    collect_count 只增不减，删除歌单时不递减音乐收藏数。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -288,15 +252,6 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     Returns:
         None。
     """
-    # 先同步 collect_count，避免级联删除 PlaylistMusic 时遗漏计数维护
-    music_ids_result = await db.execute(
-        select(PlaylistMusic.music_id).where(PlaylistMusic.playlist_id == playlist.id)
-    )
-    for music_id in music_ids_result.scalars().all():
-        music = await db.get(Music, music_id)
-        if music is not None:
-            music.collect_count -= 1
-
     # 若 musics 已被加载到 session（如通过 selectinload），显式删除以避免 ORM 级联冲突
     if hasattr(playlist, "musics") and playlist.musics:
         for pm in list(playlist.musics):
@@ -343,16 +298,20 @@ async def add_music_to_playlist(
     db.add(playlist_music)
     await db.flush()
     await _sync_playlist_tags_from_musics(db, playlist_id)
-    music.collect_count += 1
-    await db.commit()
+    await db.execute(
+        update(Music)
+        .where(Music.id == music_id)
+        .values(collect_count=Music.collect_count + 1)
+    )
 
-    # 自动重新计算歌单创建者的用户标签
+    # 自动重新计算歌单创建者的用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
     playlist = await db.get(Playlist, playlist_id)
     if playlist is not None:
-        await recalculate_user_tags(db, playlist.user_id)
+        await recalculate_user_tags(db, playlist.user_id, commit=False)
 
+    await db.commit()
     await db.refresh(playlist_music)
     return playlist_music
 
@@ -379,17 +338,15 @@ async def remove_music_from_playlist(
     if playlist_music is None:
         raise BusinessError("Music not found in playlist", 404)
 
-    music = await db.get(Music, music_id)
-    if music is not None:
-        music.collect_count -= 1
     await db.delete(playlist_music)
     await db.flush()
     await _sync_playlist_tags_from_musics(db, playlist_id)
-    await db.commit()
 
-    # 自动重新计算歌单创建者的用户标签
+    # 自动重新计算歌单创建者的用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
     playlist = await db.get(Playlist, playlist_id)
     if playlist is not None:
-        await recalculate_user_tags(db, playlist.user_id)
+        await recalculate_user_tags(db, playlist.user_id, commit=False)
+
+    await db.commit()

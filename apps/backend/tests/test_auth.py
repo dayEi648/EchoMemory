@@ -28,7 +28,10 @@ async def _create_user_directly(db: AsyncSession, username: str = "tester", pass
 
 
 class TestRegister:
+    """测试用户注册相关接口。"""
+
     async def test_register_success(self, client: TestClient):
+        """测试正常注册用户，验证返回双令牌及用户信息。"""
         resp = client.post(
             REGISTER_URL,
             data={"username": "alice", "password": "secret123", "nickname": "Alice"},
@@ -53,6 +56,7 @@ class TestRegister:
         assert me_data["role"] == UserRole.USER.value
 
     async def test_register_duplicate_username(self, client: TestClient):
+        """测试注册时用户名已存在，返回 409。"""
         client.post(
             REGISTER_URL,
             data={"username": "bob", "password": "secret123", "nickname": "Bob"},
@@ -64,6 +68,7 @@ class TestRegister:
         assert resp.status_code == 409
 
     async def test_register_duplicate_email(self, client: TestClient):
+        """测试注册时邮箱已存在，返回 409。"""
         client.post(
             REGISTER_URL,
             data={
@@ -85,6 +90,7 @@ class TestRegister:
         assert resp.status_code == 409
 
     async def test_register_validation_short_password(self, client: TestClient):
+        """测试注册时密码过短，返回 422。"""
         resp = client.post(
             REGISTER_URL,
             data={"username": "dave", "password": "123", "nickname": "Dave"},
@@ -93,7 +99,10 @@ class TestRegister:
 
 
 class TestLogin:
+    """测试用户登录相关接口。"""
+
     async def test_login_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常登录，验证返回双令牌。"""
         await _create_user_directly(db_session, username="login_user", password="mypassword")
         resp = client.post(
             LOGIN_URL,
@@ -105,6 +114,7 @@ class TestLogin:
         assert "refresh_token" in data
 
     async def test_login_wrong_password(self, client: TestClient, db_session: AsyncSession):
+        """测试密码错误时返回 401。"""
         await _create_user_directly(db_session, username="login_user2", password="mypassword")
         resp = client.post(
             LOGIN_URL,
@@ -113,6 +123,7 @@ class TestLogin:
         assert resp.status_code == 401
 
     async def test_login_deleted_user(self, client: TestClient, db_session: AsyncSession):
+        """测试已删除用户登录时返回 401。"""
         user = await _create_user_directly(db_session, username="deleted", password="secret")
         user.is_deleted = True
         await db_session.commit()
@@ -124,7 +135,10 @@ class TestLogin:
 
 
 class TestRefresh:
+    """测试令牌刷新相关接口。"""
+
     async def test_refresh_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常刷新令牌，验证旧 refresh token 被轮换。"""
         user = await _create_user_directly(db_session, username="refresh_user", password="secret")
         await rc.store_refresh_token("valid_rt", user.id, version=0)
 
@@ -138,10 +152,12 @@ class TestRefresh:
         assert await rc.get_refresh_token_user_id("valid_rt") is None
 
     async def test_refresh_invalid_token(self, client: TestClient):
+        """测试无效的 refresh token 返回 401。"""
         resp = client.post(REFRESH_URL, json={"refresh_token": "bogus"})
         assert resp.status_code == 401
 
     async def test_refresh_version_mismatch(self, client: TestClient, db_session: AsyncSession):
+        """测试 refresh token 版本不匹配时返回 401。"""
         user = await _create_user_directly(db_session, username="refresh_version", password="secret")
         await rc.store_refresh_token("old_rt", user.id, version=0)
         await rc.increment_user_token_version(user.id)
@@ -151,7 +167,10 @@ class TestRefresh:
 
 
 class TestLogout:
+    """测试用户登出相关接口。"""
+
     async def test_logout_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常登出，验证令牌被加入黑名单。"""
         from echomemory_backend.core.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_user", password="secret")
@@ -170,6 +189,7 @@ class TestLogout:
         assert await rc.is_refresh_token_blacklisted("logout_rt") is True
 
     async def test_logout_increments_version(self, client: TestClient, db_session: AsyncSession):
+        """测试登出后令牌版本递增，旧令牌失效。"""
         from echomemory_backend.core.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_version", password="secret")
@@ -192,7 +212,10 @@ class TestLogout:
 
 
 class TestGetMe:
+    """测试获取当前用户信息相关接口。"""
+
     async def test_get_me_success(self, client: TestClient, db_session: AsyncSession):
+        """测试正常获取当前用户信息。"""
         user = await _create_user_directly(db_session, username="me_user", password="secret")
         from echomemory_backend.core.security import create_access_token
 
@@ -204,10 +227,12 @@ class TestGetMe:
         assert data["id"] == user.id
 
     async def test_get_me_no_token(self, client: TestClient):
+        """测试未携带令牌时返回 401。"""
         resp = client.get(ME_URL)
         assert resp.status_code == 401  # OAuth2 returns 401 when token is missing
 
     async def test_get_me_banned_user(self, client: TestClient, db_session: AsyncSession):
+        """测试被封禁用户访问时返回 403。"""
         from sqlalchemy import func
 
         user = await _create_user_directly(db_session, username="banned", password="secret")
@@ -221,6 +246,7 @@ class TestGetMe:
         assert resp.status_code == 403
 
     async def test_get_me_blacklisted_token(self, client: TestClient, db_session: AsyncSession):
+        """测试黑名单中的令牌返回 401。"""
         user = await _create_user_directly(db_session, username="blacklisted", password="secret")
         from echomemory_backend.core.security import create_access_token
 
@@ -230,6 +256,7 @@ class TestGetMe:
         assert resp.status_code == 401
 
     async def test_get_me_version_mismatch(self, client: TestClient, db_session: AsyncSession):
+        """测试令牌版本不匹配时返回 401。"""
         user = await _create_user_directly(db_session, username="versioned", password="secret")
         from echomemory_backend.core.security import create_access_token
 

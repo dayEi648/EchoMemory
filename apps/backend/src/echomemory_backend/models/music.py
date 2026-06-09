@@ -1,3 +1,5 @@
+"""定义音乐相关的数据库模型，包括歌曲、作者关联、乐器关联及标签关联等。"""
+
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
 
 
 class Music(Base):
+    """音乐歌曲主表模型，存储歌曲的基本信息与多媒体资源链接。"""
+
     __tablename__ = "musics"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -94,6 +98,8 @@ class Music(Base):
 
 
 class MusicAuthor(Base):
+    """音乐与作者的多对多关联模型，记录歌曲的创作者及其排序。"""
+
     __tablename__ = "music_authors"
 
     music_id: Mapped[int] = mapped_column(
@@ -120,6 +126,8 @@ class MusicAuthor(Base):
 
 
 class MusicInstrument(Base):
+    """音乐与乐器的多对多关联模型，记录歌曲使用的乐器。"""
+
     __tablename__ = "music_instruments"
 
     music_id: Mapped[int] = mapped_column(
@@ -141,6 +149,8 @@ class MusicInstrument(Base):
 
 
 class MusicEmotionTag(Base):
+    """音乐与情绪标签的多对多关联模型。"""
+
     __tablename__ = "music_emotion_tags"
 
     music_id: Mapped[int] = mapped_column(
@@ -160,6 +170,8 @@ class MusicEmotionTag(Base):
 
 
 class MusicInterestTag(Base):
+    """音乐与兴趣标签的多对多关联模型。"""
+
     __tablename__ = "music_interest_tags"
 
     music_id: Mapped[int] = mapped_column(

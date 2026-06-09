@@ -1,3 +1,5 @@
+"""专辑相关的 SQLAlchemy ORM 模型模块，定义专辑及其关联关系表。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
 
 
 class Album(Base):
+    """专辑主表模型，存储专辑的基本信息、统计计数及封面地址等。"""
+
     __tablename__ = "albums"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -88,6 +92,8 @@ class Album(Base):
 
 
 class AlbumAuthor(Base):
+    """专辑与作者的关联表模型，维护专辑包含的作者及其排序。"""
+
     __tablename__ = "album_authors"
 
     album_id: Mapped[int] = mapped_column(
@@ -114,6 +120,8 @@ class AlbumAuthor(Base):
 
 
 class AlbumMusic(Base):
+    """专辑与音乐的关联表模型，维护专辑包含的音乐及其排序。"""
+
     __tablename__ = "album_musics"
 
     album_id: Mapped[int] = mapped_column(
@@ -140,6 +148,8 @@ class AlbumMusic(Base):
 
 
 class AlbumEmotionTag(Base):
+    """专辑与情绪标签的关联表模型。"""
+
     __tablename__ = "album_emotion_tags"
 
     album_id: Mapped[int] = mapped_column(
@@ -159,6 +169,8 @@ class AlbumEmotionTag(Base):
 
 
 class AlbumInterestTag(Base):
+    """专辑与兴趣标签的关联表模型。"""
+
     __tablename__ = "album_interest_tags"
 
     album_id: Mapped[int] = mapped_column(

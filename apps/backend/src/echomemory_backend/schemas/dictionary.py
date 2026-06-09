@@ -1,3 +1,5 @@
+"""字典模块的 Pydantic Schema 定义。"""
+
 from pydantic import BaseModel, ConfigDict, Field
 
 

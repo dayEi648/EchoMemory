@@ -1,3 +1,5 @@
+"""评论相关的数据库模型，包含评论主体、点赞和点踩记录。"""
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
 
 
 class Comment(Base):
+    """评论模型，用于存储用户对音乐、歌单或空间动态的评论内容。"""
+
     __tablename__ = "comments"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -98,6 +102,8 @@ class Comment(Base):
 
 
 class CommentLike(Base):
+    """评论点赞模型，记录用户对评论的点赞关系。"""
+
     __tablename__ = "comment_likes"
 
     comment_id: Mapped[int] = mapped_column(
@@ -117,6 +123,8 @@ class CommentLike(Base):
 
 
 class CommentDislike(Base):
+    """评论点踩模型，记录用户对评论的点踩关系。"""
+
     __tablename__ = "comment_dislikes"
 
     comment_id: Mapped[int] = mapped_column(

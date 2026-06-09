@@ -1,3 +1,5 @@
+"""播放历史相关接口。提供播放记录创建、查询、单条删除及清空等操作。"""
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep

@@ -1,3 +1,5 @@
+"""用户收藏与发布标记相关的 API 路由端点，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
