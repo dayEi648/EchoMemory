@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.echomemory.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "powershell -NoProfile -Command \"if (-not (Get-Process nginx -ErrorAction SilentlyContinue)) { nginx -c ../../infra/nginx-dev.conf }; npm run dev\"",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"

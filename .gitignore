@@ -233,3 +233,5 @@ apps/frontend/src-tauri/target/
 
 # Project temporary files
 planning/error/
+CLAUDE.md
+.claude/
