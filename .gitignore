@@ -222,3 +222,4 @@ __marimo__/
 # Develop
 .claude/
 CLAUDE.md
+error/node_modules/

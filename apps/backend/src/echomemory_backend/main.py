@@ -1,10 +1,9 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI, Request
 from sqlalchemy import select
 from starlette.responses import JSONResponse
@@ -111,12 +110,14 @@ async def _seed_dictionary_tables() -> None:
 async def lifespan(app: FastAPI):
     """应用生命周期事件：启动时自动运行 Alembic 数据库迁移并初始化字典数据。"""
     base_dir = Path(__file__).resolve().parent.parent.parent
-    alembic_cfg = Config(str(base_dir / "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-
-    loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor() as pool:
-        await loop.run_in_executor(pool, command.upgrade, alembic_cfg, "head")
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=True,
+        text=True,
+        cwd=str(base_dir),
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Alembic upgrade failed: {result.stderr}")
 
     await _seed_dictionary_tables()
     yield

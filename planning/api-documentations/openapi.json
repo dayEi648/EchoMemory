@@ -4681,16 +4681,16 @@
             ],
             "title": "Bio"
           },
-          "city_id": {
+          "city": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "City Id"
+            "title": "City"
           }
         },
         "type": "object",
@@ -4786,16 +4786,16 @@
             ],
             "title": "Bio"
           },
-          "city_id": {
+          "city": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "City Id"
+            "title": "City"
           }
         },
         "type": "object",
@@ -6262,16 +6262,16 @@
             "type": "integer",
             "title": "Exp"
           },
-          "city_id": {
+          "city": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "City Id"
+            "title": "City"
           },
           "birth": {
             "anyOf": [
@@ -6440,16 +6440,16 @@
             "type": "integer",
             "title": "Exp"
           },
-          "city_id": {
+          "city": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "City Id"
+            "title": "City"
           },
           "birth": {
             "anyOf": [

@@ -10,7 +10,7 @@ REFRESH_PREFIX = "refresh"
 BLACKLIST_PREFIX = "blacklist"
 USER_VERSION_PREFIX = "user_version"
 
-redis_client = from_url(settings.redis_url, decode_responses=True)
+redis_client = from_url(settings.redis_url, decode_responses=True, protocol=2)
 
 
 async def store_refresh_token(
