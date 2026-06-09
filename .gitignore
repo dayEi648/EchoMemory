@@ -223,3 +223,4 @@ __marimo__/
 .claude/
 CLAUDE.md
 error/node_modules/
+apps/frontend/node_modules/
