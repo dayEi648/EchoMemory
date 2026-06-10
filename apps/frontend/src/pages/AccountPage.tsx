@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, User, Shield, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -27,8 +27,24 @@ const statusLabel: Record<number, string> = {
 export const AccountPage = () => {
   const { user, updateProfile } = useAuthStore();
   const [saving, setSaving] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("请选择图片文件");
+      return;
+    }
+    setSelectedAvatar(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +59,10 @@ export const AccountPage = () => {
         birth: String(form.get("birth") ?? "") || undefined,
         bio: String(form.get("bio") ?? "") || undefined,
         city: String(form.get("city") ?? "") || undefined,
+        avatar: selectedAvatar ?? undefined,
       });
+      setSelectedAvatar(null);
+      setAvatarPreview(null);
       toast.success("资料已保存");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
@@ -75,7 +94,21 @@ export const AccountPage = () => {
             transition={{ duration: 0.25 }}
           >
             <div style={{ position: "relative" }}>
-              <Avatar user={user} size="lg" />
+              <Avatar
+                user={{
+                  avatar_url: avatarPreview ?? user.avatar_url,
+                  nickname: user.nickname,
+                  username: user.username,
+                }}
+                size="lg"
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleAvatarChange}
+              />
               <motion.button
                 style={{
                   position: "absolute",
@@ -96,6 +129,7 @@ export const AccountPage = () => {
                 whileTap={{ scale: 0.9 }}
                 type="button"
                 title="更换头像"
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Camera size={12} />
               </motion.button>

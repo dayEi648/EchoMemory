@@ -1,0 +1,41 @@
+- generic [ref=e2]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - paragraph [ref=e10]: EchoMemory
+      - heading "回声记忆" [level=1] [ref=e11]
+      - paragraph [ref=e12]: 用 AI Agent 连接你的音乐偏好、记忆片段与创作线索。创建账户开启音乐之旅。
+      - generic [ref=e13]:
+        - button "登录" [ref=e14] [cursor=pointer]
+        - button "注册" [active] [ref=e15] [cursor=pointer]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - text: 用户名
+          - textbox "用户名" [ref=e18]
+        - generic [ref=e19]:
+          - text: 密码
+          - textbox "密码" [ref=e20]
+        - button "进入账户" [ref=e21] [cursor=pointer]
+    - generic [ref=e22]:
+      - img [ref=e29]
+      - generic [ref=e32]:
+        - img [ref=e33]
+        - generic [ref=e35]:
+          - generic [ref=e36]: AI 音乐推荐
+          - generic [ref=e37]: 智能理解你的音乐品味
+      - generic [ref=e38]:
+        - img [ref=e39]
+        - generic [ref=e44]:
+          - generic [ref=e45]: 记忆图谱
+          - generic [ref=e46]: 构建你的专属音乐记忆网络
+      - generic [ref=e47]:
+        - img [ref=e48]
+        - generic [ref=e52]:
+          - generic [ref=e53]: 口味标签
+          - generic [ref=e54]: 精准刻画听歌偏好
+      - generic [ref=e55]:
+        - img [ref=e56]
+        - generic [ref=e58]:
+          - generic [ref=e59]: AI 回声
+          - generic [ref=e60]: 与你对话的音乐智能体
+  - region "Notifications alt+T"

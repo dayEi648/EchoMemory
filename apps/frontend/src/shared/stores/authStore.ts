@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { createUserApi, type ApiError } from "../api/userApi";
 import type { UpdateMeInput, UserMe } from "../api/types";
-import { createMemoryTokenStore, type TokenStore } from "../auth/tokenStore";
+import { createLocalStorageTokenStore, type TokenStore } from "../auth/tokenStore";
 
 const isDev = import.meta.env.DEV;
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -42,7 +42,7 @@ interface AuthState {
   refreshUser: () => Promise<void>;
 }
 
-const defaultTokenStore = createMemoryTokenStore();
+const defaultTokenStore = createLocalStorageTokenStore();
 let currentTokenStore = defaultTokenStore;
 let currentApi = createUserApi({ baseUrl: API_BASE_URL, tokenStore: currentTokenStore });
 

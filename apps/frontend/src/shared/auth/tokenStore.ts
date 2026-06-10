@@ -21,3 +21,23 @@ export const createMemoryTokenStore = (initial: TokenPair | null = null): TokenS
     },
   };
 };
+
+export const createLocalStorageTokenStore = (key = "echomemory_tokens"): TokenStore => {
+  return {
+    get: () => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        return JSON.parse(raw) as TokenPair;
+      } catch {
+        return null;
+      }
+    },
+    set: (tokens) => {
+      localStorage.setItem(key, JSON.stringify(tokens));
+    },
+    clear: () => {
+      localStorage.removeItem(key);
+    },
+  };
+};
