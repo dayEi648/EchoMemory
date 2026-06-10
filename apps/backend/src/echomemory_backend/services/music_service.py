@@ -3,7 +3,7 @@
 import logging
 from datetime import date
 
-from sqlalchemy import delete, desc, select
+from sqlalchemy import delete, desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -281,7 +281,7 @@ async def search_musics(
     is_published: bool = True,
     limit: int = 20,
     offset: int = 0,
-) -> list[Music]:
+) -> dict[str, object]:
     """按标题模糊搜索音乐。
 
     Args:
@@ -292,23 +292,26 @@ async def search_musics(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        音乐实例列表（按热度降序，仅加载作者关联关系）。
+        {"items": 音乐实例列表, "total": 总记录数}。
     """
+    where_clause = [Music.is_published == is_published]
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+
     stmt = (
         select(Music)
-        .where(Music.is_published == is_published)
+        .where(*where_clause)
         .order_by(desc(Music.hot))
         .limit(limit)
         .offset(offset)
+        .options(selectinload(Music.authors).selectinload(MusicAuthor.author))
     )
-    if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        stmt = stmt.where(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
-
-    stmt = stmt.options(
-        selectinload(Music.authors).selectinload(MusicAuthor.author)
-    )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def update_music(

@@ -47,6 +47,11 @@ export type UserSearchItem = {
   bio?: string;
 };
 
+export type PaginatedUserSearch = {
+  items: UserSearchItem[];
+  total: number;
+};
+
 export type UserTag = {
   tag_id: number;
   name: string;
@@ -131,6 +136,11 @@ export type MusicListItem = {
   created_at: string;
 };
 
+export type PaginatedMusicList = {
+  items: MusicListItem[];
+  total: number;
+};
+
 export type MusicDetail = {
   id: number;
   title: string;
@@ -190,6 +200,11 @@ export type AlbumListItem = {
   play_count: number;
   cover_icon_url: string | null;
   created_at: string;
+};
+
+export type PaginatedAlbumList = {
+  items: AlbumListItem[];
+  total: number;
 };
 
 export type AlbumDetail = {

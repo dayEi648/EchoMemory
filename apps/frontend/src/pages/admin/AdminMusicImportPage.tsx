@@ -71,8 +71,8 @@ export const AdminMusicImportPage = () => {
   const handleAuthorSearch = async () => {
     if (!authorSearch.trim()) return;
     try {
-      const users = await api.searchUsers(authorSearch.trim());
-      setAuthorResults(users.map((u) => ({ id: u.id, nickname: u.nickname, username: u.username })));
+      const result = await api.searchUsers(authorSearch.trim());
+      setAuthorResults(result.items.map((u) => ({ id: u.id, nickname: u.nickname, username: u.username })));
     } catch {
       toast.error("搜索用户失败");
     }

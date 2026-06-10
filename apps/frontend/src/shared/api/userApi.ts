@@ -8,6 +8,7 @@ import type {
   UserAdminUpdate,
   UserMe,
   UserPublic,
+  PaginatedUserSearch,
   UserSearchItem,
   UserStatus,
   UserTag,
@@ -158,8 +159,8 @@ export const createUserApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
     getMe: () => request<UserMe>("/auth/me"),
     updateMe: (input: UpdateMeInput) =>
       request<UserMe>("/users/me", { method: "PATCH", body: toUpdateFormData(input) }),
-    searchUsers: (q: string) =>
-      request<UserSearchItem[]>(`/users/?q=${encodeURIComponent(q)}&limit=20&offset=0`, {}, false),
+    searchUsers: (q: string, limit = 20, offset = 0) =>
+      request<PaginatedUserSearch>(`/users/?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`, {}, false),
     getPublicUser: (userId: number) => request<UserPublic>(`/users/${userId}`, {}, false),
     getMyEmotionTags: () => request<UserTag[]>("/users/me/emotion-tags"),
     getMyInterestTags: () => request<UserTag[]>("/users/me/interest-tags"),

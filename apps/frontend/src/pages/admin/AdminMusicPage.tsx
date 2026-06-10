@@ -50,7 +50,7 @@ export const AdminMusicPage = () => {
         limit: pageSize,
         offset: page * pageSize,
       });
-      setMusics(result);
+      setMusics(result.items);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "加载失败");
     } finally {

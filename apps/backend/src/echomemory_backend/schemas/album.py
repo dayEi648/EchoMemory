@@ -145,6 +145,13 @@ class AlbumListOut(BaseModel):
 # 专辑请求模型
 # ---------------------------------------------------------------------------
 
+class PaginatedAlbumListOut(BaseModel):
+    """专辑列表分页响应 Schema。"""
+
+    items: list[AlbumListOut]
+    total: int
+
+
 class AlbumCreate(BaseModel):
     """管理员创建专辑的请求体（不含文件）。"""
 

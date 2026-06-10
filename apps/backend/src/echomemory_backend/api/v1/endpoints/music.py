@@ -11,7 +11,7 @@ from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
-from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate
+from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate, PaginatedMusicListOut
 from echomemory_backend.services import music_service
 
 router = APIRouter(prefix="/music", tags=["music"])
@@ -239,7 +239,7 @@ async def admin_unpublish_music(
 # ---------------------------------------------------------------------------
 
 # 注意：/search 必须排在 /{music_id} 之前，否则 FastAPI 会把 "search" 当作 music_id。
-@router.get("/search", response_model=list[MusicListOut])
+@router.get("/search", response_model=PaginatedMusicListOut)
 async def search_musics(
     db: SessionDep,
     q: str | None = Query(None, description="按标题模糊搜索"),

@@ -11,6 +11,7 @@ from echomemory_backend.schemas.album import (
     AlbumListOut,
     AlbumOut,
     AlbumUpdate,
+    PaginatedAlbumListOut,
 )
 from echomemory_backend.services import album_service
 from echomemory_backend.core.exceptions import BusinessError
@@ -183,7 +184,7 @@ async def remove_music_from_album(
 # ---------------------------------------------------------------------------
 
 # 注意：/search 必须排在 /{album_id} 之前，否则 FastAPI 会把 "search" 当作 album_id。
-@router.get("/search", response_model=list[AlbumListOut])
+@router.get("/search", response_model=PaginatedAlbumListOut)
 async def search_albums(
     db: SessionDep,
     q: str | None = Query(None, description="按标题模糊搜索"),

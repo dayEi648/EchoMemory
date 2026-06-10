@@ -159,6 +159,13 @@ class MusicListOut(BaseModel):
 # 音乐更新模型
 # ---------------------------------------------------------------------------
 
+class PaginatedMusicListOut(BaseModel):
+    """音乐列表分页响应 Schema。"""
+
+    items: list[MusicListOut]
+    total: int
+
+
 class MusicUpdate(BaseModel):
     """管理员修改音乐信息的请求体（不含文件）。"""
 

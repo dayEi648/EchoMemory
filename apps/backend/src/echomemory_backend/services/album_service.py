@@ -288,7 +288,7 @@ async def search_albums(
     q: str | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> list[Album]:
+) -> dict[str, object]:
     """按标题模糊搜索未删除专辑。
 
     Args:
@@ -298,18 +298,25 @@ async def search_albums(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        匹配的专辑实例列表。
+        {"items": 匹配的专辑实例列表, "total": 总记录数}。
     """
+    where_clause = [Album.is_deleted == False]
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+
     stmt = (
         select(Album)
-        .where(Album.is_deleted == False)
+        .where(*where_clause)
         .order_by(desc(Album.hot))
         .limit(limit)
         .offset(offset)
     )
-    if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        stmt = stmt.where(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
     return list((await db.execute(stmt)).scalars().all())
 
 

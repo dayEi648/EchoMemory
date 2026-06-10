@@ -3,7 +3,7 @@
 提供用户查询、创建、资料更新、关注/取关以及用户搜索等操作。
 """
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -262,7 +262,7 @@ async def search_users(
     offset: int,
     status: int | None = None,
     role: int | None = None,
-) -> list[User]:
+) -> dict[str, object]:
     """按可选条件搜索用户。
 
     Args:
@@ -274,18 +274,29 @@ async def search_users(
         role: 按用户角色筛选；为 None 时不按角色过滤。
 
     Returns:
-        符合条件的用户实例列表。
+        {"items": 符合条件的用户实例列表, "total": 总记录数}。
     """
-    stmt = select(User).where(User.is_deleted == False)
+    where_clause = [User.is_deleted == False]
     if status is not None:
-        stmt = stmt.where(User.status == status)
+        where_clause.append(User.status == status)
     if role is not None:
-        stmt = stmt.where(User.role == role)
+        where_clause.append(User.role == role)
     if q:
         escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        stmt = stmt.where(
+        where_clause.append(
             (User.username.ilike(f"%{escaped_q}%", escape="\\"))
             | (User.nickname.ilike(f"%{escaped_q}%", escape="\\"))
         )
-    stmt = stmt.order_by(desc(User.exp)).limit(limit).offset(offset)
-    return list((await db.execute(stmt)).scalars().all())
+
+    stmt = (
+        select(User)
+        .where(*where_clause)
+        .order_by(desc(User.exp))
+        .limit(limit)
+        .offset(offset)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}

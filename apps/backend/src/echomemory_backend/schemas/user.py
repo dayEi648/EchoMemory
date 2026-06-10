@@ -211,6 +211,13 @@ class UserSearchOut(BaseModel):
     bio: str | None = None
 
 
+class PaginatedUserSearchOut(BaseModel):
+    """用户搜索分页响应 Schema。"""
+
+    items: list[UserSearchOut]
+    total: int
+
+
 class PaginatedUserAdminOut(BaseModel):
     """管理员用户列表分页响应 Schema。"""
 

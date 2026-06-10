@@ -14,6 +14,7 @@ from echomemory_backend.schemas.user import (
     FolloweeOut,
     FollowerOut,
     PaginatedUserAdminOut,
+    PaginatedUserSearchOut,
     UserAdminUpdate,
     UserBanAction,
     UserMeOut,
@@ -118,13 +119,13 @@ async def get_user(db: SessionDep, user_id: int) -> User:
     return user
 
 
-@router.get("/", response_model=list[UserSearchOut])
+@router.get("/", response_model=PaginatedUserSearchOut)
 async def search_users(
     db: SessionDep,
     q: str | None = Query(None, description="按用户名或昵称搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-) -> list[User]:
+):
     """按可选关键词搜索用户。"""
     return await user_service.search_users(db, q=q, limit=limit, offset=offset)
 

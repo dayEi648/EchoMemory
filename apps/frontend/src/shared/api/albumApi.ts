@@ -1,5 +1,5 @@
 import type { TokenStore } from "../auth/tokenStore";
-import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput } from "./types";
+import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
 const appendDefined = (formData: FormData, key: string, value: unknown) => {
@@ -28,7 +28,7 @@ export const createAlbumApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.q) query.set("q", params.q);
-      return request<AlbumListItem[]>(`/albums/search?${query.toString()}`, {}, false);
+      return request<PaginatedAlbumList>(`/albums/search?${query.toString()}`, {}, false);
     },
     listAlbums: (params: { emotion_tag_id?: number; interest_tag_id?: number; limit?: number; offset?: number } = {}) => {
       const query = new URLSearchParams();

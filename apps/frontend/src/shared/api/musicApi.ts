@@ -1,5 +1,5 @@
 import type { TokenStore } from "../auth/tokenStore";
-import type { MusicDetail, MusicListItem, MusicUpdateInput } from "./types";
+import type { MusicDetail, MusicListItem, MusicUpdateInput, PaginatedMusicList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
 const appendDefined = (formData: FormData, key: string, value: unknown) => {
@@ -28,7 +28,7 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.q) query.set("q", params.q);
-      return request<MusicListItem[]>(`/music/search?${query.toString()}`, {}, false);
+      return request<PaginatedMusicList>(`/music/search?${query.toString()}`, {}, false);
     },
     listMusic: (params: { style_id?: number; language_id?: number; is_vip?: boolean; limit?: number; offset?: number } = {}) => {
       const query = new URLSearchParams();
