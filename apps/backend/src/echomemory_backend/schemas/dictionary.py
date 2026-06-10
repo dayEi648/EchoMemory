@@ -22,3 +22,10 @@ class DictionaryItemOut(BaseModel):
 
     id: int
     name: str
+
+
+class DictionaryItemListOut(BaseModel):
+    """字典项分页列表输出模型。"""
+
+    items: list[DictionaryItemOut]
+    total: int

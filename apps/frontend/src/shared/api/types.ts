@@ -254,3 +254,8 @@ export type DictionaryItem = {
   created_at: string;
   updated_at: string;
 };
+
+export type PaginatedDictionaryItems = {
+  items: DictionaryItem[];
+  total: number;
+};

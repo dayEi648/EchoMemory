@@ -1,4 +1,4 @@
-import type { DictionaryItem, DictionaryType } from "./types";
+import type { DictionaryItem, DictionaryType, PaginatedDictionaryItems } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
 export interface DictionaryItemCreateInput {
@@ -23,7 +23,7 @@ export const createDictionaryApi = ({
       if (limit !== undefined) params.set("limit", String(limit));
       if (offset !== undefined) params.set("offset", String(offset));
       const qs = params.toString();
-      return request<DictionaryItem[]>(
+      return request<PaginatedDictionaryItems>(
         `/dictionary/${type}${qs ? `?${qs}` : ""}`,
         {},
         false,

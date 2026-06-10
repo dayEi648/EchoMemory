@@ -56,11 +56,11 @@ export const AdminMusicImportPage = () => {
           dictionaryApi.listDictionary("emotion_tags"),
           dictionaryApi.listDictionary("interest_tags"),
         ]);
-        setStyles(s);
-        setLanguages(l);
-        setInstruments(i);
-        setEmotionTags(e);
-        setInterestTags(it);
+        setStyles(s.items);
+        setLanguages(l.items);
+        setInstruments(i.items);
+        setEmotionTags(e.items);
+        setInterestTags(it.items);
       } catch {
         toast.error("加载字典数据失败");
       }

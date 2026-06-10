@@ -69,8 +69,8 @@ export const AdminMusicPage = () => {
           dictionaryApi.listDictionary("styles"),
           dictionaryApi.listDictionary("languages"),
         ]);
-        setStyles(s);
-        setLanguages(l);
+        setStyles(s.items);
+        setLanguages(l.items);
       } catch {
         // silently fail
       }

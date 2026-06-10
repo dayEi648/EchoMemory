@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.schemas.dictionary import (
     DictionaryItemCreate,
+    DictionaryItemListOut,
     DictionaryItemOut,
     DictionaryItemUpdate,
 )
@@ -26,7 +27,7 @@ async def create_dictionary_item(
     )
 
 
-@router.get("/{dictionary_type}", response_model=list[DictionaryItemOut])
+@router.get("/{dictionary_type}", response_model=DictionaryItemListOut)
 async def list_dictionary_items(
     db: SessionDep,
     dictionary_type: str,
@@ -34,9 +35,10 @@ async def list_dictionary_items(
     offset: int = Query(0, ge=0),
 ):
     """公开：分页列出字典项。"""
-    return await dictionary_service.list_dictionary_items(
+    result = await dictionary_service.list_dictionary_items(
         db, dictionary_type, limit=limit, offset=offset
     )
+    return result
 
 
 @router.get("/{dictionary_type}/{item_id}", response_model=DictionaryItemOut)

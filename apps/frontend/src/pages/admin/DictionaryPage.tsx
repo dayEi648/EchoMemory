@@ -26,12 +26,13 @@ const DICT_TYPES: { key: DictionaryType; label: string }[] = [
 export const DictionaryPage = () => {
   const [activeType, setActiveType] = useState<DictionaryType>("styles");
   const [items, setItems] = useState<DictionaryItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // 分页
   const [page, setPage] = useState(0);
   const pageSize = 10;
-  const hasMore = items.length === pageSize;
+  const totalPages = Math.ceil(total / pageSize);
 
   // Modal 状态
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -45,12 +46,13 @@ export const DictionaryPage = () => {
   const loadItems = async (type: DictionaryType, currentPage: number) => {
     setLoading(true);
     try {
-      const data = await dictionaryApi.listDictionary(
+      const result = await dictionaryApi.listDictionary(
         type,
         pageSize,
         currentPage * pageSize,
       );
-      setItems(data);
+      setItems(result.items);
+      setTotal(result.total);
     } catch {
       toast.error("加载字典数据失败");
     } finally {
@@ -205,7 +207,7 @@ export const DictionaryPage = () => {
           }}
         >
           <span style={{ fontSize: 14, color: "var(--color-muted)", fontWeight: 500 }}>
-            {activeLabel} · 共 {items.length} 项
+            {activeLabel} · 共 {total} 项
           </span>
           <motion.button
             className="btn-primary"
@@ -282,46 +284,59 @@ export const DictionaryPage = () => {
             </StaggerContainer>
           </div>
           {/* 分页栏 */}
-          <div className="pagination-bar" style={{ marginTop: 16 }}>
-            <div className="pagination-left">
-              <span className="pagination-label">每页 {pageSize} 条</span>
-            </div>
-            <div className="pagination-center">
-              <motion.button
-                className="pagination-btn"
-                onClick={() => {
-                  const prev = page - 1;
-                  setPage(prev);
-                  loadItems(activeType, prev);
-                }}
-                disabled={page === 0 || loading}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-              >
-                <ChevronLeft size={16} />
-              </motion.button>
-              <span
-                className="pagination-btn active"
-                style={{ cursor: "default", fontWeight: 600 }}
-              >
-                {page + 1}
+          {totalPages > 1 && (
+            <div className="pagination-bar" style={{ marginTop: 16 }}>
+              <div className="pagination-left">
+                <span className="pagination-label">每页 {pageSize} 条</span>
+              </div>
+              <div className="pagination-center">
+                <motion.button
+                  className="pagination-btn"
+                  onClick={() => {
+                    const prev = page - 1;
+                    setPage(prev);
+                    loadItems(activeType, prev);
+                  }}
+                  disabled={page === 0 || loading}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                >
+                  <ChevronLeft size={16} />
+                </motion.button>
+                {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
+                  <motion.button
+                    key={p}
+                    className={`pagination-btn ${p === page ? "active" : ""}`}
+                    onClick={() => {
+                      setPage(p);
+                      loadItems(activeType, p);
+                    }}
+                    disabled={loading}
+                    whileTap={{ scale: 0.95 }}
+                    type="button"
+                  >
+                    {p + 1}
+                  </motion.button>
+                ))}
+                <motion.button
+                  className="pagination-btn"
+                  onClick={() => {
+                    const next = page + 1;
+                    setPage(next);
+                    loadItems(activeType, next);
+                  }}
+                  disabled={page >= totalPages - 1 || loading}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                >
+                  <ChevronRight size={16} />
+                </motion.button>
+              </div>
+              <span className="pagination-info">
+                第 {page + 1} / {totalPages} 页，共 {total} 条
               </span>
-              <motion.button
-                className="pagination-btn"
-                onClick={() => {
-                  const next = page + 1;
-                  setPage(next);
-                  loadItems(activeType, next);
-                }}
-                disabled={!hasMore || loading}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-              >
-                <ChevronRight size={16} />
-              </motion.button>
             </div>
-            <span className="pagination-info">第 {page + 1} 页</span>
-          </div>
+          )}
         </FadeIn>
       ) : loading ? (
         <div className="loading-screen" style={{ height: "30vh" }}>

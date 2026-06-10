@@ -1,6 +1,6 @@
 """字典服务模块，提供音乐平台各类字典项（风格、语言、乐器、情感标签、兴趣标签等）的增删改查功能。"""
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -122,7 +122,7 @@ async def list_dictionary_items(
     limit: int = 100,
     offset: int = 0,
 ):
-    """分页列出字典项，按 name 字母序排列。
+    """分页列出字典项，按 id 升序排列。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -131,11 +131,15 @@ async def list_dictionary_items(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        字典项实例列表。
+        dict: {"items": 字典项实例列表, "total": 总记录数}。
     """
     model = _get_model(dictionary_type)
     stmt = select(model).order_by(model.id).limit(limit).offset(offset)
-    return (await db.execute(stmt)).scalars().all()
+    items = (await db.execute(stmt)).scalars().all()
+    total = (
+        await db.execute(select(func.count()).select_from(model))
+    ).scalar_one()
+    return {"items": list(items), "total": total}
 
 
 async def update_dictionary_item(
