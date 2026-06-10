@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "echomemory-backend"
 version = "0.1.0"
@@ -24,6 +28,9 @@ dependencies = [
     "python-multipart",
 ]
 
+[project.scripts]
+start = "echomemory_backend.cli:start"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
@@ -31,6 +38,9 @@ dev = [
     "httpx",
     "fakeredis",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
