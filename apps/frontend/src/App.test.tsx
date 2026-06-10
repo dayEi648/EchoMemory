@@ -33,6 +33,7 @@ const adminUser: UserMe = {
   phone: null,
   status: 0,
   safety_score: 10,
+  is_deleted: false,
   last_login_at: null,
   banned_at: null,
   ban_duration: null,

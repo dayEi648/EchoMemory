@@ -26,6 +26,7 @@ export type UserMe = {
   phone: string | null;
   status: UserStatus;
   safety_score: number;
+  is_deleted: boolean;
   last_login_at: string | null;
   banned_at: string | null;
   ban_duration: string | null;
@@ -81,6 +82,13 @@ export type UpdateMeInput = {
 };
 
 export type UserAdminUpdate = {
+  nickname?: string;
+  email?: string;
+  phone?: string;
+  gender?: number;
+  birth?: string;
+  bio?: string;
+  city?: string;
   role?: UserRole;
   status?: UserStatus;
   safety_score?: number;

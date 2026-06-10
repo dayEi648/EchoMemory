@@ -179,6 +179,7 @@ export const createUserApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
       q?: string;
       role?: number;
       status?: number;
+      isDeleted?: boolean;
       sortBy?: string;
       sortOrder?: string;
       limit?: number;
@@ -190,6 +191,7 @@ export const createUserApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
       if (params.q) query.set("q", params.q);
       if (params.role !== undefined) query.set("role", String(params.role));
       if (params.status !== undefined) query.set("status", String(params.status));
+      if (params.isDeleted !== undefined) query.set("is_deleted", String(params.isDeleted));
       if (params.sortBy) query.set("sort_by", params.sortBy);
       if (params.sortOrder) query.set("sort_order", params.sortOrder);
       return request<PaginatedUsers>(`/users/admin/list?${query.toString()}`);
@@ -207,6 +209,9 @@ export const createUserApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
         body: JSON.stringify({ status, ban_duration: banDuration }),
       }),
     adminUnbanUser: (userId: number) => request<UserMe>(`/users/${userId}/unban`, { method: "POST" }),
+    adminGetUserFull: (userId: number) => request<UserMe>(`/users/${userId}/admin`),
+    adminDeleteUser: (userId: number) =>
+      request<void>(`/users/${userId}/admin`, { method: "DELETE" }),
     logout: async () => {
       const tokens = tokenStore.get();
       if (!tokens) {

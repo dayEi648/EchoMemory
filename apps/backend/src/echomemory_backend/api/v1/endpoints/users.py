@@ -178,6 +178,7 @@ async def admin_list_users(
     admin: AdminUser,
     status: int | None = Query(None, ge=0, le=3),
     role: int | None = Query(None, ge=0, le=3),
+    is_deleted: bool | None = Query(False, description="是否已注销（软删除）；不传默认 false，传 null 显示全部"),
     q: str | None = Query(None, description="按用户名或昵称搜索"),
     sort_by: str = Query("created_at", description="排序字段: created_at, exp, level, like_count"),
     sort_order: str = Query("desc", description="排序方向: asc, desc"),
@@ -194,6 +195,7 @@ async def admin_list_users(
         sort_order=sort_order,
         limit=limit,
         offset=offset,
+        is_deleted=is_deleted,
     )
     return PaginatedUserAdminOut(items=items, total=total)
 
@@ -228,3 +230,24 @@ async def admin_unban_user(
 ) -> User:
     """解封用户。"""
     return await admin_service.unban_user(db, admin, user_id)
+
+
+@router.get("/{user_id}/admin", response_model=UserMeOut)
+async def admin_get_user(
+    db: SessionDep,
+    admin: AdminUser,
+    user_id: int,
+) -> User:
+    """以管理员身份获取单个用户的完整信息。"""
+    return await admin_service.get_user_full(db, admin, user_id)
+
+
+@router.delete("/{user_id}/admin", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_user(
+    db: SessionDep,
+    admin: AdminUser,
+    user_id: int,
+) -> None:
+    """以管理员身份硬删除用户及其所有关联数据。"""
+    await admin_service.hard_delete_user(db, admin, user_id)
+    return None

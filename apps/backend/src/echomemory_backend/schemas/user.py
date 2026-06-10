@@ -42,6 +42,13 @@ class UserUpdate(BaseModel):
 class UserAdminUpdate(BaseModel):
     """管理员更新用户信息 Schema。"""
 
+    nickname: str | None = Field(None, min_length=1, max_length=32)
+    email: EmailStr | None = None
+    phone: str | None = Field(None, max_length=20)
+    gender: Literal[0, 1, 2] | None = None
+    birth: date | None = None
+    bio: str | None = Field(None, max_length=500)
+    city: str | None = Field(None, max_length=50)
     role: Literal[0, 1, 2, 3] | None = None
     status: Literal[0, 1, 2, 3] | None = None
     safety_score: int | None = Field(None, ge=0, le=10)
@@ -114,6 +121,7 @@ class UserMeOut(UserOut):
     phone: str | None = None
     status: int
     safety_score: int
+    is_deleted: bool
     last_login_at: datetime | None = None
     banned_at: datetime | None = None
     ban_duration: str | None = None

@@ -22,6 +22,7 @@ async def list_users_with_count(
     offset: int,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    is_deleted: bool | None = False,
 ) -> tuple[list[User], int]:
     """以管理员筛选条件列出用户并返回总数量。
 
@@ -34,11 +35,14 @@ async def list_users_with_count(
         offset: 分页偏移量。
         sort_by: 排序字段，支持 created_at、exp、level、like_count。
         sort_order: 排序方向，asc 或 desc。
+        is_deleted: 按是否注销（软删除）筛选；为 None 时显示全部，默认为 False 只显示未注销用户。
 
     Returns:
         包含两个元素的元组：用户实例列表和符合条件的总记录数。
     """
-    where_clause = [User.is_deleted == False]
+    where_clause: list = []
+    if is_deleted is not None:
+        where_clause.append(User.is_deleted == is_deleted)
     if status is not None:
         where_clause.append(User.status == status)
     if role is not None:
@@ -123,6 +127,29 @@ async def update_user_as_admin(
     # 记录是否修改了影响账户可用性的字段
     should_invalidate_tokens = False
 
+    # 基本资料字段
+    if user_in.nickname is not None:
+        user.nickname = user_in.nickname
+    if user_in.email is not None and user_in.email != user.email:
+        from echomemory_backend.services.user_service import get_user_by_email
+        if await get_user_by_email(db, user_in.email):
+            raise BusinessError("邮箱已被注册", 409)
+        user.email = user_in.email
+    if user_in.phone is not None and user_in.phone != user.phone:
+        from echomemory_backend.services.user_service import get_user_by_phone
+        if await get_user_by_phone(db, user_in.phone):
+            raise BusinessError("手机号已被注册", 409)
+        user.phone = user_in.phone
+    if user_in.gender is not None:
+        user.gender = user_in.gender
+    if user_in.birth is not None:
+        user.birth = user_in.birth
+    if user_in.bio is not None:
+        user.bio = user_in.bio
+    if user_in.city is not None:
+        user.city = user_in.city
+
+    # 权限与状态字段
     if user_in.role is not None:
         user.role = user_in.role
         should_invalidate_tokens = True
@@ -218,3 +245,49 @@ async def unban_user(db: AsyncSession, admin: User, target_user_id: int) -> User
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def get_user_full(db: AsyncSession, admin: User, target_user_id: int) -> User:
+    """以管理员身份获取单个用户的完整信息。
+
+    Args:
+        db: SQLAlchemy AsyncSession。
+        admin: 执行查询的管理员。
+        target_user_id: 待查询的用户 ID。
+
+    Returns:
+        目标用户实例。
+
+    Raises:
+        BusinessError: 目标用户不存在或管理员权限不足时抛出。
+    """
+    user = await get_user_by_id(db, target_user_id)
+    if not user or user.is_deleted:
+        raise BusinessError("User not found", 404)
+
+    _assert_can_manage(admin, user)
+    return user
+
+
+async def hard_delete_user(db: AsyncSession, admin: User, target_user_id: int) -> None:
+    """硬删除用户及其所有关联数据。
+
+    由于数据库外键均设置为 ON DELETE CASCADE，删除用户记录会自动级联删除
+    其歌单、评论、动态、播放历史、关注关系、收藏等全部关联数据。
+
+    Args:
+        db: SQLAlchemy AsyncSession。
+        admin: 执行删除的管理员。
+        target_user_id: 待删除的用户 ID。
+
+    Raises:
+        BusinessError: 目标用户不存在或管理员权限不足时抛出。
+    """
+    user = await get_user_by_id(db, target_user_id)
+    if not user or user.is_deleted:
+        raise BusinessError("User not found", 404)
+
+    _assert_can_manage(admin, user)
+
+    await db.delete(user)
+    await db.commit()

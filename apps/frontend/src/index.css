@@ -1372,6 +1372,11 @@ textarea {
   color: #b8860b;
 }
 
+.status-badge.deleted {
+  background: #f0eeea;
+  color: #77716a;
+}
+
 /* Search Results */
 .search-tabs {
   display: flex;
