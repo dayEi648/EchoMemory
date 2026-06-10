@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Music, BookOpen, Shield, Activity } from "lucide-react";
+import { Users, Music, BookOpen, Shield, Activity, Disc3 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const adminLinks = [
   { to: "/admin", icon: Activity, label: "概览" },
   { to: "/admin/users", icon: Users, label: "用户管理" },
   { to: "/admin/music", icon: Music, label: "音乐管理" },
+  { to: "/admin/albums", icon: Disc3, label: "专辑管理" },
   { to: "/admin/dict", icon: BookOpen, label: "字典维护" },
   { to: "/admin/audit", icon: Shield, label: "内容审核" },
 ];

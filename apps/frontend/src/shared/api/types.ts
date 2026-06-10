@@ -197,6 +197,19 @@ export type MusicUpdateInput = {
   lyrics_file?: File;
 };
 
+/* ==================== Admin Album List ==================== */
+
+export type AdminAlbumListItem = AlbumListItem & {
+  authors: Author[];
+  music_count: number;
+  collect_count: number;
+};
+
+export type PaginatedAdminAlbumList = {
+  items: AdminAlbumListItem[];
+  total: number;
+};
+
 /* ==================== Album ==================== */
 
 export type AlbumMusicItem = {

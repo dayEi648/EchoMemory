@@ -141,14 +141,25 @@ class AlbumListOut(BaseModel):
     created_at: datetime
 
 
-# ---------------------------------------------------------------------------
-# 专辑请求模型
-# ---------------------------------------------------------------------------
+class AdminAlbumListItem(AlbumListOut):
+    """管理员专辑列表项，在 AlbumListOut 基础上增加作者、歌曲数和收藏数。"""
+
+    authors: list[AlbumAuthorOut] = []
+    music_count: int
+    collect_count: int
+
 
 class PaginatedAlbumListOut(BaseModel):
     """专辑列表分页响应 Schema。"""
 
     items: list[AlbumListOut]
+    total: int
+
+
+class PaginatedAdminAlbumListOut(BaseModel):
+    """管理员专辑列表分页响应 Schema。"""
+
+    items: list[AdminAlbumListItem]
     total: int
 
 

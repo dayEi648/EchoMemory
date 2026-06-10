@@ -521,8 +521,10 @@ class TestSearchAlbums:
         resp = client.get(f"{BASE_URL}/search", params={"q": "Amazing"})
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["title"] == "Amazing Album"
+        items = data["items"]
+        assert data["total"] == 1
+        assert len(items) == 1
+        assert items[0]["title"] == "Amazing Album"
 
     async def test_search_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
         """测试搜索结果自动排除已软删除的专辑。"""
@@ -532,6 +534,208 @@ class TestSearchAlbums:
         resp = client.get(f"{BASE_URL}/search", params={"q": "Search"})
         assert resp.status_code == 200
         data = resp.json()
-        titles = {a["title"] for a in data}
+        items = data["items"]
+        titles = {a["title"] for a in items}
         assert "SearchableAlbum" in titles
         assert "DeletedSearchAlbum" not in titles
+
+
+class TestAdminListAlbums:
+    """测试管理员专辑列表接口。"""
+
+    async def test_admin_list_success(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员列表正常返回专辑及作者、歌曲数信息。"""
+        admin = await _create_user(db_session, "admin_list_a", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="ListAlbum")
+        author = await _create_user(db_session, "album_author")
+        music = await _create_music_directly(db_session, title="ListSong")
+        # 添加作者和歌曲
+        await _add_music_to_album_directly(db_session, album.id, music.id)
+        from echomemory_backend.models.album import AlbumAuthor
+        db_session.add(AlbumAuthor(album_id=album.id, author_id=author.id, ordinal=0))
+        await db_session.commit()
+
+        resp = client.get(f"{ADMIN_BASE_URL}/list", headers=_auth_header(admin))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        item = next((a for a in data["items"] if a["id"] == album.id), None)
+        assert item is not None
+        assert item["title"] == "ListAlbum"
+        assert item["music_count"] == 1
+        assert len(item["authors"]) == 1
+        assert item["authors"][0]["nickname"] == "album_author"
+
+    async def test_admin_list_search(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员列表按标题搜索功能。"""
+        admin = await _create_user(db_session, "admin_list_s", role=UserRole.ADMIN.value)
+        await _create_album_directly(db_session, title="TargetAlbum")
+        await _create_album_directly(db_session, title="OtherAlbum")
+
+        resp = client.get(
+            f"{ADMIN_BASE_URL}/list",
+            headers=_auth_header(admin),
+            params={"q": "Target"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["title"] == "TargetAlbum"
+
+    async def test_admin_list_pagination(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员列表分页参数生效。"""
+        admin = await _create_user(db_session, "admin_list_p", role=UserRole.ADMIN.value)
+        for i in range(3):
+            await _create_album_directly(db_session, title=f"PageAlbum{i}")
+
+        resp = client.get(
+            f"{ADMIN_BASE_URL}/list",
+            headers=_auth_header(admin),
+            params={"limit": 1, "offset": 0},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["total"] == 3
+
+    async def test_admin_list_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员列表排除已软删除的专辑。"""
+        admin = await _create_user(db_session, "admin_list_d", role=UserRole.ADMIN.value)
+        await _create_album_directly(db_session, title="AliveAlbum")
+        await _create_album_directly(db_session, title="DeletedAlbum", is_deleted=True)
+
+        resp = client.get(f"{ADMIN_BASE_URL}/list", headers=_auth_header(admin))
+        assert resp.status_code == 200
+        data = resp.json()
+        titles = {a["title"] for a in data["items"]}
+        assert "AliveAlbum" in titles
+        assert "DeletedAlbum" not in titles
+
+    async def test_normal_user_cannot_list(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户无权限访问管理员列表。"""
+        user = await _create_user(db_session, "normal_list_a")
+        resp = client.get(f"{ADMIN_BASE_URL}/list", headers=_auth_header(user))
+        assert resp.status_code == 403
+
+
+class TestAdminUpdateAlbumCovers:
+    """测试管理员替换专辑封面接口。"""
+
+    async def test_update_cover_icon(self, client: TestClient, db_session: AsyncSession):
+        """测试单独替换封面图标成功。"""
+        admin = await _create_user(db_session, "admin_cov_icon", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(
+            db_session,
+            title="CoverIconAlbum",
+            cover_icon_url="https://oss.example.com/old_icon.jpg",
+        )
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(admin),
+            files={
+                "cover_icon": ("new_icon.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["cover_icon_url"] == "https://fake-oss.example.com/albums/cover.jpg"
+
+    async def test_update_cover_image(self, client: TestClient, db_session: AsyncSession):
+        """测试单独替换封面大图成功。"""
+        admin = await _create_user(db_session, "admin_cov_img", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(
+            db_session,
+            title="CoverImgAlbum",
+            cover_url="https://oss.example.com/old_cover.jpg",
+        )
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(admin),
+            files={
+                "cover": ("new_cover.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["cover_url"] == "https://fake-oss.example.com/albums/cover.jpg"
+
+    async def test_update_both_covers(self, client: TestClient, db_session: AsyncSession):
+        """测试同时替换封面图标和封面大图成功。"""
+        admin = await _create_user(db_session, "admin_cov_both", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(
+            db_session,
+            title="CoverBothAlbum",
+            cover_icon_url="https://oss.example.com/old_icon.jpg",
+            cover_url="https://oss.example.com/old_cover.jpg",
+        )
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(admin),
+            files={
+                "cover_icon": ("icon.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+                "cover": ("cover.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["cover_icon_url"] == "https://fake-oss.example.com/albums/cover.jpg"
+        assert data["cover_url"] == "https://fake-oss.example.com/albums/cover.jpg"
+
+    async def test_update_cover_no_file(self, client: TestClient, db_session: AsyncSession):
+        """测试未提供任何封面文件时返回 422。"""
+        admin = await _create_user(db_session, "admin_cov_none", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="CoverNoneAlbum")
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 422
+
+    async def test_update_cover_invalid_type(self, client: TestClient, db_session: AsyncSession):
+        """测试上传非图片类型封面时返回 422。"""
+        admin = await _create_user(db_session, "admin_cov_bad", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="CoverBadAlbum")
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(admin),
+            files={
+                "cover_icon": ("icon.exe", b"not an image", "application/octet-stream"),
+            },
+        )
+        assert resp.status_code == 422
+
+    async def test_update_cover_nonexistent_album(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试为不存在的专辑替换封面时返回 404。"""
+        admin = await _create_user(db_session, "admin_cov_nx", role=UserRole.ADMIN.value)
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/99999/covers",
+            headers=_auth_header(admin),
+            files={
+                "cover_icon": ("icon.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 404
+
+    async def test_normal_user_cannot_update_covers(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试普通用户无权限替换封面。"""
+        user = await _create_user(db_session, "normal_cov")
+        album = await _create_album_directly(db_session, title="CoverPermAlbum")
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}/covers",
+            headers=_auth_header(user),
+            files={
+                "cover_icon": ("icon.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 403

@@ -1,5 +1,5 @@
 import type { TokenStore } from "../auth/tokenStore";
-import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList } from "./types";
+import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList, PaginatedAdminAlbumList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 import { appendDefined } from "../utils";
 
@@ -42,6 +42,19 @@ export const createAlbumApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
+    adminListAlbums: (params: { q?: string; limit?: number; offset?: number } = {}) => {
+      const query = new URLSearchParams();
+      query.set("limit", String(params.limit ?? 20));
+      query.set("offset", String(params.offset ?? 0));
+      if (params.q) query.set("q", params.q);
+      return request<PaginatedAdminAlbumList>(`/albums/admin/list?${query.toString()}`);
+    },
+    adminUpdateAlbumCovers: (albumId: number, input: { cover_icon?: File; cover?: File }) => {
+      const formData = new FormData();
+      appendDefined(formData, "cover_icon", input.cover_icon);
+      appendDefined(formData, "cover", input.cover);
+      return request<AlbumDetail>(`/albums/admin/${albumId}/covers`, { method: "PATCH", body: formData });
+    },
     adminDeleteAlbum: (albumId: number) => request<void>(`/albums/admin/${albumId}`, { method: "DELETE" }),
     adminAddMusicToAlbum: (albumId: number, musicId: number) =>
       request<AlbumDetail>(`/albums/admin/${albumId}/musics/${musicId}`, { method: "POST" }),

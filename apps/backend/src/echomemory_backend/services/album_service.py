@@ -457,3 +457,73 @@ async def remove_music_from_album(
     await db.flush()
     await _sync_album_tags_from_musics(db, album_id)
     await db.commit()
+
+
+async def admin_search_albums(
+    db: AsyncSession,
+    *,
+    q: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, object]:
+    """管理员搜索专辑列表，支持标题模糊搜索和分页。
+
+    返回的数据已加载作者关联，便于前端表格直接展示。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        q: 搜索关键词，可选。
+        limit: 每页数量上限。
+        offset: 分页偏移量。
+
+    Returns:
+        {"items": 专辑实例列表, "total": 总记录数}。
+    """
+    where_clause = [Album.is_deleted == False]
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+
+    stmt = (
+        select(Album)
+        .where(*where_clause)
+        .options(
+            selectinload(Album.authors).selectinload(AlbumAuthor.author),
+            selectinload(Album.musics),
+        )
+        .order_by(desc(Album.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (await db.execute(select(func.count()).where(*where_clause))).scalar_one()
+    return {"items": items, "total": total}
+
+
+async def update_album_covers(
+    db: AsyncSession,
+    album: Album,
+    *,
+    cover_icon_url: str | None = None,
+    cover_url: str | None = None,
+) -> Album:
+    """更新专辑封面 URL。
+
+    仅修改数据库记录，OSS 上传与旧图清理由调用方负责。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        album: 待更新的专辑实例。
+        cover_icon_url: 新封面图标 URL，可选。
+        cover_url: 新封面 URL，可选。
+
+    Returns:
+        更新后的专辑实例。
+    """
+    if cover_icon_url is not None:
+        album.cover_icon_url = cover_icon_url
+    if cover_url is not None:
+        album.cover_url = cover_url
+    await db.commit()
+    await db.refresh(album)
+    return album

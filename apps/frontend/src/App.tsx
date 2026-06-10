@@ -18,6 +18,7 @@ import { UserManagementPage } from "./pages/admin/UserManagementPage";
 import { AdminMusicPage } from "./pages/admin/AdminMusicPage";
 import { AdminMusicImportPage } from "./pages/admin/AdminMusicImportPage";
 import { DictionaryPage } from "./pages/admin/DictionaryPage";
+import { AdminAlbumPage } from "./pages/admin/AdminAlbumPage";
 import { MusicDetailPage } from "./pages/MusicDetailPage";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/admin/music" element={<AdminMusicPage />} />
             <Route path="/admin/music/import" element={<AdminMusicImportPage />} />
             <Route path="/admin/dict" element={<DictionaryPage />} />
+            <Route path="/admin/albums" element={<AdminAlbumPage />} />
           </Route>
         </Route>
       </Route>

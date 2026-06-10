@@ -7,10 +7,12 @@ from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
+    AdminAlbumListItem,
     AlbumCreate,
     AlbumListOut,
     AlbumOut,
     AlbumUpdate,
+    PaginatedAdminAlbumListOut,
     PaginatedAlbumListOut,
 )
 from echomemory_backend.services import album_service
@@ -89,6 +91,45 @@ async def create_album(
     return album
 
 
+@router.get("/admin/list", response_model=PaginatedAdminAlbumListOut)
+async def admin_list_albums(
+    db: SessionDep,
+    _: AdminUser,
+    q: str | None = Query(None, description="按标题模糊搜索"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """管理员列出所有专辑（含作者和歌曲数），支持标题搜索和分页。"""
+    result = await album_service.admin_search_albums(
+        db, q=q, limit=limit, offset=offset
+    )
+    items: list[dict[str, object]] = []
+    for album in result["items"]:
+        items.append(
+            {
+                "id": album.id,
+                "title": album.title,
+                "hot": album.hot,
+                "play_count": album.play_count,
+                "cover_icon_url": album.cover_icon_url,
+                "created_at": album.created_at,
+                "collect_count": album.collect_count,
+                "authors": [
+                    {
+                        "id": aa.author.id,
+                        "username": aa.author.username,
+                        "nickname": aa.author.nickname,
+                        "avatar_url": aa.author.avatar_url,
+                        "ordinal": aa.ordinal,
+                    }
+                    for aa in album.authors
+                ],
+                "music_count": len(album.musics),
+            }
+        )
+    return {"items": items, "total": result["total"]}
+
+
 @router.patch("/admin/{album_id}", response_model=AlbumOut)
 async def admin_update_album(
     db: SessionDep,
@@ -111,6 +152,89 @@ async def admin_update_album(
         source=update_in.source,
         author_ids=update_in.author_ids,
     )
+
+    album = await album_service.get_album_by_id(db, album.id)
+    return album
+
+
+@router.patch("/admin/{album_id}/covers", response_model=AlbumOut)
+async def admin_update_album_covers(
+    db: SessionDep,
+    _: AdminUser,
+    album_id: int,
+    cover_icon: UploadFile | None = File(None),
+    cover: UploadFile | None = File(None),
+):
+    """管理员替换专辑封面图片。
+
+    支持单独替换封面图标、封面大图，或同时替换两者。
+    上传新图片到 OSS 后自动删除旧图片。
+    """
+    album = await album_service.get_album_by_id(db, album_id)
+    if album is None or album.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
+        )
+
+    if cover_icon is None and cover is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="At least one cover file must be provided",
+        )
+
+    if cover_icon is not None and (
+        cover_icon.content_type is None or not cover_icon.content_type.startswith("image/")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Cover icon must be an image file",
+        )
+    if cover is not None and (
+        cover.content_type is None or not cover.content_type.startswith("image/")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Cover must be an image file",
+        )
+
+    uploaded_urls: list[str] = []
+    old_urls_to_delete: list[str] = []
+    cover_icon_url: str | None = None
+    cover_url: str | None = None
+
+    try:
+        if cover_icon is not None:
+            cover_icon_url = await oss_client.upload_image_to_oss(
+                cover_icon.file, folder="album_covers", filename_prefix="icon"
+            )
+            uploaded_urls.append(cover_icon_url)
+            if album.cover_icon_url:
+                old_urls_to_delete.append(album.cover_icon_url)
+
+        if cover is not None:
+            cover_url = await oss_client.upload_image_to_oss(
+                cover.file, folder="album_covers", filename_prefix="cover"
+            )
+            uploaded_urls.append(cover_url)
+            if album.cover_url:
+                old_urls_to_delete.append(album.cover_url)
+
+        album = await album_service.update_album_covers(
+            db,
+            album,
+            cover_icon_url=cover_icon_url,
+            cover_url=cover_url,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        for url in uploaded_urls:
+            await oss_client.delete_object_by_url(url)
+        raise
+
+    # 数据库更新成功后删除旧图片
+    for old_url in old_urls_to_delete:
+        await oss_client.delete_object_by_url(old_url)
 
     album = await album_service.get_album_by_id(db, album.id)
     return album
