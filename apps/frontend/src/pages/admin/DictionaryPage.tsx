@@ -30,7 +30,7 @@ export const DictionaryPage = () => {
 
   // 分页
   const [page, setPage] = useState(0);
-  const pageSize = 20;
+  const pageSize = 10;
   const hasMore = items.length === pageSize;
 
   // Modal 状态
