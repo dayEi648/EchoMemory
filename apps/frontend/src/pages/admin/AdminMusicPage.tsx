@@ -52,6 +52,10 @@ export const AdminMusicPage = () => {
   const [styleFilter, setStyleFilter] = useState<string>("");
   const [languageFilter, setLanguageFilter] = useState<string>("");
   const [publishedFilter, setPublishedFilter] = useState<string>("");
+  const [vipFilter, setVipFilter] = useState<string>("");
+  const [instrumentFilter, setInstrumentFilter] = useState<string>("");
+  const [emotionTagFilter, setEmotionTagFilter] = useState<string>("");
+  const [interestTagFilter, setInterestTagFilter] = useState<string>("");
   const [styles, setStyles] = useState<DictionaryItem[]>([]);
   const [languages, setLanguages] = useState<DictionaryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,6 +103,10 @@ export const AdminMusicPage = () => {
         style_id: styleFilter ? Number(styleFilter) : undefined,
         language_id: languageFilter ? Number(languageFilter) : undefined,
         is_published: publishedFilter === "" ? undefined : publishedFilter === "true",
+        is_vip: vipFilter === "" ? undefined : vipFilter === "true",
+        instrument_id: instrumentFilter ? Number(instrumentFilter) : undefined,
+        emotion_tag_id: emotionTagFilter ? Number(emotionTagFilter) : undefined,
+        interest_tag_id: interestTagFilter ? Number(interestTagFilter) : undefined,
         limit: pageSize,
         offset: page * pageSize,
       });
@@ -109,7 +117,18 @@ export const AdminMusicPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [query, styleFilter, languageFilter, publishedFilter, page, pageSize]);
+  }, [
+    query,
+    styleFilter,
+    languageFilter,
+    publishedFilter,
+    vipFilter,
+    instrumentFilter,
+    emotionTagFilter,
+    interestTagFilter,
+    page,
+    pageSize,
+  ]);
 
   useEffect(() => {
     loadMusics();
@@ -300,6 +319,49 @@ export const AdminMusicPage = () => {
             <option value="">全部状态</option>
             <option value="true">已上架</option>
             <option value="false">未上架</option>
+          </select>
+
+          <select
+            value={vipFilter}
+            onChange={(e) => { setVipFilter(e.target.value); setPage(0); }}
+            style={{ width: 100, fontSize: 13 }}
+          >
+            <option value="">全部 VIP</option>
+            <option value="true">VIP</option>
+            <option value="false">普通</option>
+          </select>
+
+          <select
+            value={instrumentFilter}
+            onChange={(e) => { setInstrumentFilter(e.target.value); setPage(0); }}
+            style={{ width: 120, fontSize: 13 }}
+          >
+            <option value="">全部乐器</option>
+            {instruments.map((i) => (
+              <option key={i.id} value={String(i.id)}>{i.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={emotionTagFilter}
+            onChange={(e) => { setEmotionTagFilter(e.target.value); setPage(0); }}
+            style={{ width: 120, fontSize: 13 }}
+          >
+            <option value="">全部情感</option>
+            {emotionTags.map((t) => (
+              <option key={t.id} value={String(t.id)}>{t.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={interestTagFilter}
+            onChange={(e) => { setInterestTagFilter(e.target.value); setPage(0); }}
+            style={{ width: 120, fontSize: 13 }}
+          >
+            <option value="">全部兴趣</option>
+            {interestTags.map((t) => (
+              <option key={t.id} value={String(t.id)}>{t.name}</option>
+            ))}
           </select>
 
           <motion.button

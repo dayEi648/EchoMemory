@@ -116,6 +116,9 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       language_id?: number;
       is_vip?: boolean;
       is_published?: boolean;
+      instrument_id?: number;
+      emotion_tag_id?: number;
+      interest_tag_id?: number;
       limit?: number;
       offset?: number;
     } = {}) => {
@@ -127,6 +130,9 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
       if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));
       if (params.is_published !== undefined) query.set("is_published", String(params.is_published));
+      if (params.instrument_id !== undefined) query.set("instrument_id", String(params.instrument_id));
+      if (params.emotion_tag_id !== undefined) query.set("emotion_tag_id", String(params.emotion_tag_id));
+      if (params.interest_tag_id !== undefined) query.set("interest_tag_id", String(params.interest_tag_id));
       return request<PaginatedAdminMusicList>(`/music/admin/list?${query.toString()}`);
     },
     adminGetMusicDetail: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}`),

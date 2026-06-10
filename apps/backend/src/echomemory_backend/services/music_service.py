@@ -3,7 +3,7 @@
 import logging
 from datetime import date
 
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -322,6 +322,9 @@ async def admin_search_musics(
     language_id: int | None = None,
     is_vip: bool | None = None,
     is_published: bool | None = None,
+    instrument_id: int | None = None,
+    emotion_tag_id: int | None = None,
+    interest_tag_id: int | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
@@ -334,6 +337,9 @@ async def admin_search_musics(
         language_id: 按语言 ID 筛选，默认 None 表示不筛选。
         is_vip: 按是否 VIP 筛选，默认 None 表示不筛选。
         is_published: 按是否上架筛选，默认 None 表示不筛选。
+        instrument_id: 按乐器 ID 筛选，默认 None 表示不筛选。
+        emotion_tag_id: 按情感标签 ID 筛选，默认 None 表示不筛选。
+        interest_tag_id: 按兴趣标签 ID 筛选，默认 None 表示不筛选。
         limit: 每页返回的最大记录数，默认 20。
         offset: 分页偏移量，默认 0。
 
@@ -352,6 +358,27 @@ async def admin_search_musics(
         where_clause.append(Music.language_id == language_id)
     if is_vip is not None:
         where_clause.append(Music.is_vip == is_vip)
+    if instrument_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicInstrument.music_id == Music.id)
+                & (MusicInstrument.instrument_id == instrument_id)
+            )
+        )
+    if emotion_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicEmotionTag.music_id == Music.id)
+                & (MusicEmotionTag.emotion_tag_id == emotion_tag_id)
+            )
+        )
+    if interest_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicInterestTag.music_id == Music.id)
+                & (MusicInterestTag.interest_tag_id == interest_tag_id)
+            )
+        )
 
     stmt = select(Music).order_by(desc(Music.created_at)).limit(limit).offset(offset)
     count_stmt = select(func.count()).select_from(Music)

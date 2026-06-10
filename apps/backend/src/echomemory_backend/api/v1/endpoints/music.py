@@ -348,6 +348,9 @@ async def admin_list_music(
     language_id: int | None = Query(None),
     is_vip: bool | None = Query(None),
     is_published: bool | None = Query(None, description="按上架状态筛选，None 表示不筛选"),
+    instrument_id: int | None = Query(None),
+    emotion_tag_id: int | None = Query(None),
+    interest_tag_id: int | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -359,6 +362,9 @@ async def admin_list_music(
         language_id=language_id,
         is_vip=is_vip,
         is_published=is_published,
+        instrument_id=instrument_id,
+        emotion_tag_id=emotion_tag_id,
+        interest_tag_id=interest_tag_id,
         limit=limit,
         offset=offset,
     )
