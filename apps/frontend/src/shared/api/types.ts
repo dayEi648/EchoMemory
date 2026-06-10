@@ -187,6 +187,11 @@ export type MusicUpdateInput = {
   instrument_ids?: number[];
   emotion_tag_ids?: number[];
   interest_tag_ids?: number[];
+  audio_file?: File;
+  cover_icon?: File;
+  cover_home?: File;
+  cover_play?: File;
+  lyrics_file?: File;
 };
 
 /* ==================== Album ==================== */

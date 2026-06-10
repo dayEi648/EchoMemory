@@ -384,8 +384,13 @@ async def update_music(
     instrument_ids: list[int] | None = None,
     emotion_tag_ids: list[int] | None = None,
     interest_tag_ids: list[int] | None = None,
+    file_url: str | None = None,
+    lyrics_url: str | None = None,
+    cover_icon_url: str | None = None,
+    cover_home_url: str | None = None,
+    cover_play_url: str | None = None,
 ) -> Music:
-    """更新音乐文本信息及关联关系（不处理文件）。
+    """更新音乐信息及关联关系（含可选文件 URL 替换）。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -400,6 +405,11 @@ async def update_music(
         instrument_ids: 新的乐器 ID 列表，默认 None 表示不修改。
         emotion_tag_ids: 新的情绪标签 ID 列表，默认 None 表示不修改。
         interest_tag_ids: 新的兴趣标签 ID 列表，默认 None 表示不修改。
+        file_url: 新的音频 URL，默认 None 表示不修改。
+        lyrics_url: 新的歌词 URL，默认 None 表示不修改。
+        cover_icon_url: 新的封面图标 URL，默认 None 表示不修改。
+        cover_home_url: 新的封面 Home URL，默认 None 表示不修改。
+        cover_play_url: 新的封面 Play URL，默认 None 表示不修改。
 
     Returns:
         更新后的音乐实例。
@@ -419,6 +429,16 @@ async def update_music(
         music.language_id = language_id
     if release_date is not None:
         music.release_date = release_date
+    if file_url is not None:
+        music.file_url = file_url
+    if lyrics_url is not None:
+        music.lyrics_url = lyrics_url
+    if cover_icon_url is not None:
+        music.cover_icon_url = cover_icon_url
+    if cover_home_url is not None:
+        music.cover_home_url = cover_home_url
+    if cover_play_url is not None:
+        music.cover_play_url = cover_play_url
 
     if author_ids is not None:
         await _set_music_authors(db, music, author_ids)

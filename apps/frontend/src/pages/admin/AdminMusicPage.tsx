@@ -2,11 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Search,
   Pencil,
-  Eye,
   ArrowUpCircle,
   ArrowDownCircle,
   Music,
   Plus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -15,11 +15,19 @@ import { useNavigate } from "react-router-dom";
 import { createMusicApi } from "../../shared/api/musicApi";
 import { createDictionaryApi } from "../../shared/api/dictionaryApi";
 import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { useAuthStore } from "../../shared/stores/authStore";
 import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
+import {
+  CompactFileRow,
+  ImagePreviewZone,
+  SearchableTagSelect,
+  AuthorSelect,
+  type AuthorInfo,
+} from "./_musicFormComponents";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
 const tokenStore = createLocalStorageTokenStore();
@@ -31,9 +39,13 @@ const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore })
  *
  * 使用管理员专用接口 /music/admin/list，可查询所有音乐（含未上架），
  * 支持按标题搜索、风格/语言/上架状态筛选及分页。
+ * 编辑弹窗支持替换音频、歌词、封面图片，使用与导入页面一致的交互风格。
  */
 export const AdminMusicPage = () => {
   const navigate = useNavigate();
+  const { api } = useAuthStore();
+
+  /* ---------- 列表状态 ---------- */
   const [musics, setMusics] = useState<AdminMusicListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
@@ -46,7 +58,7 @@ export const AdminMusicPage = () => {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
 
-  // Modal states
+  /* ---------- 编辑弹窗状态 ---------- */
   const [editMusic, setEditMusic] = useState<MusicDetail | null>(null);
   const [editForm, setEditForm] = useState<{
     title: string;
@@ -55,8 +67,29 @@ export const AdminMusicPage = () => {
     language_id: number | "";
     release_date: string;
     is_vip: boolean;
-  }>({ title: "", source: "", style_id: "", language_id: "", release_date: "", is_vip: false });
+  }>({
+    title: "",
+    source: "",
+    style_id: "",
+    language_id: "",
+    release_date: "",
+    is_vip: false,
+  });
+  const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
+  const [editLyricsFile, setEditLyricsFile] = useState<File | null>(null);
+  const [editCoverIconFile, setEditCoverIconFile] = useState<File | null>(null);
+  const [editCoverHomeFile, setEditCoverHomeFile] = useState<File | null>(null);
+  const [editCoverPlayFile, setEditCoverPlayFile] = useState<File | null>(null);
+  const [editInstrumentIds, setEditInstrumentIds] = useState<number[]>([]);
+  const [editEmotionTagIds, setEditEmotionTagIds] = useState<number[]>([]);
+  const [editInterestTagIds, setEditInterestTagIds] = useState<number[]>([]);
+  const [editSelectedAuthors, setEditSelectedAuthors] = useState<AuthorInfo[]>([]);
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  /* ---------- 字典数据（编辑弹窗需要） ---------- */
+  const [instruments, setInstruments] = useState<DictionaryItem[]>([]);
+  const [emotionTags, setEmotionTags] = useState<DictionaryItem[]>([]);
+  const [interestTags, setInterestTags] = useState<DictionaryItem[]>([]);
 
   const loadMusics = useCallback(async () => {
     setLoading(true);
@@ -85,12 +118,18 @@ export const AdminMusicPage = () => {
   useEffect(() => {
     const loadDict = async () => {
       try {
-        const [s, l] = await Promise.all([
+        const [s, l, i, e, it] = await Promise.all([
           dictionaryApi.listDictionary("styles"),
           dictionaryApi.listDictionary("languages"),
+          dictionaryApi.listDictionary("instruments"),
+          dictionaryApi.listDictionary("emotion_tags"),
+          dictionaryApi.listDictionary("interest_tags"),
         ]);
         setStyles(s.items);
         setLanguages(l.items);
+        setInstruments(i.items);
+        setEmotionTags(e.items);
+        setInterestTags(it.items);
       } catch {
         // silently fail
       }
@@ -99,7 +138,6 @@ export const AdminMusicPage = () => {
   }, []);
 
   const handleSearch = () => setPage(0);
-
   const totalPages = Math.ceil(total / pageSize);
 
   const handleTogglePublish = async (music: AdminMusicListItem) => {
@@ -117,6 +155,7 @@ export const AdminMusicPage = () => {
     }
   };
 
+  /* ---------- 打开编辑弹窗 ---------- */
   const openEdit = async (music: AdminMusicListItem) => {
     try {
       const detail = await musicApi.adminGetMusicDetail(music.id);
@@ -129,11 +168,36 @@ export const AdminMusicPage = () => {
         release_date: detail.release_date ?? "",
         is_vip: detail.is_vip,
       });
+      setEditAudioFile(null);
+      setEditLyricsFile(null);
+      setEditCoverIconFile(null);
+      setEditCoverHomeFile(null);
+      setEditCoverPlayFile(null);
+      setEditInstrumentIds(detail.instruments.map((i) => i.id));
+      setEditEmotionTagIds(detail.emotion_tags.map((t) => t.id));
+      setEditInterestTagIds(detail.interest_tags.map((t) => t.id));
+      setEditSelectedAuthors(
+        detail.authors.map((a) => ({
+          id: a.id,
+          nickname: a.nickname,
+          username: a.username,
+        }))
+      );
     } catch {
       toast.error("加载歌曲详情失败");
     }
   };
 
+  const closeEdit = () => {
+    setEditMusic(null);
+    setEditAudioFile(null);
+    setEditLyricsFile(null);
+    setEditCoverIconFile(null);
+    setEditCoverHomeFile(null);
+    setEditCoverPlayFile(null);
+  };
+
+  /* ---------- 提交编辑 ---------- */
   const handleEditSubmit = async () => {
     if (!editMusic) return;
     setEditSubmitting(true);
@@ -145,9 +209,18 @@ export const AdminMusicPage = () => {
         language_id: editForm.language_id ? Number(editForm.language_id) : undefined,
         release_date: editForm.release_date || null,
         is_vip: editForm.is_vip,
+        instrument_ids: editInstrumentIds.length > 0 ? editInstrumentIds : undefined,
+        emotion_tag_ids: editEmotionTagIds.length > 0 ? editEmotionTagIds : undefined,
+        interest_tag_ids: editInterestTagIds.length > 0 ? editInterestTagIds : undefined,
+        author_ids: editSelectedAuthors.length > 0 ? editSelectedAuthors.map((a) => a.id) : undefined,
+        audio_file: editAudioFile ?? undefined,
+        cover_icon: editCoverIconFile ?? undefined,
+        cover_home: editCoverHomeFile ?? undefined,
+        cover_play: editCoverPlayFile ?? undefined,
+        lyrics_file: editLyricsFile ?? undefined,
       });
       toast.success("歌曲信息已更新");
-      setEditMusic(null);
+      closeEdit();
       loadMusics();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "更新失败");
@@ -303,8 +376,13 @@ export const AdminMusicPage = () => {
                     <span style={{ fontSize: 13 }}>{item.play_count}</span>
                     <span>
                       <span
-                        className={`status-badge ${item.is_published ? "active" : "banned"}`}
                         style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          fontSize: 12,
+                          fontWeight: 600,
                           background: item.is_published ? "#e6f7f4" : "#f0eeea",
                           color: item.is_published ? "#2bb3a3" : "#77716a",
                         }}
@@ -405,16 +483,17 @@ export const AdminMusicPage = () => {
         </FadeIn>
       )}
 
-      {/* Edit Modal */}
+      {/* ========== 编辑弹窗 ========== */}
       <Modal
         open={!!editMusic}
-        onClose={() => setEditMusic(null)}
+        onClose={closeEdit}
         title="编辑歌曲信息"
+        maxWidth={760}
         footer={
           <>
             <motion.button
               className="ghost-button"
-              onClick={() => setEditMusic(null)}
+              onClick={closeEdit}
               whileTap={{ scale: 0.97 }}
               type="button"
             >
@@ -433,62 +512,201 @@ export const AdminMusicPage = () => {
         }
       >
         {editMusic && (
-          <div className="form-stack">
-            <label>
-              歌名
-              <input
-                value={editForm.title}
-                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              来源
-              <input
-                value={editForm.source}
-                onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
-              />
-            </label>
-            <label>
-              风格
-              <select
-                value={String(editForm.style_id)}
-                onChange={(e) => setEditForm((f) => ({ ...f, style_id: e.target.value ? Number(e.target.value) : "" }))}
-              >
-                <option value="">无</option>
-                {styles.map((s) => (
-                  <option key={s.id} value={String(s.id)}>{s.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              语言
-              <select
-                value={String(editForm.language_id)}
-                onChange={(e) => setEditForm((f) => ({ ...f, language_id: e.target.value ? Number(e.target.value) : "" }))}
-              >
-                <option value="">无</option>
-                {languages.map((l) => (
-                  <option key={l.id} value={String(l.id)}>{l.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              发行日期
-              <input
-                type="date"
-                value={editForm.release_date}
-                onChange={(e) => setEditForm((f) => ({ ...f, release_date: e.target.value }))}
-              />
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={editForm.is_vip}
-                onChange={(e) => setEditForm((f) => ({ ...f, is_vip: e.target.checked }))}
-              />
-              <span>VIP 专属</span>
-            </label>
+          <div className="import-form-grid"
+          >
+            {/* 左栏 */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* 基本信息 */}
+              <div className="import-section">
+                <h3 className="import-section-title">基本信息</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <label>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 4 }}>
+                      歌名
+                    </span>
+                    <input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                      style={{ fontSize: 14 }}
+                    />
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <label>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 4 }}>
+                        来源
+                      </span>
+                      <input
+                        value={editForm.source}
+                        onChange={(e) => setEditForm((f) => ({ ...f, source: e.target.value }))}
+                        style={{ fontSize: 14 }}
+                      />
+                    </label>
+                    <label>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 4 }}>
+                        发行日期
+                      </span>
+                      <input
+                        type="date"
+                        value={editForm.release_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, release_date: e.target.value }))}
+                        style={{ fontSize: 14 }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* 媒体文件 */}
+              <div className="import-section">
+                <h3 className="import-section-title">媒体文件</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <CompactFileRow
+                    label="音频文件"
+                    icon={Music}
+                    file={editAudioFile}
+                    existingUrl={editMusic.file_url}
+                    onChange={setEditAudioFile}
+                    accept="audio/mpeg,audio/mp3,audio/flac,audio/wav,audio/ogg,audio/aac"
+                  />
+                  <CompactFileRow
+                    label="歌词文件"
+                    icon={FileText}
+                    file={editLyricsFile}
+                    existingUrl={editMusic.lyrics_url}
+                    onChange={setEditLyricsFile}
+                    accept=".lrc,.txt"
+                  />
+                </div>
+              </div>
+
+              {/* 封面图片 */}
+              <div className="import-section">
+                <h3 className="import-section-title">封面图片</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <ImagePreviewZone
+                    label="封面图标"
+                    file={editCoverIconFile}
+                    existingUrl={editMusic.cover_icon_url}
+                    onChange={setEditCoverIconFile}
+                    height={160}
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <ImagePreviewZone
+                      label="封面 Home"
+                      file={editCoverHomeFile}
+                      existingUrl={editMusic.cover_home_url}
+                      onChange={setEditCoverHomeFile}
+                      height={100}
+                    />
+                    <ImagePreviewZone
+                      label="封面 Play"
+                      file={editCoverPlayFile}
+                      existingUrl={editMusic.cover_play_url}
+                      onChange={setEditCoverPlayFile}
+                      height={100}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 右栏 */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* 分类 */}
+              <div className="import-section">
+                <h3 className="import-section-title">分类</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <SearchableTagSelect
+                    label="风格"
+                    items={styles}
+                    selectedIds={editForm.style_id !== "" ? [editForm.style_id as number] : []}
+                    onToggle={(id) =>
+                      setEditForm((f) => ({ ...f, style_id: f.style_id === id ? "" : id }))
+                    }
+                    mode="single"
+                    placeholder="搜索风格..."
+                  />
+                  <SearchableTagSelect
+                    label="语言"
+                    items={languages}
+                    selectedIds={editForm.language_id !== "" ? [editForm.language_id as number] : []}
+                    onToggle={(id) =>
+                      setEditForm((f) => ({ ...f, language_id: f.language_id === id ? "" : id }))
+                    }
+                    mode="single"
+                    placeholder="搜索语言..."
+                  />
+                  <label className="import-toggle">
+                    <input
+                      type="checkbox"
+                      checked={editForm.is_vip}
+                      onChange={(e) => setEditForm((f) => ({ ...f, is_vip: e.target.checked }))}
+                    />
+                    <span className="import-toggle-switch" />
+                    <span>VIP 专属</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 标签 */}
+              <div className="import-section">
+                <h3 className="import-section-title">标签</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <SearchableTagSelect
+                    label="乐器"
+                    items={instruments}
+                    selectedIds={editInstrumentIds}
+                    onToggle={(id) =>
+                      setEditInstrumentIds((prev) =>
+                        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+                      )
+                    }
+                    mode="multi"
+                    placeholder="搜索乐器..."
+                  />
+                  <SearchableTagSelect
+                    label="情感标签"
+                    items={emotionTags}
+                    selectedIds={editEmotionTagIds}
+                    onToggle={(id) =>
+                      setEditEmotionTagIds((prev) =>
+                        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+                      )
+                    }
+                    mode="multi"
+                    placeholder="搜索情感标签..."
+                  />
+                  <SearchableTagSelect
+                    label="兴趣标签"
+                    items={interestTags}
+                    selectedIds={editInterestTagIds}
+                    onToggle={(id) =>
+                      setEditInterestTagIds((prev) =>
+                        prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+                      )
+                    }
+                    mode="multi"
+                    placeholder="搜索兴趣标签..."
+                  />
+                </div>
+              </div>
+
+              {/* 作者 */}
+              <div className="import-section">
+                <h3 className="import-section-title">作者</h3>
+                <AuthorSelect
+                  selectedAuthors={editSelectedAuthors}
+                  onChange={setEditSelectedAuthors}
+                  searchUsers={async (q) => {
+                    try {
+                      return await api.searchUsers(q, 10, 0);
+                    } catch {
+                      return undefined;
+                    }
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )}
       </Modal>

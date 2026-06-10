@@ -1,17 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Music,
-  FileText,
-  ImageIcon,
-  X,
-  Search,
-  User,
-  Check,
-} from "lucide-react";
+import { ArrowLeft, Music, FileText } from "lucide-react";
 
 import { createMusicApi } from "../../shared/api/musicApi";
 import { createDictionaryApi } from "../../shared/api/dictionaryApi";
@@ -19,42 +10,24 @@ import { useAuthStore } from "../../shared/stores/authStore";
 import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
 import type { DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
+import {
+  CompactFileRow,
+  ImagePreviewZone,
+  SearchableTagSelect,
+  AuthorSelect,
+  type AuthorInfo,
+} from "./_musicFormComponents";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
 const tokenStore = createLocalStorageTokenStore();
 const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
 const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore });
 
-interface AuthorInfo {
-  id: number;
-  nickname: string;
-  username: string;
-}
-
-/* ========================================================================
-   辅助 Hook：管理文件预览 URL 的创建与释放
-   ======================================================================== */
-const useFilePreview = (file: File | null) => {
-  const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!file) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [file]);
-
-  return preview;
-};
-
-/* ========================================================================
-   导入音乐页面
-   ======================================================================== */
+/**
+ * 导入音乐页面。
+ *
+ * 采用双栏响应式布局，与编辑弹窗共用组件以保持视觉一致。
+ */
 export const AdminMusicImportPage = () => {
   const navigate = useNavigate();
   const { api } = useAuthStore();
@@ -70,21 +43,17 @@ export const AdminMusicImportPage = () => {
   const [source, setSource] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
 
-  /* ---------- 分类：风格 & 语言（单选搜索） ---------- */
+  /* ---------- 分类 ---------- */
   const [styleId, setStyleId] = useState<number | null>(null);
   const [languageId, setLanguageId] = useState<number | null>(null);
 
-  /* ---------- 标签：乐器 & 情感 & 兴趣（多选搜索） ---------- */
+  /* ---------- 标签 ---------- */
   const [instrumentIds, setInstrumentIds] = useState<number[]>([]);
   const [emotionTagIds, setEmotionTagIds] = useState<number[]>([]);
   const [interestTagIds, setInterestTagIds] = useState<number[]>([]);
 
-  /* ---------- 作者（搜索多选） ---------- */
+  /* ---------- 作者 ---------- */
   const [selectedAuthors, setSelectedAuthors] = useState<AuthorInfo[]>([]);
-  const [authorSearch, setAuthorSearch] = useState("");
-  const [authorResults, setAuthorResults] = useState<AuthorInfo[]>([]);
-  const [authorDropdownOpen, setAuthorDropdownOpen] = useState(false);
-  const [authorSearching, setAuthorSearching] = useState(false);
 
   /* ---------- 字典数据 ---------- */
   const [styles, setStyles] = useState<DictionaryItem[]>([]);
@@ -94,11 +63,6 @@ export const AdminMusicImportPage = () => {
   const [interestTags, setInterestTags] = useState<DictionaryItem[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
-
-  /* ---------- 图片预览 URL ---------- */
-  const coverIconPreview = useFilePreview(coverIcon);
-  const coverHomePreview = useFilePreview(coverHome);
-  const coverPlayPreview = useFilePreview(coverPlay);
 
   /* ---------- 加载字典数据 ---------- */
   useEffect(() => {
@@ -122,32 +86,6 @@ export const AdminMusicImportPage = () => {
     };
     loadDict();
   }, []);
-
-  /* ---------- 作者搜索（回车 / 按钮触发） ---------- */
-  const doAuthorSearch = useCallback(
-    async (q: string) => {
-      if (!q.trim()) {
-        setAuthorResults([]);
-        return;
-      }
-      setAuthorSearching(true);
-      try {
-        const result = await api.searchUsers(q.trim(), 10, 0);
-        setAuthorResults(
-          result.items.map((u) => ({
-            id: u.id,
-            nickname: u.nickname,
-            username: u.username,
-          }))
-        );
-      } catch {
-        toast.error("搜索用户失败");
-      } finally {
-        setAuthorSearching(false);
-      }
-    },
-    [api]
-  );
 
   /* ---------- 提交 ---------- */
   const handleSubmit = async () => {
@@ -184,403 +122,6 @@ export const AdminMusicImportPage = () => {
     }
   };
 
-  /* =========================================================================
-     子组件：紧凑文件上传行（音频 / 歌词）
-     ========================================================================= */
-  const CompactFileRow = ({
-    label,
-    required,
-    accept,
-    icon: Icon,
-    file,
-    onChange,
-  }: {
-    label: string;
-    required?: boolean;
-    accept?: string;
-    icon: React.ElementType;
-    file: File | null;
-    onChange: (f: File | null) => void;
-  }) => {
-    const [dragOver, setDragOver] = useState(false);
-    return (
-      <label style={{ display: "block", cursor: "pointer" }}>
-        <div
-          className={`import-compact-file-row ${dragOver ? "drag-over" : ""}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const f = e.dataTransfer.files[0];
-            if (f) onChange(f);
-          }}
-        >
-          <Icon size={16} className="file-icon" />
-          {file ? (
-            <>
-              <span className="file-name">{file.name}</span>
-              <button
-                className="file-remove"
-                onClick={(e) => { e.stopPropagation(); onChange(null); }}
-                type="button"
-              >
-                <X size={14} />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="file-placeholder">
-                {label}
-                {required && <span style={{ color: "var(--color-danger)" }}> *</span>}
-              </span>
-              <span style={{ color: "var(--color-muted)", fontSize: 12, flexShrink: 0 }}>
-                点击或拖拽上传
-              </span>
-            </>
-          )}
-          <input
-            type="file"
-            accept={accept}
-            onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-            style={{ position: "absolute", opacity: 0, inset: 0, cursor: "pointer", width: "100%", height: "100%" }}
-          />
-        </div>
-      </label>
-    );
-  };
-
-  /* =========================================================================
-     子组件：图片预览上传区
-     ========================================================================= */
-  const ImagePreviewZone = ({
-    label,
-    required,
-    file,
-    previewUrl,
-    onChange,
-    height,
-  }: {
-    label: string;
-    required?: boolean;
-    file: File | null;
-    previewUrl: string | null;
-    onChange: (f: File | null) => void;
-    height?: number;
-  }) => {
-    const [dragOver, setDragOver] = useState(false);
-    const h = height ?? 160;
-
-    return (
-      <label style={{ display: "block", cursor: "pointer" }}>
-        <div
-          className={`import-image-preview-zone ${dragOver ? "drag-over" : ""}`}
-          style={{ height: h }}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const f = e.dataTransfer.files[0];
-            if (f) onChange(f);
-          }}
-        >
-          {previewUrl ? (
-            <>
-              <img src={previewUrl} alt={label} className="preview-img" />
-              <div className="preview-overlay">
-                <span className="replace-hint">点击更换图片</span>
-              </div>
-              <button
-                className="preview-remove"
-                onClick={(e) => { e.stopPropagation(); onChange(null); }}
-                type="button"
-              >
-                <X size={12} />
-              </button>
-            </>
-          ) : (
-            <div className="preview-placeholder">
-              <ImageIcon size={24} color="var(--color-muted)" />
-              <span className="placeholder-label">
-                {label}
-                {required && <span style={{ color: "var(--color-danger)" }}> *</span>}
-              </span>
-            </div>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-            style={{ position: "absolute", opacity: 0, inset: 0, cursor: "pointer", width: "100%", height: "100%" }}
-          />
-        </div>
-      </label>
-    );
-  };
-
-  /* =========================================================================
-     子组件：搜索式选择（单选 / 多选通用）
-     回车或点击搜索按钮后显示匹配结果
-     ========================================================================= */
-  const SearchableSelect = ({
-    label,
-    items,
-    selectedIds,
-    onToggle,
-    mode = "multi",
-    placeholder,
-  }: {
-    label: string;
-    items: DictionaryItem[];
-    selectedIds: number[];
-    onToggle: (id: number) => void;
-    mode?: "single" | "multi";
-    placeholder?: string;
-  }) => {
-    const [search, setSearch] = useState("");
-    const [results, setResults] = useState<DictionaryItem[]>([]);
-    const [dropdownOpen, setDropdownOpen] = useState(false);
-    const wrapperRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-        if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-          setDropdownOpen(false);
-        }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const performSearch = () => {
-      const q = search.trim().toLowerCase();
-      if (!q) {
-        setResults([]);
-        setDropdownOpen(false);
-        return;
-      }
-      const filtered = items
-        .filter((i) => !selectedIds.includes(i.id))
-        .filter((i) => i.name.toLowerCase().includes(q));
-      setResults(filtered);
-      setDropdownOpen(true);
-    };
-
-    const handleSelect = (item: DictionaryItem) => {
-      if (mode === "single") {
-        onToggle(item.id);
-        setSearch("");
-        setResults([]);
-        setDropdownOpen(false);
-      } else {
-        onToggle(item.id);
-        setSearch("");
-        setResults([]);
-        setDropdownOpen(false);
-      }
-    };
-
-    const selectedItems = items.filter((i) => selectedIds.includes(i.id));
-
-    return (
-      <div ref={wrapperRef} style={{ position: "relative" }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 6 }}>
-          {label}
-        </label>
-        <div className="import-search-inline">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                performSearch();
-              }
-            }}
-            placeholder={placeholder ?? `搜索${label}...`}
-            style={{ paddingLeft: 12 }}
-          />
-          <button
-            className="import-search-trigger-btn"
-            onClick={(e) => { e.preventDefault(); performSearch(); }}
-            type="button"
-            title="搜索"
-          >
-            <Search size={14} />
-          </button>
-        </div>
-        <AnimatePresence>
-          {dropdownOpen && results.length > 0 && (
-            <motion.div
-              className="import-search-dropdown"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              {results.map((item) => (
-                <div
-                  key={item.id}
-                  className="import-search-dropdown-item"
-                  onClick={() => handleSelect(item)}
-                >
-                  <span style={{ flex: 1 }}>{item.name}</span>
-                  <Check size={14} style={{ color: "var(--color-muted)" }} />
-                </div>
-              ))}
-            </motion.div>
-          )}
-          {dropdownOpen && search.trim() && results.length === 0 && (
-            <motion.div
-              className="import-search-dropdown"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              <div className="import-search-dropdown-item" style={{ color: "var(--color-muted)", cursor: "default" }}>
-                未找到匹配的{label}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {selectedItems.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-            {selectedItems.map((item) => (
-              <span key={item.id} className="import-tag-pill-removable">
-                {item.name}
-                <button
-                  className="remove-btn"
-                  onClick={() => onToggle(item.id)}
-                  type="button"
-                  title="移除"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  /* =========================================================================
-     子组件：作者搜索选择
-     ========================================================================= */
-  const AuthorSelect = () => {
-    const wrapperRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-        if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-          setAuthorDropdownOpen(false);
-        }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const handleSearch = () => {
-      doAuthorSearch(authorSearch);
-      setAuthorDropdownOpen(true);
-    };
-
-    const availableResults = authorResults.filter(
-      (r) => !selectedAuthors.some((a) => a.id === r.id)
-    );
-
-    return (
-      <div ref={wrapperRef}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 6 }}>
-          作者
-        </label>
-        <div className="import-search-inline">
-          <input
-            value={authorSearch}
-            onChange={(e) => setAuthorSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-            placeholder="搜索用户昵称或用户名..."
-            style={{ paddingLeft: 12 }}
-          />
-          <button
-            className="import-search-trigger-btn"
-            onClick={(e) => { e.preventDefault(); handleSearch(); }}
-            type="button"
-            title="搜索"
-            disabled={authorSearching}
-          >
-            <Search size={14} />
-          </button>
-        </div>
-        <AnimatePresence>
-          {authorDropdownOpen && (availableResults.length > 0 || authorSearching) && (
-            <motion.div
-              className="import-search-dropdown"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.15 }}
-            >
-              {authorSearching && availableResults.length === 0 && (
-                <div className="import-search-dropdown-item" style={{ color: "var(--color-muted)", cursor: "default" }}>
-                  搜索中...
-                </div>
-              )}
-              {availableResults.map((u) => (
-                <div
-                  key={u.id}
-                  className="import-search-dropdown-item"
-                  onClick={() => {
-                    setSelectedAuthors((prev) => [...prev, u]);
-                    setAuthorSearch("");
-                    setAuthorDropdownOpen(false);
-                  }}
-                >
-                  <User size={14} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>
-                    {u.nickname}
-                    <span style={{ color: "var(--color-muted)", marginLeft: 4 }}>@{u.username}</span>
-                  </span>
-                  <Check size={14} style={{ color: "var(--color-muted)" }} />
-                </div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {selectedAuthors.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-            {selectedAuthors.map((a) => (
-              <span key={a.id} className="import-tag-pill-removable">
-                <User size={12} style={{ opacity: 0.7 }} />
-                {a.nickname}
-                <button
-                  className="remove-btn"
-                  onClick={() =>
-                    setSelectedAuthors((prev) => prev.filter((x) => x.id !== a.id))
-                  }
-                  type="button"
-                  title="移除"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  /* ========================================================================
-     渲染
-     ======================================================================== */
   return (
     <div>
       <FadeIn>
@@ -666,7 +207,6 @@ export const AdminMusicImportPage = () => {
                   label="封面图标"
                   required
                   file={coverIcon}
-                  previewUrl={coverIconPreview}
                   onChange={setCoverIcon}
                   height={180}
                 />
@@ -674,14 +214,12 @@ export const AdminMusicImportPage = () => {
                   <ImagePreviewZone
                     label="封面 Home"
                     file={coverHome}
-                    previewUrl={coverHomePreview}
                     onChange={setCoverHome}
                     height={120}
                   />
                   <ImagePreviewZone
                     label="封面 Play"
                     file={coverPlay}
-                    previewUrl={coverPlayPreview}
                     onChange={setCoverPlay}
                     height={120}
                   />
@@ -696,7 +234,7 @@ export const AdminMusicImportPage = () => {
             <div className="import-section">
               <h3 className="import-section-title">分类</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <SearchableSelect
+                <SearchableTagSelect
                   label="风格"
                   items={styles}
                   selectedIds={styleId !== null ? [styleId] : []}
@@ -704,7 +242,7 @@ export const AdminMusicImportPage = () => {
                   mode="single"
                   placeholder="搜索风格..."
                 />
-                <SearchableSelect
+                <SearchableTagSelect
                   label="语言"
                   items={languages}
                   selectedIds={languageId !== null ? [languageId] : []}
@@ -728,7 +266,7 @@ export const AdminMusicImportPage = () => {
             <div className="import-section">
               <h3 className="import-section-title">标签</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <SearchableSelect
+                <SearchableTagSelect
                   label="乐器"
                   items={instruments}
                   selectedIds={instrumentIds}
@@ -740,7 +278,7 @@ export const AdminMusicImportPage = () => {
                   mode="multi"
                   placeholder="搜索乐器..."
                 />
-                <SearchableSelect
+                <SearchableTagSelect
                   label="情感标签"
                   items={emotionTags}
                   selectedIds={emotionTagIds}
@@ -752,7 +290,7 @@ export const AdminMusicImportPage = () => {
                   mode="multi"
                   placeholder="搜索情感标签..."
                 />
-                <SearchableSelect
+                <SearchableTagSelect
                   label="兴趣标签"
                   items={interestTags}
                   selectedIds={interestTagIds}
@@ -770,7 +308,17 @@ export const AdminMusicImportPage = () => {
             {/* 作者 */}
             <div className="import-section">
               <h3 className="import-section-title">作者</h3>
-              <AuthorSelect />
+              <AuthorSelect
+                selectedAuthors={selectedAuthors}
+                onChange={setSelectedAuthors}
+                searchUsers={async (q) => {
+                  try {
+                    return await api.searchUsers(q, 10, 0);
+                  } catch {
+                    return undefined;
+                  }
+                }}
+              />
             </div>
           </div>
         </div>

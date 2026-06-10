@@ -83,12 +83,33 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       appendDefined(formData, "lyrics_file", input.lyrics_file);
       return request<MusicDetail>("/music/admin/import", { method: "POST", body: formData });
     },
-    adminUpdateMusic: (musicId: number, input: MusicUpdateInput) =>
-      request<MusicDetail>(`/music/admin/${musicId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      }),
+    adminUpdateMusic: (musicId: number, input: MusicUpdateInput) => {
+      const formData = new FormData();
+      appendDefined(formData, "title", input.title);
+      appendDefined(formData, "is_vip", input.is_vip);
+      appendDefined(formData, "source", input.source);
+      appendDefined(formData, "style_id", input.style_id);
+      appendDefined(formData, "language_id", input.language_id);
+      appendDefined(formData, "release_date", input.release_date);
+      if (input.author_ids) {
+        for (const id of input.author_ids) formData.append("author_ids", String(id));
+      }
+      if (input.instrument_ids) {
+        for (const id of input.instrument_ids) formData.append("instrument_ids", String(id));
+      }
+      if (input.emotion_tag_ids) {
+        for (const id of input.emotion_tag_ids) formData.append("emotion_tag_ids", String(id));
+      }
+      if (input.interest_tag_ids) {
+        for (const id of input.interest_tag_ids) formData.append("interest_tag_ids", String(id));
+      }
+      appendDefined(formData, "audio_file", input.audio_file);
+      appendDefined(formData, "cover_icon", input.cover_icon);
+      appendDefined(formData, "cover_home", input.cover_home);
+      appendDefined(formData, "cover_play", input.cover_play);
+      appendDefined(formData, "lyrics_file", input.lyrics_file);
+      return request<MusicDetail>(`/music/admin/${musicId}`, { method: "PATCH", body: formData });
+    },
     adminListMusic: (params: {
       q?: string;
       style_id?: number;

@@ -378,10 +378,10 @@ class TestAdminUpdateMusic:
         resp = client.patch(
             f"{BASE_URL}/admin/{music.id}",
             headers=_auth_header(admin),
-            json={
+            data={
                 "title": "NewTitle",
-                "is_vip": True,
-                "style_id": new_style.id,
+                "is_vip": "true",
+                "style_id": str(new_style.id),
             },
         )
         assert resp.status_code == 200
@@ -397,7 +397,7 @@ class TestAdminUpdateMusic:
         resp = client.patch(
             f"{BASE_URL}/admin/{music.id}",
             headers=_auth_header(user),
-            json={"title": "Hacked"},
+            data={"title": "Hacked"},
         )
         assert resp.status_code == 403
 
@@ -407,7 +407,7 @@ class TestAdminUpdateMusic:
         resp = client.patch(
             f"{BASE_URL}/admin/999",
             headers=_auth_header(admin),
-            json={"title": "Ghost"},
+            data={"title": "Ghost"},
         )
         assert resp.status_code == 404
 
@@ -599,9 +599,9 @@ class TestMusicTagCascadeUpdate:
         resp = client.patch(
             f"{BASE_URL}/admin/{music.id}",
             headers=_auth_header(admin),
-            json={
-                "emotion_tag_ids": [new_etag.id],
-                "interest_tag_ids": [new_itag.id],
+            data={
+                "emotion_tag_ids": str(new_etag.id),
+                "interest_tag_ids": str(new_itag.id),
             },
         )
         assert resp.status_code == 200

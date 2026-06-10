@@ -177,29 +177,127 @@ async def admin_update_music(
     db: SessionDep,
     _: AdminUser,
     music_id: int,
-    update_in: MusicUpdate,
+    title: str | None = Form(None, min_length=1, max_length=128),
+    source: str | None = Form(None, max_length=50),
+    style_id: int | None = Form(None, gt=0),
+    language_id: int | None = Form(None, gt=0),
+    release_date: str | None = Form(None, description="格式: YYYY-MM-DD"),
+    is_vip: bool | None = Form(None),
+    author_ids: list[int] | None = Form(None),
+    instrument_ids: list[int] | None = Form(None),
+    emotion_tag_ids: list[int] | None = Form(None),
+    interest_tag_ids: list[int] | None = Form(None),
+    audio_file: UploadFile | None = File(None),
+    cover_icon: UploadFile | None = File(None),
+    cover_home: UploadFile | None = File(None),
+    cover_play: UploadFile | None = File(None),
+    lyrics_file: UploadFile | None = File(None),
 ):
-    """管理员修改音乐信息（不含文件替换）。"""
+    """管理员修改音乐信息（含可选文件替换）。"""
     music = await music_service.get_music_by_id(db, music_id)
     if music is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
 
+    # ----- 日期解析 -----
+    release_date_parsed: date | None = None
+    if release_date:
+        try:
+            release_date_parsed = date.fromisoformat(release_date)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="release_date must be in YYYY-MM-DD format",
+            ) from exc
+
+    # ----- 记录旧文件 URL（用于后续删除）-----
+    old_urls_to_delete: list[str] = []
+
+    # ----- 上传新文件（如有）-----
+    new_file_url: str | None = None
+    new_cover_icon_url: str | None = None
+    new_cover_home_url: str | None = None
+    new_cover_play_url: str | None = None
+    new_lyrics_url: str | None = None
+
+    file_prefix = uuid.uuid4().hex[:12]
+    try:
+        if audio_file is not None:
+            if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=f"Invalid audio file type: {audio_file.content_type}",
+                )
+            new_file_url = await oss_client.upload_audio_to_oss(
+                audio_file.file,
+                prefix=file_prefix,
+                ext=_safe_ext(audio_file.filename, "mp3"),
+            )
+            if music.file_url:
+                old_urls_to_delete.append(music.file_url)
+
+        if cover_icon is not None:
+            if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="Cover icon must be an image file",
+                )
+            new_cover_icon_url = await oss_client.upload_image_to_oss(
+                cover_icon.file, folder="music_covers", filename_prefix="icon"
+            )
+            if music.cover_icon_url:
+                old_urls_to_delete.append(music.cover_icon_url)
+
+        if cover_home is not None:
+            new_cover_home_url = await upload_optional_image(cover_home, "music_covers", "home")
+            if new_cover_home_url and music.cover_home_url:
+                old_urls_to_delete.append(music.cover_home_url)
+
+        if cover_play is not None:
+            new_cover_play_url = await upload_optional_image(cover_play, "music_covers", "play")
+            if new_cover_play_url and music.cover_play_url:
+                old_urls_to_delete.append(music.cover_play_url)
+
+        if lyrics_file is not None:
+            new_lyrics_url = await oss_client.upload_lyrics_to_oss(
+                lyrics_file.file,
+                prefix=file_prefix,
+                ext=_safe_ext(lyrics_file.filename, "lrc"),
+            )
+            if music.lyrics_url:
+                old_urls_to_delete.append(music.lyrics_url)
+    except HTTPException:
+        # 上传失败时清理已上传的新文件
+        for url in [new_file_url, new_cover_icon_url, new_cover_home_url, new_cover_play_url, new_lyrics_url]:
+            if url:
+                await oss_client.delete_object_by_url(url)
+        raise
+
+    # ----- 更新数据库 -----
     music = await music_service.update_music(
         db,
         music,
-        title=update_in.title,
-        is_vip=update_in.is_vip,
-        source=update_in.source,
-        style_id=update_in.style_id,
-        language_id=update_in.language_id,
-        release_date=update_in.release_date,
-        author_ids=update_in.author_ids,
-        instrument_ids=update_in.instrument_ids,
-        emotion_tag_ids=update_in.emotion_tag_ids,
-        interest_tag_ids=update_in.interest_tag_ids,
+        title=title,
+        is_vip=is_vip,
+        source=source or None,
+        style_id=style_id,
+        language_id=language_id,
+        release_date=release_date_parsed,
+        author_ids=author_ids or None,
+        instrument_ids=instrument_ids or None,
+        emotion_tag_ids=emotion_tag_ids or None,
+        interest_tag_ids=interest_tag_ids or None,
+        file_url=new_file_url,
+        lyrics_url=new_lyrics_url,
+        cover_icon_url=new_cover_icon_url,
+        cover_home_url=new_cover_home_url,
+        cover_play_url=new_cover_play_url,
     )
+
+    # 更新成功后删除旧文件
+    for url in old_urls_to_delete:
+        await oss_client.delete_object_by_url(url)
 
     # 重新加载完整关联数据以匹配 MusicOut
     music = await music_service.get_music_by_id(db, music.id)
