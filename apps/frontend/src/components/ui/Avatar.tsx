@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { UserMe } from "../../shared/api/types";
 
 export const Avatar = ({
@@ -7,6 +8,8 @@ export const Avatar = ({
   user: Pick<UserMe, "avatar_url" | "nickname" | "username">;
   size?: "sm" | "md" | "lg" | "xl";
 }) => {
+  const [error, setError] = useState(false);
+
   const sizeClass = {
     sm: "w-7 h-7 text-xs",
     md: "w-8 h-8 text-sm",
@@ -14,12 +17,13 @@ export const Avatar = ({
     xl: "w-20 h-20 text-2xl",
   }[size];
 
-  if (user.avatar_url) {
+  if (user.avatar_url && !error) {
     return (
       <img
         className={`${sizeClass} rounded-full object-cover`}
         src={user.avatar_url}
         alt={`${user.nickname}的头像`}
+        onError={() => setError(true)}
       />
     );
   }
