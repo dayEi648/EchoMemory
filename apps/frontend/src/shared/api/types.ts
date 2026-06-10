@@ -44,6 +44,7 @@ export type UserSearchItem = {
   avatar_url: string | null;
   level: number;
   is_verified: boolean;
+  bio?: string;
 };
 
 export type UserTag = {

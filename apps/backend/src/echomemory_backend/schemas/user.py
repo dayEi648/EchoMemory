@@ -208,6 +208,7 @@ class UserSearchOut(BaseModel):
     avatar_url: str | None = None
     level: int
     is_verified: bool
+    bio: str | None = None
 
 
 class PaginatedUserAdminOut(BaseModel):

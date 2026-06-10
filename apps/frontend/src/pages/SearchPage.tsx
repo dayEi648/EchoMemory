@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Music, ListMusic, Disc, User, Search } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -24,6 +24,7 @@ export const SearchPage = () => {
   const query = searchParams.get("q") ?? "";
   const [activeTab, setActiveTab] = useState("all");
   const { api } = useAuthStore();
+  const navigate = useNavigate();
   const [userResults, setUserResults] = useState<UserSearchItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -83,50 +84,6 @@ export const SearchPage = () => {
         </FadeIn>
       ) : (
         <>
-          {(activeTab === "all" || activeTab === "users") && userResults.length > 0 && (
-            <section style={{ marginBottom: 28 }}>
-              <FadeIn delay={0.1}>
-                <div className="section-header">
-                  <h3 className="page-section-title">用户</h3>
-                </div>
-              </FadeIn>
-              <StaggerContainer staggerDelay={0.05}>
-                {userResults.map((item) => (
-                  <StaggerItem key={item.id}>
-                    <motion.div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 14,
-                        padding: "12px 16px",
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: 12,
-                        marginBottom: 8,
-                        cursor: "pointer",
-                      }}
-                      whileHover={{
-                        y: -2,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                      }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Avatar user={item} size="md" />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)" }}>
-                          {item.nickname}
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
-                          @{item.username} · Lv.{item.level}
-                        </div>
-                      </div>
-                    </motion.div>
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </section>
-          )}
-
           {(activeTab === "all" || activeTab === "songs") && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
@@ -175,6 +132,56 @@ export const SearchPage = () => {
                   compact
                 />
               </FadeIn>
+            </section>
+          )}
+
+          {(activeTab === "all" || activeTab === "users") && userResults.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <FadeIn delay={0.1}>
+                <div className="section-header">
+                  <h3 className="page-section-title">用户</h3>
+                  {activeTab === "all" && userResults.length > 6 && (
+                    <button
+                      className="ghost-button"
+                      onClick={() => setActiveTab("users")}
+                      style={{ fontSize: 13 }}
+                    >
+                      查看更多
+                    </button>
+                  )}
+                </div>
+              </FadeIn>
+              <StaggerContainer
+                staggerDelay={0.05}
+                className={`user-search-grid ${activeTab === "all" ? "compact" : "full"}`}
+              >
+                {(activeTab === "all" ? userResults.slice(0, 6) : userResults).map((item) => (
+                  <StaggerItem key={item.id}>
+                    <motion.div
+                      className="user-search-card"
+                      whileHover={{
+                        y: -2,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      onClick={() => navigate(`/profile/${item.id}`)}
+                    >
+                      <Avatar user={item} size="xl" />
+                      <div className="user-search-card-nickname">
+                        {item.nickname}
+                      </div>
+                      {item.bio && (
+                        <div className="user-search-card-bio" title={item.bio}>
+                          {item.bio}
+                        </div>
+                      )}
+                      <div className="user-search-card-meta">
+                        @{item.username} · Lv.{item.level}
+                      </div>
+                    </motion.div>
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
             </section>
           )}
 
