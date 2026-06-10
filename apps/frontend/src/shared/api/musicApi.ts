@@ -108,6 +108,7 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
       if (params.is_published !== undefined) query.set("is_published", String(params.is_published));
       return request<PaginatedAdminMusicList>(`/music/admin/list?${query.toString()}`);
     },
+    adminGetMusicDetail: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}`),
     adminPublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/publish`, { method: "POST" }),
     adminUnpublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/unpublish`, { method: "POST" }),
   };

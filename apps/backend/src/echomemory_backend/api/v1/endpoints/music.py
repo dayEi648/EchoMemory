@@ -240,6 +240,21 @@ async def admin_unpublish_music(
     return music
 
 
+@router.get("/admin/{music_id}", response_model=MusicOut)
+async def admin_get_music(
+    db: SessionDep,
+    _: AdminUser,
+    music_id: int,
+):
+    """管理员获取任意音乐详情（含未上架）。"""
+    music = await music_service.get_music_by_id(db, music_id)
+    if music is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
+        )
+    return music
+
+
 @router.get("/admin/list", response_model=PaginatedAdminMusicListOut)
 async def admin_list_music(
     db: SessionDep,

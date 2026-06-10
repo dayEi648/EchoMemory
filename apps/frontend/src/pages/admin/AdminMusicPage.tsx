@@ -119,7 +119,7 @@ export const AdminMusicPage = () => {
 
   const openEdit = async (music: AdminMusicListItem) => {
     try {
-      const detail = await musicApi.getMusicDetail(music.id);
+      const detail = await musicApi.adminGetMusicDetail(music.id);
       setEditMusic(detail);
       setEditForm({
         title: detail.title,
