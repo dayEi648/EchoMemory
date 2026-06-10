@@ -126,6 +126,27 @@ async def lifespan(app: FastAPI):
         logger.error("Alembic upgrade failed: %s", result.stderr)
         raise RuntimeError(f"Alembic upgrade failed: {result.stderr}")
 
+    # 验证 Redis 连接可用，避免懒连接导致启动时无感知、运行时才爆炸
+    # 增加重试机制，兼容 Redis 与后端并行启动的场景
+    _REDIS_RETRY_MAX = 5
+    _REDIS_RETRY_INTERVAL = 1.0
+    redis_ready = False
+    for attempt in range(_REDIS_RETRY_MAX):
+        try:
+            await redis_client.ping()
+            redis_ready = True
+            break
+        except Exception as exc:
+            logger.warning(
+                "Redis 连接尝试 %d/%d 失败: %s", attempt + 1, _REDIS_RETRY_MAX, exc
+            )
+            if attempt < _REDIS_RETRY_MAX - 1:
+                await asyncio.sleep(_REDIS_RETRY_INTERVAL)
+    if not redis_ready:
+        raise RuntimeError(
+            f"Redis 连接失败（已重试 {_REDIS_RETRY_MAX} 次），请确认 Redis 服务已启动"
+        )
+
     await _seed_dictionary_tables()
     yield
     await async_engine.dispose()
