@@ -15,6 +15,9 @@ from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.core.exceptions import BusinessError
 
 
+MAX_PLAY_HISTORY_ITEMS = 100
+
+
 async def create_play_history(
     db: AsyncSession, user_id: int, music_id: int, playlist_id: int | None = None
 ) -> PlayHistory:
@@ -49,6 +52,15 @@ async def create_play_history(
         if result.scalar_one_or_none() is None:
             raise BusinessError("Music not in playlist", 400)
 
+    await db.execute(
+        delete(PlayHistory)
+        .where(
+            PlayHistory.user_id == user_id,
+            PlayHistory.music_id == music_id,
+        )
+        .execution_options(synchronize_session=False)
+    )
+
     history = PlayHistory(user_id=user_id, music_id=music_id)
     db.add(history)
     await db.flush()  # 确保播放历史记录对后续查询可见
@@ -79,6 +91,8 @@ async def create_play_history(
             .values(play_count=Playlist.play_count + 1)
         )
 
+    await _prune_user_play_history(db, user_id)
+
     # 自动重新计算用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
@@ -87,6 +101,33 @@ async def create_play_history(
     await db.commit()
     await db.refresh(history)
     return history
+
+
+async def _prune_user_play_history(db: AsyncSession, user_id: int) -> None:
+    """裁剪用户播放历史，只保留最近 100 条。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+
+    Returns:
+        None。
+
+    Raises:
+        无业务异常。
+    """
+    overflow_ids = (
+        select(PlayHistory.id)
+        .where(PlayHistory.user_id == user_id)
+        .order_by(desc(PlayHistory.played_at), desc(PlayHistory.id))
+        .offset(MAX_PLAY_HISTORY_ITEMS)
+        .subquery()
+    )
+    await db.execute(
+        delete(PlayHistory)
+        .where(PlayHistory.id.in_(select(overflow_ids.c.id)))
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def list_play_history(
@@ -109,7 +150,7 @@ async def list_play_history(
     stmt = (
         select(PlayHistory)
         .where(PlayHistory.user_id == user_id)
-        .order_by(desc(PlayHistory.played_at))
+        .order_by(desc(PlayHistory.played_at), desc(PlayHistory.id))
         .limit(limit)
         .offset(offset)
         .options(selectinload(PlayHistory.music))

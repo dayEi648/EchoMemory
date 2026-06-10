@@ -8,6 +8,7 @@ import { createPlayHistoryApi } from "../shared/api/playHistoryApi";
 import { createMusicApi } from "../shared/api/musicApi";
 import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { PlayHistoryItem } from "../shared/api/types";
+import { toPlayerTrack } from "../shared/utils";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
@@ -42,7 +43,7 @@ export const HistoryPage = () => {
     setLoading(true);
     try {
       const data = await playHistoryApi.listPlayHistory({ limit: 50 });
-      setHistory(data);
+      setHistory(Array.isArray(data) ? data : []);
     } catch {
       toast.error("加载播放历史失败");
     } finally {
@@ -58,10 +59,7 @@ export const HistoryPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(item.music.id);
       if (detail.file_url) {
-        playTrack({
-          ...item.music,
-          file_url: detail.file_url,
-        });
+        playTrack(toPlayerTrack(detail));
       } else {
         toast.error("该歌曲暂不可播放");
       }
@@ -141,10 +139,10 @@ export const HistoryPage = () => {
                     {item.music.title}
                   </div>
                   <div style={{ fontSize: 13, color: "var(--color-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{item.music.authors.map((a) => a.nickname).join(", ") || "未知艺人"}</span>
+                    <span>未知艺人</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <Clock size={12} />
-                      {formatDate(item.created_at)}
+                      {formatDate(item.played_at)}
                     </span>
                   </div>
                 </div>

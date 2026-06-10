@@ -258,10 +258,16 @@ export type AlbumUpdateInput = {
 
 /* ==================== Play History ==================== */
 
+export type PlayHistoryMusicItem = {
+  id: number;
+  title: string;
+  cover_icon_url: string | null;
+};
+
 export type PlayHistoryItem = {
   id: number;
-  music: MusicListItem;
-  created_at: string;
+  played_at: string;
+  music: PlayHistoryMusicItem;
 };
 
 export type PlayHistoryCreateInput = {

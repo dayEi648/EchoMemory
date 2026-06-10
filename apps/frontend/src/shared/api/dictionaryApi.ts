@@ -11,7 +11,7 @@ export interface DictionaryItemUpdateInput {
 
 export const createDictionaryApi = ({
   baseUrl,
-  fetcher = fetch,
+  fetcher,
   tokenStore,
 }: ApiOptions) => {
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });

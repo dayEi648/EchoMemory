@@ -14,7 +14,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { usePlayerStore } from "../../shared/stores/playerStore";
-import { formatTime } from "../../shared/utils";
+import { formatAuthors, formatTime } from "../../shared/utils";
 
 export const PlayerBar = () => {
   const {
@@ -143,7 +143,7 @@ export const PlayerBar = () => {
               </motion.div>
             </AnimatePresence>
             <div className="song-artist">
-              {currentTrack?.authors.map((a) => a.nickname).join(", ") || "EchoMemory"}
+              {currentTrack ? formatAuthors(currentTrack.authors, "EchoMemory") : "EchoMemory"}
             </div>
           </div>
         </div>
@@ -414,7 +414,7 @@ export const PlayerBar = () => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {track.authors.map((a) => a.nickname).join(", ")}
+                        {formatAuthors(track.authors)}
                       </div>
                     </div>
                   </div>

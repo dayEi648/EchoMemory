@@ -11,6 +11,7 @@ import { createAlbumApi } from "../shared/api/albumApi";
 import { createPlayHistoryApi } from "../shared/api/playHistoryApi";
 import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
+import { formatAuthors, toPlayerTrack } from "../shared/utils";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -43,9 +44,9 @@ export const DiscoverPage = () => {
           albumApi.listAlbums({ limit: 5 }),
           playHistoryApi.listPlayHistory({ limit: 5 }),
         ]);
-        setNewSongs(songs);
-        setAlbums(albumList);
-        setRecentPlays(history);
+        setNewSongs(Array.isArray(songs) ? songs : []);
+        setAlbums(Array.isArray(albumList) ? albumList : []);
+        setRecentPlays(Array.isArray(history) ? history : []);
       } catch {
         toast.error("加载内容失败，请稍后重试");
       } finally {
@@ -63,6 +64,19 @@ export const DiscoverPage = () => {
           ...music,
           file_url: detail.file_url,
         });
+      } else {
+        toast.error("该歌曲暂不可播放");
+      }
+    } catch {
+      toast.error("加载歌曲失败");
+    }
+  };
+
+  const handlePlayHistoryMusic = async (musicId: number) => {
+    try {
+      const detail = await musicApi.getMusicDetail(musicId);
+      if (detail.file_url) {
+        playTrack(toPlayerTrack(detail));
       } else {
         toast.error("该歌曲暂不可播放");
       }
@@ -206,7 +220,7 @@ export const DiscoverPage = () => {
                     {recentPlays.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => handlePlayMusic(item.music)}
+                        onClick={() => handlePlayHistoryMusic(item.music.id)}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -225,7 +239,7 @@ export const DiscoverPage = () => {
                             {item.music.title}
                           </div>
                           <div style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                            {item.music.authors.map((a) => a.nickname).join(", ")}
+                            未知艺人
                           </div>
                         </div>
                       </div>
@@ -307,7 +321,7 @@ export const DiscoverPage = () => {
               <SongRow
                 index={i}
                 name={song.title}
-                artist={song.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
+                artist={formatAuthors(song.authors)}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
                 onPlay={() => handlePlayMusic(song)}
@@ -333,7 +347,7 @@ export const DiscoverPage = () => {
               <SongRow
                 index={i}
                 name={song.title}
-                artist={song.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
+                artist={formatAuthors(song.authors)}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
                 onPlay={() => handlePlayMusic(song)}

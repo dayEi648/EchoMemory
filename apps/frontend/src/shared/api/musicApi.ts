@@ -4,7 +4,7 @@ import { createBaseApi, type ApiOptions } from "./base";
 import { appendDefined } from "../utils";
 
 
-export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptions) => {
+export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {

@@ -44,6 +44,25 @@ const makeUser = (overrides: Partial<UserMe> = {}): UserMe => ({
   ...overrides,
 });
 
+const mockDiscoverApis = (user: UserMe, history: unknown[] = []) => {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url.includes("/auth/me")) {
+      return jsonResponse(user);
+    }
+    if (url.includes("/music/")) {
+      return jsonResponse([]);
+    }
+    if (url.includes("/albums/")) {
+      return jsonResponse([]);
+    }
+    if (url.includes("/play-history/")) {
+      return jsonResponse(history);
+    }
+    return jsonResponse({});
+  });
+};
+
 const renderApp = (options?: {
   initialEntries?: string[];
   tokenStore?: ReturnType<typeof createMemoryTokenStore>;
@@ -78,13 +97,43 @@ describe("App", () => {
   it("renders discover page after loading the current user", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(adminUser));
+    mockDiscoverApis(adminUser);
 
     renderApp({ tokenStore });
 
     expect(await screen.findByText("欢迎回来，Admin")).toBeInTheDocument();
     expect(screen.getByText("发现音乐")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "个人中心" })).not.toBeInTheDocument();
+  });
+
+  it("renders discover page when play history music uses the backend compact shape", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    const fetchMock = mockDiscoverApis(adminUser, [
+      {
+        id: 100,
+        played_at: "2026-06-10T14:00:00Z",
+        music: {
+          id: 9,
+          title: "No Author History Song",
+          cover_icon_url: null,
+        },
+      },
+    ]);
+
+    renderApp({ tokenStore });
+
+    expect(await screen.findByText("欢迎回来，Admin")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = input instanceof Request ? input.url : String(input);
+          return url.includes("/play-history/");
+        }),
+      ).toBe(true);
+    });
+    expect(await screen.findByText("No Author History Song")).toBeInTheDocument();
+    expect(screen.getByText("未知艺人")).toBeInTheDocument();
   });
 
   it.each([
@@ -106,7 +155,6 @@ describe("App", () => {
     expect(screen.queryByText("管理概览")).not.toBeInTheDocument();
     expect(screen.queryByText("用户管理")).not.toBeInTheDocument();
     expect(screen.queryByText("需要管理员权限")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/users/admin/list"), expect.anything());
   });
 

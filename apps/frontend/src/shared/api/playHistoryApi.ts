@@ -1,7 +1,7 @@
 import type { PlayHistoryItem } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
-export const createPlayHistoryApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptions) => {
+export const createPlayHistoryApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {

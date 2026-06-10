@@ -129,6 +129,83 @@ class TestRecordPlay:
         assert data["music"]["title"] == music.title
         assert "played_at" in data
 
+    async def test_record_play_replaces_existing_music_history(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试重复播放同一音乐时替换旧播放历史。"""
+        user = await _create_user(db_session, "record_replace")
+        music = await _create_music_directly(db_session, title="ReplaceSong")
+
+        first_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id},
+        )
+        assert first_resp.status_code == 201
+        first_id = first_resp.json()["id"]
+
+        second_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id},
+        )
+        assert second_resp.status_code == 201
+        second_id = second_resp.json()["id"]
+
+        assert second_id != first_id
+
+        resp = client.get(BASE_URL + "/", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["id"] == second_id
+        assert data[0]["music"]["id"] == music.id
+
+        result = await db_session.execute(
+            select(PlayHistory).where(
+                PlayHistory.user_id == user.id,
+                PlayHistory.music_id == music.id,
+            )
+        )
+        assert len(result.scalars().all()) == 1
+
+    async def test_record_play_keeps_latest_100_items(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试新增播放历史后仅保留用户最近 100 条记录。"""
+        user = await _create_user(db_session, "record_limit")
+        now = datetime.now(timezone.utc)
+        first_music: Music | None = None
+
+        for i in range(100):
+            music = await _create_music_directly(db_session, title=f"LimitSong{i}")
+            if first_music is None:
+                first_music = music
+            await _create_play_history_directly(
+                db_session,
+                user.id,
+                music.id,
+                played_at=now + timedelta(seconds=i),
+            )
+
+        new_music = await _create_music_directly(db_session, title="LimitNewestSong")
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": new_music.id},
+        )
+        assert resp.status_code == 201
+
+        result = await db_session.execute(
+            select(PlayHistory).where(PlayHistory.user_id == user.id)
+        )
+        histories = list(result.scalars().all())
+        music_ids = {history.music_id for history in histories}
+        assert len(histories) == 100
+        assert first_music is not None
+        assert first_music.id not in music_ids
+        assert new_music.id in music_ids
+
     async def test_record_play_increments_play_count(
         self, client: TestClient, db_session: AsyncSession
     ):
@@ -271,17 +348,20 @@ class TestListPlayHistory:
     ):
         """测试播放历史按时间倒序返回。"""
         user = await _create_user(db_session, "list_order")
-        music = await _create_music_directly(db_session, title="SongOrder")
+        musics = [
+            await _create_music_directly(db_session, title=f"SongOrder{i}")
+            for i in range(3)
+        ]
 
         now = datetime.now(timezone.utc)
         await _create_play_history_directly(
-            db_session, user.id, music.id, played_at=now - timedelta(hours=2)
+            db_session, user.id, musics[0].id, played_at=now - timedelta(hours=2)
         )
         await _create_play_history_directly(
-            db_session, user.id, music.id, played_at=now - timedelta(hours=1)
+            db_session, user.id, musics[1].id, played_at=now - timedelta(hours=1)
         )
         await _create_play_history_directly(
-            db_session, user.id, music.id, played_at=now
+            db_session, user.id, musics[2].id, played_at=now
         )
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
@@ -299,9 +379,9 @@ class TestListPlayHistory:
     ):
         """测试播放历史分页查询。"""
         user = await _create_user(db_session, "list_page")
-        music = await _create_music_directly(db_session, title="SongPage")
 
         for i in range(5):
+            music = await _create_music_directly(db_session, title=f"SongPage{i}")
             await _create_play_history_directly(db_session, user.id, music.id)
 
         resp = client.get(
@@ -414,9 +494,9 @@ class TestClearPlayHistory:
     async def test_clear_history(self, client: TestClient, db_session: AsyncSession):
         """测试正常清空当前用户的播放历史。"""
         user = await _create_user(db_session, "clear_user")
-        music = await _create_music_directly(db_session, title="SongClear")
 
-        for _ in range(3):
+        for i in range(3):
+            music = await _create_music_directly(db_session, title=f"SongClear{i}")
             await _create_play_history_directly(db_session, user.id, music.id)
 
         resp = client.delete(BASE_URL + "/", headers=_auth_header(user))

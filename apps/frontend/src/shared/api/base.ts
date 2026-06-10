@@ -15,7 +15,9 @@ export type ApiOptions = {
   tokenStore: TokenStore;
 };
 
-export const createBaseApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptions) => {
+export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
+  const requestFetcher = () => fetcher ?? globalThis.fetch;
+
   const parseResponse = async <T>(response: Response): Promise<T> => {
     if (response.status === 204) {
       return undefined as T;
@@ -32,7 +34,7 @@ export const createBaseApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
     if (!tokens) {
       throw new ApiError("未登录", 401);
     }
-    const response = await fetcher(`${baseUrl}/auth/refresh`, {
+    const response = await requestFetcher()(`${baseUrl}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: tokens.refreshToken }),
@@ -51,7 +53,7 @@ export const createBaseApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
       headers.Authorization = `Bearer ${tokens.accessToken}`;
     }
 
-    const response = await fetcher(`${baseUrl}${path}`, { ...init, headers });
+    const response = await requestFetcher()(`${baseUrl}${path}`, { ...init, headers });
     if (response.status === 401 && retry && tokens) {
       try {
         const refreshed = await refresh();
