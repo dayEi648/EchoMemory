@@ -10,12 +10,6 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
-  Calendar,
-  Mail,
-  Phone,
-  MapPin,
-  Award,
-  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -67,18 +61,27 @@ const canManage = (currentUser: UserMe | null, target: UserMe): boolean => {
   return false;
 };
 
+/** 详情弹窗中的信息行组件。 */
+const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--color-border)" }}>
+    <span style={{ color: "var(--color-muted)", fontSize: 13 }}>{label}</span>
+    <span style={{ fontSize: 13, fontWeight: 500, textAlign: "right" }}>{value}</span>
+  </div>
+);
+
 /** 格式化日期时间字符串为本地可读格式。 */
 const fmtDate = (s: string | null): string => {
   if (!s) return "—";
-  try {
-    return new Date(s).toLocaleString("zh-CN");
-  } catch {
-    return s;
-  }
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleString("zh-CN");
 };
 
 /** 将天数转换为 ISO 8601 duration 字符串。 */
-const daysToDuration = (days: number): string => `P${days}D`;
+const daysToDuration = (days: number): string => {
+  if (!Number.isFinite(days) || days <= 0) return "";
+  return `P${days}D`;
+};
 
 export const UserManagementPage = () => {
   const { api, user: currentUser } = useAuthStore();
@@ -139,13 +142,7 @@ export const UserManagementPage = () => {
     loadUsers();
   }, [loadUsers]);
 
-  const handleSearch = () => {
-    setPage(0);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
+  const handleSearch = () => setPage(0);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -222,14 +219,6 @@ export const UserManagementPage = () => {
     }
   };
 
-  // 详情弹窗中的信息行组件
-  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--color-border)" }}>
-      <span style={{ color: "var(--color-muted)", fontSize: 13 }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 500, textAlign: "right" }}>{value}</span>
-    </div>
-  );
-
   return (
     <div>
       <FadeIn>
@@ -285,11 +274,10 @@ export const UserManagementPage = () => {
           <select
             value={deletedFilter}
             onChange={(e) => { setDeletedFilter(e.target.value); setPage(0); }}
-            style={{ width: 120, fontSize: 13 }}
+            style={{ width: 110, fontSize: 13 }}
           >
-            <option value="">正常账户</option>
+            <option value="">未注销</option>
             <option value="true">已注销</option>
-            <option value="false">未注销</option>
           </select>
 
           <select
@@ -371,7 +359,7 @@ export const UserManagementPage = () => {
                     <span style={{ fontSize: 13 }}>Lv.{item.level}</span>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {canManage(currentUser, item) ? (
-                        item.is_deleted ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <motion.button
                             className="ghost-button"
                             onClick={() => setViewUser(item)}
@@ -383,68 +371,58 @@ export const UserManagementPage = () => {
                           >
                             <Eye size={14} />
                           </motion.button>
-                        ) : (
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <motion.button
-                              className="ghost-button"
-                              onClick={() => setViewUser(item)}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              type="button"
-                              title="查看详情"
-                              style={{ padding: "6px 8px", minHeight: "auto" }}
-                            >
-                              <Eye size={14} />
-                            </motion.button>
-                            <motion.button
-                              className="ghost-button"
-                              onClick={() => openEdit(item)}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              type="button"
-                              title="编辑资料"
-                              style={{ padding: "6px 8px", minHeight: "auto" }}
-                            >
-                              <Pencil size={14} />
-                            </motion.button>
-                            {item.status === 0 ? (
+                          {!item.is_deleted && (
+                            <>
                               <motion.button
                                 className="ghost-button"
-                                onClick={() => { setBanUser(item); setBanStatus(3); setBanDays(""); }}
+                                onClick={() => openEdit(item)}
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
                                 type="button"
-                                title="封禁"
+                                title="编辑资料"
+                                style={{ padding: "6px 8px", minHeight: "auto" }}
+                              >
+                                <Pencil size={14} />
+                              </motion.button>
+                              {item.status === 0 ? (
+                                <motion.button
+                                  className="ghost-button"
+                                  onClick={() => { setBanUser(item); setBanStatus(3); setBanDays(""); }}
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  type="button"
+                                  title="封禁"
+                                  style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)" }}
+                                >
+                                  <Ban size={14} />
+                                </motion.button>
+                              ) : (
+                                <motion.button
+                                  className="ghost-button"
+                                  onClick={() => handleUnban(item.id)}
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  type="button"
+                                  title="解封"
+                                  style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-accent-2)" }}
+                                >
+                                  <Unlock size={14} />
+                                </motion.button>
+                              )}
+                              <motion.button
+                                className="ghost-button"
+                                onClick={() => { setDeleteUser(item); setDeleteConfirmInput(""); }}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                type="button"
+                                title="永久删除"
                                 style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)" }}
                               >
-                                <Ban size={14} />
+                                <Trash2 size={14} />
                               </motion.button>
-                            ) : (
-                              <motion.button
-                                className="ghost-button"
-                                onClick={() => handleUnban(item.id)}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                type="button"
-                                title="解封"
-                                style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-accent-2)" }}
-                              >
-                                <Unlock size={14} />
-                              </motion.button>
-                            )}
-                            <motion.button
-                              className="ghost-button"
-                              onClick={() => { setDeleteUser(item); setDeleteConfirmInput(""); }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              type="button"
-                              title="永久删除"
-                              style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)" }}
-                            >
-                              <Trash2 size={14} />
-                            </motion.button>
-                          </div>
-                        )
+                            </>
+                          )}
+                        </div>
                       ) : (
                         <span style={{ fontSize: 12, color: "var(--color-muted)" }}>—</span>
                       )}
@@ -474,7 +452,7 @@ export const UserManagementPage = () => {
               <div className="pagination-center">
                 <motion.button
                   className="pagination-btn"
-                  onClick={() => handlePageChange(page - 1)}
+                  onClick={() => setPage(page - 1)}
                   disabled={page === 0 || loading}
                   whileTap={{ scale: 0.95 }}
                   type="button"
@@ -486,7 +464,7 @@ export const UserManagementPage = () => {
                   <motion.button
                     key={p}
                     className={`pagination-btn ${p === page ? "active" : ""}`}
-                    onClick={() => handlePageChange(p)}
+                    onClick={() => setPage(p)}
                     disabled={loading}
                     whileTap={{ scale: 0.95 }}
                     type="button"
@@ -497,7 +475,7 @@ export const UserManagementPage = () => {
 
                 <motion.button
                   className="pagination-btn"
-                  onClick={() => handlePageChange(page + 1)}
+                  onClick={() => setPage(page + 1)}
                   disabled={page >= totalPages - 1 || loading}
                   whileTap={{ scale: 0.95 }}
                   type="button"
