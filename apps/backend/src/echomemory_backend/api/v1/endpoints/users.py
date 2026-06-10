@@ -181,8 +181,8 @@ async def admin_list_users(
     role: int | None = Query(None, ge=0, le=3),
     is_deleted: bool | None = Query(False, description="是否已注销（软删除）；不传默认 false，传 null 显示全部"),
     q: str | None = Query(None, description="按用户名或昵称搜索"),
-    sort_by: str = Query("created_at", description="排序字段: created_at, exp, level, like_count"),
-    sort_order: str = Query("desc", description="排序方向: asc, desc"),
+    sort_by: str = Query("id", description="排序字段: id, created_at, exp, level, like_count"),
+    sort_order: str = Query("asc", description="排序方向: asc, desc"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> PaginatedUserAdminOut:

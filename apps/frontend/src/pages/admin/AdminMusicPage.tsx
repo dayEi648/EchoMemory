@@ -269,8 +269,9 @@ export const AdminMusicPage = () => {
       </FadeIn>
 
       <FadeIn delay={0.08}>
-        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
+        {/* 搜索栏 */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
             <Search
               size={14}
               style={{
@@ -290,49 +291,71 @@ export const AdminMusicPage = () => {
             />
           </div>
 
-          <select
-            value={styleFilter}
-            onChange={(e) => { setStyleFilter(e.target.value); setPage(0); }}
-            style={{ width: 130, fontSize: 13 }}
+          <motion.button
+            className="primary-button"
+            onClick={handleSearch}
+            disabled={loading}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            type="button"
           >
-            <option value="">全部风格</option>
-            {styles.map((s) => (
-              <option key={s.id} value={String(s.id)}>{s.name}</option>
-            ))}
-          </select>
+            {loading ? "加载中" : "搜索"}
+          </motion.button>
+        </div>
 
-          <select
-            value={languageFilter}
-            onChange={(e) => { setLanguageFilter(e.target.value); setPage(0); }}
-            style={{ width: 130, fontSize: 13 }}
-          >
-            <option value="">全部语言</option>
-            {languages.map((l) => (
-              <option key={l.id} value={String(l.id)}>{l.name}</option>
-            ))}
-          </select>
+        {/* 筛选栏 */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+            <select
+              value={styleFilter}
+              onChange={(e) => { setStyleFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部风格</option>
+              {styles.map((s) => (
+                <option key={s.id} value={String(s.id)}>{s.name}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={publishedFilter}
-            onChange={(e) => { setPublishedFilter(e.target.value); setPage(0); }}
-            style={{ width: 110, fontSize: 13 }}
-          >
-            <option value="">全部状态</option>
-            <option value="true">已上架</option>
-            <option value="false">未上架</option>
-          </select>
+          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+            <select
+              value={languageFilter}
+              onChange={(e) => { setLanguageFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部语言</option>
+              {languages.map((l) => (
+                <option key={l.id} value={String(l.id)}>{l.name}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={vipFilter}
-            onChange={(e) => { setVipFilter(e.target.value); setPage(0); }}
-            style={{ width: 100, fontSize: 13 }}
-          >
-            <option value="">全部 VIP</option>
-            <option value="true">VIP</option>
-            <option value="false">普通</option>
-          </select>
+          <div style={{ flex: "1 1 110px", minWidth: 110 }}>
+            <select
+              value={publishedFilter}
+              onChange={(e) => { setPublishedFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部状态</option>
+              <option value="true">已上架</option>
+              <option value="false">未上架</option>
+            </select>
+          </div>
 
-          <div style={{ width: 140 }}>
+          <div style={{ flex: "1 1 100px", minWidth: 100 }}>
+            <select
+              value={vipFilter}
+              onChange={(e) => { setVipFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部 VIP</option>
+              <option value="true">VIP</option>
+              <option value="false">普通</option>
+            </select>
+          </div>
+
+          <div style={{ flex: "1 1 140px", minWidth: 140 }}>
             <SearchableTagSelect
               label="乐器"
               items={instruments}
@@ -347,7 +370,7 @@ export const AdminMusicPage = () => {
             />
           </div>
 
-          <div style={{ width: 140 }}>
+          <div style={{ flex: "1 1 140px", minWidth: 140 }}>
             <SearchableTagSelect
               label="情感"
               items={emotionTags}
@@ -362,7 +385,7 @@ export const AdminMusicPage = () => {
             />
           </div>
 
-          <div style={{ width: 140 }}>
+          <div style={{ flex: "1 1 140px", minWidth: 140 }}>
             <SearchableTagSelect
               label="兴趣"
               items={interestTags}
@@ -376,33 +399,26 @@ export const AdminMusicPage = () => {
               showLabel={false}
             />
           </div>
-
-          <motion.button
-            className="primary-button"
-            onClick={handleSearch}
-            disabled={loading}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            type="button"
-          >
-            {loading ? "加载中" : "搜索"}
-          </motion.button>
         </div>
       </FadeIn>
 
       {musics.length > 0 ? (
         <FadeIn delay={0.15}>
-          <div className="admin-table-container">
+          <div className="admin-table-container" style={{ overflowX: "auto" }}>
             <div
               className="admin-table-header"
-              style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 0.7fr 100px" }}
+              style={{ gridTemplateColumns: "50px 50px 1.5fr 1fr 0.8fr 0.8fr 0.8fr 60px 0.7fr 0.7fr 100px", minWidth: 900 }}
             >
               <span>ID</span>
-              <span>歌曲</span>
+              <span>图标</span>
+              <span>歌名</span>
+              <span>所属专辑</span>
+              <span>作者</span>
+              <span>情绪标签</span>
+              <span>兴趣标签</span>
+              <span>VIP</span>
               <span>风格</span>
               <span>语言</span>
-              <span>播放量</span>
-              <span>状态</span>
               <span>操作</span>
             </div>
             <StaggerContainer staggerDelay={0.03}>
@@ -410,11 +426,11 @@ export const AdminMusicPage = () => {
                 <StaggerItem key={item.id}>
                   <motion.div
                     className="admin-table-row"
-                    style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 0.7fr 100px", alignItems: "center" }}
+                    style={{ gridTemplateColumns: "50px 50px 1.5fr 1fr 0.8fr 0.8fr 0.8fr 60px 0.7fr 0.7fr 100px", alignItems: "center", minWidth: 900 }}
                     whileHover={{ backgroundColor: "var(--color-surface-soft)" }}
                   >
                     <span style={{ fontSize: 12, color: "var(--color-muted)" }}>{item.id}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {item.cover_icon_url ? (
                         <img
                           src={item.cover_icon_url}
@@ -437,34 +453,27 @@ export const AdminMusicPage = () => {
                           <Music size={16} color="var(--color-muted)" />
                         </div>
                       )}
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.title}
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--color-muted)" }}>
-                          {item.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
-                        </div>
-                      </div>
                     </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.title}
+                    </span>
+                    <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.albums?.length ? item.albums.map((a) => a.title).join(", ") : "—"}
+                    </span>
+                    <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.authors.map((a) => a.nickname).join(", ") || "—"}
+                    </span>
+                    <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.emotion_tags?.length ? item.emotion_tags.map((t) => t.name).join(", ") : "—"}
+                    </span>
+                    <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.interest_tags?.length ? item.interest_tags.map((t) => t.name).join(", ") : "—"}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: item.is_vip ? "var(--color-accent-2)" : "var(--color-muted)" }}>
+                      {item.is_vip ? "VIP" : "—"}
+                    </span>
                     <span style={{ fontSize: 13 }}>{item.style?.name ?? "—"}</span>
                     <span style={{ fontSize: 13 }}>{item.language?.name ?? "—"}</span>
-                    <span style={{ fontSize: 13 }}>{item.play_count}</span>
-                    <span>
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "3px 10px",
-                          borderRadius: 20,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          background: item.is_published ? "#e6f7f4" : "#f0eeea",
-                          color: item.is_published ? "#2bb3a3" : "#77716a",
-                        }}
-                      >
-                        {item.is_published ? "已上架" : "未上架"}
-                      </span>
-                    </span>
                     <div style={{ display: "flex", gap: 6 }}>
                       <motion.button
                         className="ghost-button"

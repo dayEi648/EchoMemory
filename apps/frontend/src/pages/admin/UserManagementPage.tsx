@@ -90,8 +90,8 @@ export const UserManagementPage = () => {
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [deletedFilter, setDeletedFilter] = useState<string>("");
-  const [sortBy, setSortBy] = useState<string>("created_at");
-  const [sortOrder, setSortOrder] = useState<string>("desc");
+  const [sortBy, setSortBy] = useState<string>("id");
+  const [sortOrder, setSortOrder] = useState<string>("asc");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(20);
   const [loading, setLoading] = useState(false);
@@ -156,6 +156,9 @@ export const UserManagementPage = () => {
       birth: user.birth ?? undefined,
       city: user.city ?? undefined,
       bio: user.bio ?? undefined,
+      role: user.role,
+      status: user.status,
+      is_verified: user.is_verified,
     });
   };
 
@@ -225,8 +228,9 @@ export const UserManagementPage = () => {
       </FadeIn>
 
       <FadeIn delay={0.08}>
-        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
+        {/* 搜索栏 */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
             <Search
               size={14}
               style={{
@@ -246,60 +250,6 @@ export const UserManagementPage = () => {
             />
           </div>
 
-          <select
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setPage(0); }}
-            style={{ width: 130, fontSize: 13 }}
-          >
-            <option value="">全部角色</option>
-            <option value="0">普通用户</option>
-            <option value="1">VIP</option>
-            <option value="2">管理员</option>
-            <option value="3">超级管理员</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-            style={{ width: 130, fontSize: 13 }}
-          >
-            <option value="">全部状态</option>
-            <option value="0">正常</option>
-            <option value="1">临时封禁</option>
-            <option value="2">限制中</option>
-            <option value="3">已封禁</option>
-          </select>
-
-          <select
-            value={deletedFilter}
-            onChange={(e) => { setDeletedFilter(e.target.value); setPage(0); }}
-            style={{ width: 110, fontSize: 13 }}
-          >
-            <option value="">全部</option>
-            <option value="false">未注销</option>
-            <option value="true">已注销</option>
-          </select>
-
-          <select
-            value={sortBy}
-            onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
-            style={{ width: 140, fontSize: 13 }}
-          >
-            <option value="created_at">注册时间</option>
-            <option value="exp">经验值</option>
-            <option value="level">等级</option>
-            <option value="like_count">获赞数</option>
-          </select>
-
-          <select
-            value={sortOrder}
-            onChange={(e) => { setSortOrder(e.target.value); setPage(0); }}
-            style={{ width: 110, fontSize: 13 }}
-          >
-            <option value="desc">降序</option>
-            <option value="asc">升序</option>
-          </select>
-
           <motion.button
             className="primary-button"
             onClick={handleSearch}
@@ -311,6 +261,74 @@ export const UserManagementPage = () => {
             {loading ? "加载中" : "搜索"}
           </motion.button>
         </div>
+
+        {/* 筛选栏 */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+            <select
+              value={roleFilter}
+              onChange={(e) => { setRoleFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部角色</option>
+              <option value="0">普通用户</option>
+              <option value="1">VIP</option>
+              <option value="2">管理员</option>
+              <option value="3">超级管理员</option>
+            </select>
+          </div>
+
+          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部状态</option>
+              <option value="0">正常</option>
+              <option value="1">临时封禁</option>
+              <option value="2">限制中</option>
+              <option value="3">已封禁</option>
+            </select>
+          </div>
+
+          <div style={{ flex: "1 1 110px", minWidth: 110 }}>
+            <select
+              value={deletedFilter}
+              onChange={(e) => { setDeletedFilter(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="">全部</option>
+              <option value="false">未注销</option>
+              <option value="true">已注销</option>
+            </select>
+          </div>
+
+          <div style={{ flex: "1 1 140px", minWidth: 140 }}>
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="id">用户ID</option>
+              <option value="created_at">注册时间</option>
+              <option value="exp">经验值</option>
+              <option value="level">等级</option>
+              <option value="like_count">获赞数</option>
+            </select>
+          </div>
+
+          <div style={{ flex: "1 1 110px", minWidth: 110 }}>
+            <select
+              value={sortOrder}
+              onChange={(e) => { setSortOrder(e.target.value); setPage(0); }}
+              style={{ width: "100%", fontSize: 13 }}
+            >
+              <option value="desc">降序</option>
+              <option value="asc">升序</option>
+            </select>
+          </div>
+        </div>
       </FadeIn>
 
       {users.length > 0 ? (
@@ -318,13 +336,14 @@ export const UserManagementPage = () => {
           <div className="admin-table-container">
             <div
               className="admin-table-header"
-              style={{ gridTemplateColumns: "40px 1.2fr 0.8fr 0.8fr 0.7fr auto" }}
+              style={{ gridTemplateColumns: "60px 1fr 1fr 100px 100px 80px auto" }}
             >
-              <span></span>
-              <span>用户</span>
+              <span>ID</span>
+              <span>用户名</span>
+              <span>昵称</span>
               <span>角色</span>
               <span>状态</span>
-              <span>等级</span>
+              <span>是否注销</span>
               <span>操作</span>
             </div>
             <StaggerContainer staggerDelay={0.03}>
@@ -332,14 +351,16 @@ export const UserManagementPage = () => {
                 <StaggerItem key={item.id}>
                   <motion.div
                     className="admin-table-row"
-                    style={{ gridTemplateColumns: "40px 1.2fr 0.8fr 0.8fr 0.7fr auto" }}
+                    style={{ gridTemplateColumns: "60px 1fr 1fr 100px 100px 80px auto", alignItems: "center" }}
                     whileHover={{ backgroundColor: "var(--color-surface-soft)" }}
                   >
-                    <Avatar user={item} size="sm" />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{item.nickname}</div>
-                      <div style={{ fontSize: 12, color: "var(--color-muted)" }}>@{item.username}</div>
-                    </div>
+                    <span style={{ fontSize: 12, color: "var(--color-muted)" }}>{item.id}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      @{item.username}
+                    </span>
+                    <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.nickname}
+                    </span>
                     <span style={{ fontSize: 13 }}>{roleLabel[item.role]}</span>
                     <span>
                       <span
@@ -356,76 +377,62 @@ export const UserManagementPage = () => {
                         {item.is_deleted ? "已注销" : statusLabel[item.status]}
                       </span>
                     </span>
-                    <span style={{ fontSize: 13 }}>Lv.{item.level}</span>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {canManage(currentUser, item) ? (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <motion.button
-                            className="ghost-button"
-                            onClick={() => setViewUser(item)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            type="button"
-                            title="查看详情"
-                            style={{ padding: "6px 8px", minHeight: "auto" }}
-                          >
-                            <Eye size={14} />
-                          </motion.button>
-                          {!item.is_deleted && (
-                            <>
-                              <motion.button
-                                className="ghost-button"
-                                onClick={() => openEdit(item)}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                type="button"
-                                title="编辑资料"
-                                style={{ padding: "6px 8px", minHeight: "auto" }}
-                              >
-                                <Pencil size={14} />
-                              </motion.button>
-                              {item.status === 0 ? (
-                                <motion.button
-                                  className="ghost-button"
-                                  onClick={() => { setBanUser(item); setBanStatus(3); setBanDays(""); }}
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  type="button"
-                                  title="封禁"
-                                  style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)" }}
-                                >
-                                  <Ban size={14} />
-                                </motion.button>
-                              ) : (
-                                <motion.button
-                                  className="ghost-button"
-                                  onClick={() => handleUnban(item.id)}
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  type="button"
-                                  title="解封"
-                                  style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-accent-2)" }}
-                                >
-                                  <Unlock size={14} />
-                                </motion.button>
-                              )}
-                              <motion.button
-                                className="ghost-button"
-                                onClick={() => { setDeleteUser(item); setDeleteConfirmInput(""); }}
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                type="button"
-                                title="永久删除"
-                                style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)" }}
-                              >
-                                <Trash2 size={14} />
-                              </motion.button>
-                            </>
-                          )}
-                        </div>
+                    <span style={{ fontSize: 13 }}>
+                      {item.is_deleted ? (
+                        <span style={{ color: "var(--color-muted)" }}>是</span>
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--color-muted)" }}>—</span>
+                        <span style={{ color: "var(--color-accent-2)" }}>否</span>
                       )}
+                    </span>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 140 }}>
+                      <motion.button
+                        className="ghost-button"
+                        onClick={() => canManage(currentUser, item) && setViewUser(item)}
+                        disabled={!canManage(currentUser, item)}
+                        whileHover={canManage(currentUser, item) ? { scale: 1.1 } : {}}
+                        whileTap={canManage(currentUser, item) ? { scale: 0.9 } : {}}
+                        type="button"
+                        title="查看详情"
+                        style={{ padding: "6px 8px", minHeight: "auto", opacity: canManage(currentUser, item) ? 1 : 0.2 }}
+                      >
+                        <Eye size={14} />
+                      </motion.button>
+                      <motion.button
+                        className="ghost-button"
+                        onClick={() => canManage(currentUser, item) && openEdit(item)}
+                        disabled={!canManage(currentUser, item) || item.is_deleted}
+                        whileHover={canManage(currentUser, item) && !item.is_deleted ? { scale: 1.1 } : {}}
+                        whileTap={canManage(currentUser, item) && !item.is_deleted ? { scale: 0.9 } : {}}
+                        type="button"
+                        title="编辑资料"
+                        style={{ padding: "6px 8px", minHeight: "auto", opacity: canManage(currentUser, item) && !item.is_deleted ? 1 : 0.2 }}
+                      >
+                        <Pencil size={14} />
+                      </motion.button>
+                      <motion.button
+                        className="ghost-button"
+                        onClick={() => canManage(currentUser, item) && !item.is_deleted && item.status === 0 && (() => { setBanUser(item); setBanStatus(3); setBanDays(""); })()}
+                        disabled={!canManage(currentUser, item) || item.is_deleted || item.status !== 0}
+                        whileHover={canManage(currentUser, item) && !item.is_deleted && item.status === 0 ? { scale: 1.1 } : {}}
+                        whileTap={canManage(currentUser, item) && !item.is_deleted && item.status === 0 ? { scale: 0.9 } : {}}
+                        type="button"
+                        title={item.status === 0 ? "封禁" : "解封"}
+                        style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)", opacity: canManage(currentUser, item) && !item.is_deleted ? 1 : 0.2 }}
+                      >
+                        {item.status === 0 ? <Ban size={14} /> : <Unlock size={14} />}
+                      </motion.button>
+                      <motion.button
+                        className="ghost-button"
+                        onClick={() => canManage(currentUser, item) && !item.is_deleted && (() => { setDeleteUser(item); setDeleteConfirmInput(""); })()}
+                        disabled={!canManage(currentUser, item) || item.is_deleted}
+                        whileHover={canManage(currentUser, item) && !item.is_deleted ? { scale: 1.1 } : {}}
+                        whileTap={canManage(currentUser, item) && !item.is_deleted ? { scale: 0.9 } : {}}
+                        type="button"
+                        title="永久删除"
+                        style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)", opacity: canManage(currentUser, item) && !item.is_deleted ? 1 : 0.2 }}
+                      >
+                        <Trash2 size={14} />
+                      </motion.button>
                     </div>
                   </motion.div>
                 </StaggerItem>
@@ -584,6 +591,42 @@ export const UserManagementPage = () => {
                 value={editForm.bio ?? ""}
                 onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value || undefined }))}
               />
+            </label>
+            {currentUser?.role === 3 && (
+              <>
+                <label>
+                  角色
+                  <select
+                    value={String(editForm.role ?? 0)}
+                    onChange={(e) => setEditForm((f) => ({ ...f, role: Number(e.target.value) as UserMe["role"] }))}
+                  >
+                    <option value="0">普通用户</option>
+                    <option value="1">VIP</option>
+                    <option value="2">管理员</option>
+                    <option value="3">超级管理员</option>
+                  </select>
+                </label>
+                <label>
+                  状态
+                  <select
+                    value={String(editForm.status ?? 0)}
+                    onChange={(e) => setEditForm((f) => ({ ...f, status: Number(e.target.value) as UserMe["status"] }))}
+                  >
+                    <option value="0">正常</option>
+                    <option value="1">临时封禁</option>
+                    <option value="2">限制中</option>
+                    <option value="3">已封禁</option>
+                  </select>
+                </label>
+              </>
+            )}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={editForm.is_verified ?? false}
+                onChange={(e) => setEditForm((f) => ({ ...f, is_verified: e.target.checked }))}
+              />
+              <span style={{ fontSize: 13 }}>已认证</span>
             </label>
           </div>
         )}

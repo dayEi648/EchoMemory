@@ -70,6 +70,9 @@ export const MusicDetailPage = () => {
       authors: music.authors,
       created_at: music.created_at,
       file_url: music.file_url,
+      emotion_tags: music.emotion_tags,
+      interest_tags: music.interest_tags,
+      albums: [],
     });
   };
 
@@ -255,6 +258,9 @@ export const MusicDetailPage = () => {
                           authors: song.authors,
                           created_at: song.created_at,
                           file_url: detail.file_url,
+                          emotion_tags: detail.emotion_tags,
+                          interest_tags: detail.interest_tags,
+                          albums: [],
                         });
                       } else {
                         toast.error("该歌曲暂不可播放");

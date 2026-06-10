@@ -95,6 +95,9 @@ class Music(Base):
     interest_tags: Mapped[list["MusicInterestTag"]] = relationship(
         "MusicInterestTag", back_populates="music"
     )
+    album_musics: Mapped[list["AlbumMusic"]] = relationship(
+        "AlbumMusic", back_populates="music"
+    )
 
 
 class MusicAuthor(Base):

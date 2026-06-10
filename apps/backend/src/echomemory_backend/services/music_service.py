@@ -380,7 +380,7 @@ async def admin_search_musics(
             )
         )
 
-    stmt = select(Music).order_by(desc(Music.created_at)).limit(limit).offset(offset)
+    stmt = select(Music).order_by(Music.id).limit(limit).offset(offset)
     count_stmt = select(func.count()).select_from(Music)
 
     if where_clause:
@@ -391,6 +391,9 @@ async def admin_search_musics(
         selectinload(Music.authors).selectinload(MusicAuthor.author),
         selectinload(Music.style),
         selectinload(Music.language),
+        selectinload(Music.emotion_tags).selectinload(MusicEmotionTag.emotion_tag),
+        selectinload(Music.interest_tags).selectinload(MusicInterestTag.interest_tag),
+        selectinload(Music.album_musics).selectinload(AlbumMusic.album),
     )
     items = list((await db.execute(stmt)).scalars().all())
     total = (await db.execute(count_stmt)).scalar_one()

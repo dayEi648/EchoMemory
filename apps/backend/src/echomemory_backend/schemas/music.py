@@ -30,6 +30,15 @@ class InstrumentOut(BaseModel):
     name: str
 
 
+class AlbumBriefOut(BaseModel):
+    """专辑简要输出（仅含 ID 与标题）。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+
+
 class TagOut(BaseModel):
     """标签输出。"""
 
@@ -156,7 +165,7 @@ class MusicListOut(BaseModel):
 
 
 class AdminMusicListOut(BaseModel):
-    """管理员音乐列表项输出（含上架状态及风格/语言）。"""
+    """管理员音乐列表项输出（含上架状态及风格/语言/标签/专辑）。"""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -170,6 +179,9 @@ class AdminMusicListOut(BaseModel):
     style: TagOut | None = None
     language: TagOut | None = None
     authors: list[AuthorOut] = []
+    emotion_tags: list[TagOut] = []
+    interest_tags: list[TagOut] = []
+    albums: list[AlbumBriefOut] = []
     created_at: datetime
 
     @field_validator("authors", mode="before")
@@ -187,6 +199,39 @@ class AdminMusicListOut(BaseModel):
                 "ordinal": a.ordinal,
             }
             for a in v
+        ]
+
+    @field_validator("emotion_tags", mode="before")
+    @classmethod
+    def _flatten_emotion_tags(cls, v):
+        """将关联模型列表展平为情绪标签输出字典列表。"""
+        if not v:
+            return []
+        return [
+            {"id": et.emotion_tag.id, "name": et.emotion_tag.name}
+            for et in v
+        ]
+
+    @field_validator("interest_tags", mode="before")
+    @classmethod
+    def _flatten_interest_tags(cls, v):
+        """将关联模型列表展平为兴趣标签输出字典列表。"""
+        if not v:
+            return []
+        return [
+            {"id": it.interest_tag.id, "name": it.interest_tag.name}
+            for it in v
+        ]
+
+    @field_validator("albums", mode="before")
+    @classmethod
+    def _flatten_albums(cls, v):
+        """将关联模型列表展平为专辑简要输出字典列表。"""
+        if not v:
+            return []
+        return [
+            {"id": am.album.id, "title": am.album.title}
+            for am in v
         ]
 
 

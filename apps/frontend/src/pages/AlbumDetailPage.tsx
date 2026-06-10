@@ -69,6 +69,9 @@ export const AlbumDetailPage = () => {
         authors: album.authors,
         created_at: album.created_at,
         file_url: m.file_url,
+        emotion_tags: [],
+        interest_tags: [],
+        albums: [],
       }));
     if (tracks.length > 0) {
       playQueue(tracks, 0);
@@ -92,6 +95,9 @@ export const AlbumDetailPage = () => {
       authors: album?.authors ?? [],
       created_at: album?.created_at ?? "",
       file_url: music.file_url,
+      emotion_tags: [],
+      interest_tags: [],
+      albums: [],
     });
   };
 

@@ -226,6 +226,8 @@ error/node_modules/
 apps/frontend/node_modules/
 logs/
 temp/
+.cursor/
+planning/fonts/
 
 # Tauri / Rust
 apps/frontend/src-tauri/gen/

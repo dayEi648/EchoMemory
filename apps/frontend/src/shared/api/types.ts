@@ -133,6 +133,9 @@ export type MusicListItem = {
   authors: Author[];
   style?: Tag;
   language?: Tag;
+  emotion_tags: Tag[];
+  interest_tags: Tag[];
+  albums: { id: number; title: string }[];
   created_at: string;
 };
 

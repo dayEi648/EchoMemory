@@ -20,7 +20,7 @@ async def list_users_with_count(
     q: str | None,
     limit: int,
     offset: int,
-    sort_by: str = "created_at",
+    sort_by: str = "id",
     sort_order: str = "desc",
     is_deleted: bool | None = False,
 ) -> tuple[list[User], int]:
