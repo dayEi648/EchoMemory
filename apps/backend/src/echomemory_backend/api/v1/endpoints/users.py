@@ -13,6 +13,7 @@ from echomemory_backend.schemas.user import (
     FollowCreate,
     FolloweeOut,
     FollowerOut,
+    PaginatedUserAdminOut,
     UserAdminUpdate,
     UserBanAction,
     UserMeOut,
@@ -171,20 +172,30 @@ async def get_followers(
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------
-@router.get("/admin/list", response_model=list[UserMeOut])
+@router.get("/admin/list", response_model=PaginatedUserAdminOut)
 async def admin_list_users(
     db: SessionDep,
     admin: AdminUser,
     status: int | None = Query(None, ge=0, le=3),
     role: int | None = Query(None, ge=0, le=3),
     q: str | None = Query(None, description="按用户名或昵称搜索"),
+    sort_by: str = Query("created_at", description="排序字段: created_at, exp, level, like_count"),
+    sort_order: str = Query("desc", description="排序方向: asc, desc"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-) -> list[User]:
-    """以管理员身份列出用户，支持筛选。"""
-    return await admin_service.list_users(
-        db, status=status, role=role, q=q, limit=limit, offset=offset
+) -> PaginatedUserAdminOut:
+    """以管理员身份列出用户，支持筛选、排序和分页。"""
+    items, total = await admin_service.list_users_with_count(
+        db,
+        status=status,
+        role=role,
+        q=q,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        offset=offset,
     )
+    return PaginatedUserAdminOut(items=items, total=total)
 
 
 @router.patch("/{user_id}/admin", response_model=UserMeOut)

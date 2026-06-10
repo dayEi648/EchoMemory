@@ -200,3 +200,12 @@ class UserSearchOut(BaseModel):
     avatar_url: str | None = None
     level: int
     is_verified: bool
+
+
+class PaginatedUserAdminOut(BaseModel):
+    """管理员用户列表分页响应 Schema。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    items: list[UserMeOut]
+    total: int

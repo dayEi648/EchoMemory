@@ -230,13 +230,16 @@ class TestAdmin:
     """测试管理员对用户的管理操作。"""
 
     async def test_admin_list_users(self, client: TestClient, db_session: AsyncSession):
-        """测试管理员获取用户列表。"""
+        """测试管理员获取用户列表（分页响应格式）。"""
         admin = await _create_user(db_session, "admin_user", role=UserRole.ADMIN.value)
         await _create_user(db_session, "regular")
         resp = client.get(ADMIN_LIST_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) >= 1
+        assert "items" in data
+        assert "total" in data
+        assert len(data["items"]) >= 1
+        assert data["total"] >= 1
 
     async def test_admin_list_forbidden_for_normal_user(self, client: TestClient, db_session: AsyncSession):
         """测试普通用户访问管理员列表接口返回 403。"""
@@ -282,7 +285,7 @@ class TestAdmin:
         assert resp.status_code == 403
 
     async def test_admin_update_user(self, client: TestClient, db_session: AsyncSession):
-        """测试管理员更新其他用户的角色与安全评分。"""
+        """测试管理员更新普通用户的角色与安全评分。"""
         admin = await _create_user(db_session, "admin_patch", role=UserRole.ADMIN.value)
         target = await _create_user(db_session, "to_patch")
         resp = client.patch(
@@ -294,3 +297,46 @@ class TestAdmin:
         data = resp.json()
         assert data["role"] == UserRole.VIP.value
         assert data["safety_score"] == 5
+
+    async def test_admin_cannot_ban_other_admin(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员无法封禁其他管理员（同级权限）。"""
+        admin = await _create_user(db_session, "admin_a", role=UserRole.ADMIN.value)
+        other_admin = await _create_user(db_session, "admin_b", role=UserRole.ADMIN.value)
+        resp = client.post(
+            f"{BASE}/{other_admin.id}/ban",
+            headers=_auth_header(admin),
+            json={"status": UserStatus.BANNED.value},
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_cannot_ban_self(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员不能封禁自己。"""
+        admin = await _create_user(db_session, "admin_self_ban", role=UserRole.ADMIN.value)
+        resp = client.post(
+            f"{BASE}/{admin.id}/ban",
+            headers=_auth_header(admin),
+            json={"status": UserStatus.BANNED.value},
+        )
+        assert resp.status_code == 403
+
+    async def test_super_admin_can_ban_self(self, client: TestClient, db_session: AsyncSession):
+        """测试超级管理员可以封禁自己。"""
+        super_admin = await _create_user(db_session, "sa_self_ban", role=UserRole.SUPER_ADMIN.value)
+        resp = client.post(
+            f"{BASE}/{super_admin.id}/ban",
+            headers=_auth_header(super_admin),
+            json={"status": UserStatus.BANNED.value},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == UserStatus.BANNED.value
+
+    async def test_super_admin_cannot_ban_other_super_admin(self, client: TestClient, db_session: AsyncSession):
+        """测试超级管理员无法封禁其他超级管理员。"""
+        sa1 = await _create_user(db_session, "sa_one", role=UserRole.SUPER_ADMIN.value)
+        sa2 = await _create_user(db_session, "sa_two", role=UserRole.SUPER_ADMIN.value)
+        resp = client.post(
+            f"{BASE}/{sa2.id}/ban",
+            headers=_auth_header(sa1),
+            json={"status": UserStatus.BANNED.value},
+        )
+        assert resp.status_code == 403

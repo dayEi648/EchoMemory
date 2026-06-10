@@ -89,3 +89,8 @@ export type UserAdminUpdate = {
   banned_at?: string | null;
   ban_duration?: string | null;
 };
+
+export type PaginatedUsers = {
+  items: UserMe[];
+  total: number;
+};

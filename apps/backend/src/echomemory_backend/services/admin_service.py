@@ -13,15 +13,17 @@ from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.services.user_service import get_user_by_id
 
 
-async def list_users(
+async def list_users_with_count(
     db: AsyncSession,
     status: int | None,
     role: int | None,
     q: str | None,
     limit: int,
     offset: int,
-) -> list[User]:
-    """以管理员筛选条件列出用户。
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> tuple[list[User], int]:
+    """以管理员筛选条件列出用户并返回总数量。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -30,23 +32,61 @@ async def list_users(
         q: 搜索关键词，支持对用户名和昵称进行模糊匹配；为 None 时不按关键词过滤。
         limit: 返回结果数量上限。
         offset: 分页偏移量。
+        sort_by: 排序字段，支持 created_at、exp、level、like_count。
+        sort_order: 排序方向，asc 或 desc。
 
     Returns:
-        符合条件的用户实例列表。
+        包含两个元素的元组：用户实例列表和符合条件的总记录数。
     """
-    stmt = select(User).where(User.is_deleted == False)
+    where_clause = [User.is_deleted == False]
     if status is not None:
-        stmt = stmt.where(User.status == status)
+        where_clause.append(User.status == status)
     if role is not None:
-        stmt = stmt.where(User.role == role)
+        where_clause.append(User.role == role)
     if q:
         escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        stmt = stmt.where(
+        where_clause.append(
             (User.username.ilike(f"%{escaped_q}%", escape="\\"))
             | (User.nickname.ilike(f"%{escaped_q}%", escape="\\"))
         )
-    stmt = stmt.order_by(desc(User.created_at)).limit(limit).offset(offset)
-    return list((await db.execute(stmt)).scalars().all())
+
+    # 查询总数
+    count_stmt = select(func.count()).select_from(User).where(*where_clause)
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    # 查询列表
+    sort_column = getattr(User, sort_by, User.created_at)
+    order = desc(sort_column) if sort_order == "desc" else sort_column
+    stmt = select(User).where(*where_clause).order_by(order).limit(limit).offset(offset)
+    items = list((await db.execute(stmt)).scalars().all())
+    return items, total
+
+
+def _assert_can_manage(admin: User, target: User) -> None:
+    """验证管理员是否有权限操作目标用户。
+
+    权限规则：
+    - 超级管理员可以管理自己以及所有非超级管理员
+    - 超级管理员不能管理其他超级管理员
+    - 管理员只能管理普通用户(0)和VIP(1)
+    - 管理员不能管理自己、其他管理员(2)和超级管理员(3)
+
+    Raises:
+        BusinessError: 权限不足时抛出 403。
+    """
+    if admin.role == UserRole.SUPER_ADMIN:
+        # 超级管理员不能管理其他超级管理员，但可以管理自己
+        if target.role == UserRole.SUPER_ADMIN and target.id != admin.id:
+            raise BusinessError("无权操作该用户", 403)
+        return
+    if admin.role == UserRole.ADMIN:
+        # 管理员不能管理自己，只能管理角色等级严格低于管理员的用户
+        if target.id == admin.id:
+            raise BusinessError("无权操作该用户", 403)
+        if target.role >= UserRole.ADMIN:
+            raise BusinessError("无权操作该用户", 403)
+        return
+    raise BusinessError("无权操作该用户", 403)
 
 
 async def update_user_as_admin(
@@ -66,18 +106,13 @@ async def update_user_as_admin(
     Raises:
         BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
-    if admin.id == target_user_id:
-        raise BusinessError("Cannot perform this action on yourself", 403)
-
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
 
-    # 除非自己是 super-admin，否则不能修改 super-admin
-    if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
-        raise BusinessError("Cannot modify super-admin user", 403)
+    _assert_can_manage(admin, user)
 
-    # 除非自己是 super-admin，否则不能将任何人提升为 super-admin
+    # 只有超级管理员才能将用户提升为超级管理员
     if (
         user_in.role is not None
         and user_in.role == UserRole.SUPER_ADMIN
@@ -133,14 +168,11 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
     Raises:
         BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
-    if admin.id == target_user_id:
-        raise BusinessError("Cannot perform this action on yourself", 403)
-
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
-    if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
-        raise BusinessError("Cannot ban super-admin user", 403)
+
+    _assert_can_manage(admin, user)
 
     user.status = action.status
     user.banned_at = func.now()
@@ -173,15 +205,11 @@ async def unban_user(db: AsyncSession, admin: User, target_user_id: int) -> User
     Raises:
         BusinessError: 目标用户不存在或管理员权限不足时抛出。
     """
-    if admin.id == target_user_id:
-        raise BusinessError("Cannot perform this action on yourself", 403)
-
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
         raise BusinessError("User not found", 404)
 
-    if user.role == UserRole.SUPER_ADMIN and admin.role != UserRole.SUPER_ADMIN:
-        raise BusinessError("Cannot unban super-admin user", 403)
+    _assert_can_manage(admin, user)
 
     user.status = UserStatus.ACTIVE
     user.banned_at = None

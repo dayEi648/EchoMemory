@@ -1,6 +1,7 @@
 import type { TokenStore } from "../auth/tokenStore";
 import type {
   LoginInput,
+  PaginatedUsers,
   RegisterInput,
   TokenResponse,
   UpdateMeInput,
@@ -174,12 +175,24 @@ export const createUserApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptio
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ followee_id: followeeId }),
       }),
-    adminListUsers: (params: { q?: string; role?: number; status?: number }) => {
-      const query = new URLSearchParams({ limit: "50", offset: "0" });
+    adminListUsers: (params: {
+      q?: string;
+      role?: number;
+      status?: number;
+      sortBy?: string;
+      sortOrder?: string;
+      limit?: number;
+      offset?: number;
+    }) => {
+      const query = new URLSearchParams();
+      query.set("limit", String(params.limit ?? 20));
+      query.set("offset", String(params.offset ?? 0));
       if (params.q) query.set("q", params.q);
       if (params.role !== undefined) query.set("role", String(params.role));
       if (params.status !== undefined) query.set("status", String(params.status));
-      return request<UserMe[]>(`/users/admin/list?${query.toString()}`);
+      if (params.sortBy) query.set("sort_by", params.sortBy);
+      if (params.sortOrder) query.set("sort_order", params.sortOrder);
+      return request<PaginatedUsers>(`/users/admin/list?${query.toString()}`);
     },
     adminUpdateUser: (userId: number, input: UserAdminUpdate) =>
       request<UserMe>(`/users/${userId}/admin`, {
