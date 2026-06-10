@@ -103,3 +103,154 @@ export type PaginatedUsers = {
   items: UserMe[];
   total: number;
 };
+
+/* ==================== Music ==================== */
+
+export type Tag = { id: number; name: string };
+
+export type Author = {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string | null;
+  ordinal: number;
+};
+
+export type Instrument = { id: number; name: string };
+
+export type MusicListItem = {
+  id: number;
+  title: string;
+  is_vip: boolean;
+  hot: number;
+  play_count: number;
+  cover_icon_url: string | null;
+  authors: Author[];
+  style?: Tag;
+  language?: Tag;
+  created_at: string;
+};
+
+export type MusicDetail = {
+  id: number;
+  title: string;
+  is_vip: boolean;
+  source: string | null;
+  style: Tag | null;
+  language: Tag | null;
+  collect_count: number;
+  hot: number;
+  comment_count: number;
+  play_count: number;
+  is_published: boolean;
+  release_date: string | null;
+  file_url: string | null;
+  lyrics_url: string | null;
+  cover_icon_url: string | null;
+  cover_home_url: string | null;
+  cover_play_url: string | null;
+  authors: Author[];
+  instruments: Instrument[];
+  emotion_tags: Tag[];
+  interest_tags: Tag[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type MusicUpdateInput = {
+  title?: string;
+  is_vip?: boolean;
+  source?: string;
+  style_id?: number;
+  language_id?: number;
+  release_date?: string | null;
+  author_ids?: number[];
+  instrument_ids?: number[];
+  emotion_tag_ids?: number[];
+  interest_tag_ids?: number[];
+};
+
+/* ==================== Album ==================== */
+
+export type AlbumMusicItem = {
+  id: number;
+  title: string;
+  is_vip: boolean;
+  hot: number;
+  play_count: number;
+  cover_icon_url: string | null;
+  ordinal: number;
+  file_url?: string | null;
+};
+
+export type AlbumListItem = {
+  id: number;
+  title: string;
+  hot: number;
+  play_count: number;
+  cover_icon_url: string | null;
+  created_at: string;
+};
+
+export type AlbumDetail = {
+  id: number;
+  title: string;
+  description: string | null;
+  source: string | null;
+  collect_count: number;
+  play_count: number;
+  hot: number;
+  cover_icon_url: string | null;
+  cover_url: string | null;
+  authors: Author[];
+  musics: AlbumMusicItem[];
+  emotion_tags: Tag[];
+  interest_tags: Tag[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type AlbumCreateInput = {
+  title: string;
+  description?: string;
+  source?: string;
+  author_ids?: number[];
+};
+
+export type AlbumUpdateInput = {
+  title?: string;
+  description?: string;
+  source?: string;
+  author_ids?: number[];
+};
+
+/* ==================== Play History ==================== */
+
+export type PlayHistoryItem = {
+  id: number;
+  music: MusicListItem;
+  created_at: string;
+};
+
+export type PlayHistoryCreateInput = {
+  music_id: number;
+};
+
+/* ==================== Dictionary ==================== */
+
+export type DictionaryType =
+  | "styles"
+  | "languages"
+  | "instruments"
+  | "emotion_tags"
+  | "interest_tags";
+
+export type DictionaryItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};

@@ -15,6 +15,10 @@ import { AccountPage } from "./pages/AccountPage";
 import { AdminShell } from "./pages/admin/AdminShell";
 import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { UserManagementPage } from "./pages/admin/UserManagementPage";
+import { AdminMusicPage } from "./pages/admin/AdminMusicPage";
+import { AdminMusicImportPage } from "./pages/admin/AdminMusicImportPage";
+import { MusicDetailPage } from "./pages/MusicDetailPage";
+import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 
 /** 未登录时重定向到登录页 */
 const RequireAuth = () => {
@@ -84,6 +88,8 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/music/:musicId" element={<MusicDetailPage />} />
+          <Route path="/album/:albumId" element={<AlbumDetailPage />} />
         </Route>
 
         {/* 管理后台路由 */}
@@ -91,6 +97,8 @@ export default function App() {
           <Route element={<AdminShell />}>
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/users" element={<UserManagementPage />} />
+            <Route path="/admin/music" element={<AdminMusicPage />} />
+            <Route path="/admin/music/import" element={<AdminMusicImportPage />} />
           </Route>
         </Route>
       </Route>

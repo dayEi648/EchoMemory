@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Play, Heart } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface SongRowProps {
   index: number;
@@ -9,6 +10,9 @@ interface SongRowProps {
   album?: string;
   duration?: string;
   showHeart?: boolean;
+  musicId?: number;
+  coverUrl?: string;
+  onPlay?: () => void;
 }
 
 export const SongRow = ({
@@ -18,17 +22,29 @@ export const SongRow = ({
   album,
   duration,
   showHeart = false,
+  musicId,
+  coverUrl,
+  onPlay,
 }: SongRowProps) => {
   const [hovered, setHovered] = useState(false);
+  const navigate = useNavigate();
 
   const isTop3 = index <= 2;
   const rankColors = ["var(--color-accent)", "#b8860b", "#a0522d"];
+
+  const handleClick = () => {
+    if (musicId) {
+      navigate(`/music/${musicId}`);
+    }
+  };
 
   return (
     <div
       className="song-row"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={handleClick}
+      style={{ cursor: musicId ? "pointer" : "default" }}
     >
       <span
         className="song-index"
@@ -37,11 +53,16 @@ export const SongRow = ({
           color: isTop3 ? rankColors[index] : "var(--color-muted)",
         }}
       >
-        {hovered ? (
+        {hovered && onPlay ? (
           <motion.span
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.15 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay?.();
+            }}
+            style={{ cursor: "pointer", display: "inline-flex" }}
           >
             <Play size={14} fill="var(--color-ink)" />
           </motion.span>
@@ -49,6 +70,19 @@ export const SongRow = ({
           index + 1
         )}
       </span>
+      {coverUrl && (
+        <img
+          src={coverUrl}
+          alt={name}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 4,
+            objectFit: "cover",
+            flexShrink: 0,
+          }}
+        />
+      )}
       <div className="song-info">
         <div className="song-name">{name}</div>
         <div className="song-artist">{artist}</div>

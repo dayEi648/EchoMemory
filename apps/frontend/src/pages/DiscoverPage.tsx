@@ -1,41 +1,123 @@
-import { Play, Sparkles, TrendingUp, Clock } from "lucide-react";
+import { Play, Sparkles, TrendingUp, Clock, Disc, Music } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { useAuthStore } from "../shared/stores/authStore";
+import { usePlayerStore } from "../shared/stores/playerStore";
+import { createMusicApi } from "../shared/api/musicApi";
+import { createAlbumApi } from "../shared/api/albumApi";
+import { createPlayHistoryApi } from "../shared/api/playHistoryApi";
+import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { FadeIn } from "../components/motion/FadeIn";
+import { EmptyState } from "../components/ui/EmptyState";
 
-const mockPlaylists = [
-  { id: 1, title: "深夜回响", subtitle: "EchoMusic 编辑推荐" },
-  { id: 2, title: "Focus Flow", subtitle: "专注工作必备" },
-  { id: 3, title: "城市漫游", subtitle: "通勤路上的陪伴" },
-  { id: 4, title: "记忆碎片", subtitle: "AI 为你生成" },
-  { id: 5, title: "周末咖啡馆", subtitle: "轻音乐精选" },
-];
-
-const mockNewSongs = [
-  { id: 1, name: "夏日尾声", artist: "回声乐团", album: "季节系列" },
-  { id: 2, name: "量子梦境", artist: "AI Composer", album: "未来之声" },
-  { id: 3, name: "山涧流水", artist: "自然录音室", album: "自然音景" },
-  { id: 4, name: "都市霓虹", artist: "CityBeats", album: "夜行" },
-  { id: 5, name: "古典回响", artist: "弦乐四重奏", album: "经典重现" },
-];
-
-const mockChart = [
-  { rank: 1, name: "回声记忆", artist: "EchoMemory" },
-  { rank: 2, name: "时光隧道", artist: "TimeTravel" },
-  { rank: 3, name: "星海漫步", artist: "StarWalker" },
-  { rank: 4, name: "雨后初晴", artist: "RainDrop" },
-  { rank: 5, name: "暮色温柔", artist: "Twilight" },
-];
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
+const tokenStore = createLocalStorageTokenStore();
+const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
+const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
+const playHistoryApi = createPlayHistoryApi({ baseUrl: API_BASE_URL, tokenStore });
 
 export const DiscoverPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playQueue = usePlayerStore((s) => s.playQueue);
+
+  const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
+  const [albums, setAlbums] = useState<AlbumListItem[]>([]);
+  const [recentPlays, setRecentPlays] = useState<PlayHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [songs, albumList, history] = await Promise.all([
+          musicApi.listMusic({ limit: 8 }),
+          albumApi.listAlbums({ limit: 5 }),
+          playHistoryApi.listPlayHistory({ limit: 5 }),
+        ]);
+        setNewSongs(songs);
+        setAlbums(albumList);
+        setRecentPlays(history);
+      } catch {
+        toast.error("加载内容失败，请稍后重试");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handlePlayMusic = async (music: MusicListItem) => {
+    try {
+      const detail = await musicApi.getMusicDetail(music.id);
+      if (detail.file_url) {
+        playTrack({
+          ...music,
+          file_url: detail.file_url,
+        });
+      } else {
+        toast.error("该歌曲暂不可播放");
+      }
+    } catch {
+      toast.error("加载歌曲失败");
+    }
+  };
+
+  const handlePlayRecommend = async () => {
+    if (newSongs.length === 0) return;
+    const tracks = [];
+    for (const song of newSongs.slice(0, 5)) {
+      try {
+        const detail = await musicApi.getMusicDetail(song.id);
+        if (detail.file_url) {
+          tracks.push({ ...song, file_url: detail.file_url });
+        }
+      } catch {
+        // skip
+      }
+    }
+    if (tracks.length > 0) {
+      playQueue(tracks, 0);
+    } else {
+      toast.error("暂无可播放的歌曲");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-screen" style={{ height: "60vh" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: "var(--color-ink)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              animation: "pulse-loading 1.5s ease-in-out infinite",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>正在加载音乐...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -93,6 +175,7 @@ export const DiscoverPage = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 type="button"
+                onClick={handlePlayRecommend}
               >
                 <Play size={16} fill="white" />
                 播放今日推荐
@@ -114,9 +197,41 @@ export const DiscoverPage = () => {
             <FadeIn delay={0.15}>
               <div className="hero-sidebar-card">
                 <h4><Clock size={12} /> 最近播放</h4>
-                <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0, lineHeight: 1.6 }}>
-                  暂无最近播放记录。开始听歌后，这里会显示你最近聆听的歌曲。
-                </p>
+                {recentPlays.length === 0 ? (
+                  <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0, lineHeight: 1.6 }}>
+                    暂无最近播放记录。开始听歌后，这里会显示你最近聆听的歌曲。
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {recentPlays.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => handlePlayMusic(item.music)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          cursor: "pointer",
+                          padding: "4px 0",
+                        }}
+                      >
+                        <img
+                          src={item.music.cover_icon_url ?? undefined}
+                          alt={item.music.title}
+                          style={{ width: 32, height: 32, borderRadius: 4, objectFit: "cover" }}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {item.music.title}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                            {item.music.authors.map((a) => a.nickname).join(", ")}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </FadeIn>
             {user && (
@@ -157,10 +272,10 @@ export const DiscoverPage = () => {
         </div>
       </FadeIn>
 
-      {/* Recommended Playlists */}
+      {/* Recommended Albums */}
       <section style={{ marginBottom: 32 }}>
         <SectionHeader
-          title="为你推荐的歌单"
+          title="为你推荐的专辑"
           action={
             <button className="section-link" onClick={() => navigate("/playlists")} type="button">
               查看全部 →
@@ -168,11 +283,18 @@ export const DiscoverPage = () => {
           }
         />
         <StaggerContainer className="playlist-rail">
-          {mockPlaylists.map((p) => (
-            <StaggerItem key={p.id}>
-              <CoverCard id={p.id} title={p.title} subtitle={p.subtitle} />
+          {albums.map((album) => (
+            <StaggerItem key={album.id}>
+              <CoverCard
+                id={album.id}
+                title={album.title}
+                subtitle={`播放量 ${album.play_count}`}
+                coverUrl={album.cover_icon_url ?? undefined}
+                onClick={() => navigate(`/album/${album.id}`)}
+              />
             </StaggerItem>
           ))}
+          {albums.length === 0 && <EmptyState icon={Disc} title="暂无推荐专辑" />}
         </StaggerContainer>
       </section>
 
@@ -180,17 +302,19 @@ export const DiscoverPage = () => {
       <section style={{ marginBottom: 32 }}>
         <SectionHeader title="新歌上架" />
         <StaggerContainer staggerDelay={0.04}>
-          {mockNewSongs.map((song, i) => (
+          {newSongs.map((song, i) => (
             <StaggerItem key={song.id}>
               <SongRow
                 index={i}
-                name={song.name}
-                artist={song.artist}
-                album={song.album}
-                duration="3:42"
+                name={song.title}
+                artist={song.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
+                musicId={song.id}
+                coverUrl={song.cover_icon_url ?? undefined}
+                onPlay={() => handlePlayMusic(song)}
               />
             </StaggerItem>
           ))}
+          {newSongs.length === 0 && <EmptyState icon={Music} title="暂无新歌上架" />}
         </StaggerContainer>
       </section>
 
@@ -204,17 +328,20 @@ export const DiscoverPage = () => {
           }
         />
         <StaggerContainer staggerDelay={0.04}>
-          {mockChart.map((item, i) => (
-            <StaggerItem key={item.rank}>
+          {newSongs.slice(0, 5).map((song, i) => (
+            <StaggerItem key={song.id}>
               <SongRow
                 index={i}
-                name={item.name}
-                artist={item.artist}
-                album="热歌榜"
+                name={song.title}
+                artist={song.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
+                musicId={song.id}
+                coverUrl={song.cover_icon_url ?? undefined}
+                onPlay={() => handlePlayMusic(song)}
                 showHeart
               />
             </StaggerItem>
           ))}
+          {newSongs.length === 0 && <EmptyState icon={TrendingUp} title="暂无排行数据" />}
         </StaggerContainer>
       </section>
     </div>

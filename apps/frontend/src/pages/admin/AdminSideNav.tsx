@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const adminLinks = [
   { to: "/admin", icon: Activity, label: "概览" },
   { to: "/admin/users", icon: Users, label: "用户管理" },
-  { to: "/admin/music", icon: Music, label: "音乐导入" },
+  { to: "/admin/music", icon: Music, label: "音乐管理" },
   { to: "/admin/dict", icon: BookOpen, label: "字典维护" },
   { to: "/admin/audit", icon: Shield, label: "内容审核" },
 ];

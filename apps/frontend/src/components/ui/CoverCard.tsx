@@ -25,10 +25,11 @@ interface CoverCardProps {
   id: number;
   title: string;
   subtitle: string;
+  coverUrl?: string;
   onClick?: () => void;
 }
 
-export const CoverCard = ({ id, title, subtitle, onClick }: CoverCardProps) => {
+export const CoverCard = ({ id, title, subtitle, coverUrl, onClick }: CoverCardProps) => {
   const [c1, c2] = getGradient(id);
 
   return (
@@ -39,38 +40,65 @@ export const CoverCard = ({ id, title, subtitle, onClick }: CoverCardProps) => {
       transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
     >
       <div className="cover-image">
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
-            position: "relative",
-          }}
-        >
-          {/* subtle noise texture overlay */}
+        {coverUrl ? (
           <div
             style={{
-              position: "absolute",
-              inset: 0,
-              opacity: 0.08,
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-              backgroundSize: "128px 128px",
-              mixBlendMode: "overlay",
+              width: "100%",
+              height: "100%",
+              position: "relative",
             }}
-          />
-          {/* decorative circle */}
+          >
+            <img
+              src={coverUrl}
+              alt={title}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%)",
+              }}
+            />
+          </div>
+        ) : (
           <div
             style={{
-              position: "absolute",
-              bottom: "-20%",
-              right: "-20%",
-              width: "80%",
-              height: "80%",
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.12)",
+              width: "100%",
+              height: "100%",
+              background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
+              position: "relative",
             }}
-          />
-        </div>
+          >
+            {/* subtle noise texture overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 0.08,
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                backgroundSize: "128px 128px",
+                mixBlendMode: "overlay",
+              }}
+            />
+            {/* decorative circle */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "-20%",
+                right: "-20%",
+                width: "80%",
+                height: "80%",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.12)",
+              }}
+            />
+          </div>
+        )}
         <div className="cover-overlay">
           <motion.div
             className="play-icon"
