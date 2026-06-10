@@ -338,21 +338,7 @@ async def admin_unpublish_music(
     return music
 
 
-@router.get("/admin/{music_id}", response_model=MusicOut)
-async def admin_get_music(
-    db: SessionDep,
-    _: AdminUser,
-    music_id: int,
-):
-    """管理员获取任意音乐详情（含未上架）。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
-    return music
-
-
+# 注意：/admin/list 必须排在 /admin/{music_id} 之前，否则 FastAPI 会把 "list" 当作 music_id。
 @router.get("/admin/list", response_model=PaginatedAdminMusicListOut)
 async def admin_list_music(
     db: SessionDep,
@@ -376,6 +362,21 @@ async def admin_list_music(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/admin/{music_id}", response_model=MusicOut)
+async def admin_get_music(
+    db: SessionDep,
+    _: AdminUser,
+    music_id: int,
+):
+    """管理员获取任意音乐详情（含未上架）。"""
+    music = await music_service.get_music_by_id(db, music_id)
+    if music is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
+        )
+    return music
 
 
 # ---------------------------------------------------------------------------
