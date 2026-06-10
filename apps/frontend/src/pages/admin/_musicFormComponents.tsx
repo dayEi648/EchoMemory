@@ -228,6 +228,7 @@ export const SearchableTagSelect = ({
   onToggle,
   mode = "multi",
   placeholder,
+  showLabel = true,
 }: {
   label: string;
   items: DictionaryItem[];
@@ -235,6 +236,7 @@ export const SearchableTagSelect = ({
   onToggle: (id: number) => void;
   mode?: "single" | "multi";
   placeholder?: string;
+  showLabel?: boolean;
 }) => {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<DictionaryItem[]>([]);
@@ -283,9 +285,11 @@ export const SearchableTagSelect = ({
 
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
-      <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 6 }}>
-        {label}
-      </label>
+      {showLabel && (
+        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 6 }}>
+          {label}
+        </label>
+      )}
       <div className="import-search-inline">
         <input
           value={search}

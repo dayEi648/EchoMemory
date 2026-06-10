@@ -331,38 +331,50 @@ export const AdminMusicPage = () => {
             <option value="false">普通</option>
           </select>
 
-          <select
-            value={instrumentFilter}
-            onChange={(e) => { setInstrumentFilter(e.target.value); setPage(0); }}
-            style={{ width: 120, fontSize: 13 }}
-          >
-            <option value="">全部乐器</option>
-            {instruments.map((i) => (
-              <option key={i.id} value={String(i.id)}>{i.name}</option>
-            ))}
-          </select>
+          <div style={{ width: 140 }}>
+            <SearchableTagSelect
+              label="乐器"
+              items={instruments}
+              selectedIds={instrumentFilter ? [Number(instrumentFilter)] : []}
+              onToggle={(id) => {
+                setInstrumentFilter((prev) => (prev === String(id) ? "" : String(id)));
+                setPage(0);
+              }}
+              mode="single"
+              placeholder="搜索乐器..."
+              showLabel={false}
+            />
+          </div>
 
-          <select
-            value={emotionTagFilter}
-            onChange={(e) => { setEmotionTagFilter(e.target.value); setPage(0); }}
-            style={{ width: 120, fontSize: 13 }}
-          >
-            <option value="">全部情感</option>
-            {emotionTags.map((t) => (
-              <option key={t.id} value={String(t.id)}>{t.name}</option>
-            ))}
-          </select>
+          <div style={{ width: 140 }}>
+            <SearchableTagSelect
+              label="情感"
+              items={emotionTags}
+              selectedIds={emotionTagFilter ? [Number(emotionTagFilter)] : []}
+              onToggle={(id) => {
+                setEmotionTagFilter((prev) => (prev === String(id) ? "" : String(id)));
+                setPage(0);
+              }}
+              mode="single"
+              placeholder="搜索情感..."
+              showLabel={false}
+            />
+          </div>
 
-          <select
-            value={interestTagFilter}
-            onChange={(e) => { setInterestTagFilter(e.target.value); setPage(0); }}
-            style={{ width: 120, fontSize: 13 }}
-          >
-            <option value="">全部兴趣</option>
-            {interestTags.map((t) => (
-              <option key={t.id} value={String(t.id)}>{t.name}</option>
-            ))}
-          </select>
+          <div style={{ width: 140 }}>
+            <SearchableTagSelect
+              label="兴趣"
+              items={interestTags}
+              selectedIds={interestTagFilter ? [Number(interestTagFilter)] : []}
+              onToggle={(id) => {
+                setInterestTagFilter((prev) => (prev === String(id) ? "" : String(id)));
+                setPage(0);
+              }}
+              mode="single"
+              placeholder="搜索兴趣..."
+              showLabel={false}
+            />
+          </div>
 
           <motion.button
             className="primary-button"
