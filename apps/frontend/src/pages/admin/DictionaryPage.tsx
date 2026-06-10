@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, BookOpen, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { createDictionaryApi } from "../../shared/api/dictionaryApi";
@@ -28,6 +28,11 @@ export const DictionaryPage = () => {
   const [items, setItems] = useState<DictionaryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 分页
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const hasMore = items.length === pageSize;
+
   // Modal 状态
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -37,10 +42,14 @@ export const DictionaryPage = () => {
   const [formName, setFormName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const loadItems = async (type: DictionaryType) => {
+  const loadItems = async (type: DictionaryType, currentPage: number) => {
     setLoading(true);
     try {
-      const data = await dictionaryApi.listDictionary(type);
+      const data = await dictionaryApi.listDictionary(
+        type,
+        pageSize,
+        currentPage * pageSize,
+      );
       setItems(data);
     } catch {
       toast.error("加载字典数据失败");
@@ -50,7 +59,8 @@ export const DictionaryPage = () => {
   };
 
   useEffect(() => {
-    loadItems(activeType);
+    setPage(0);
+    loadItems(activeType, 0);
   }, [activeType]);
 
   const handleCreate = async () => {
@@ -66,6 +76,8 @@ export const DictionaryPage = () => {
       toast.success("创建成功");
       setIsCreateOpen(false);
       setFormName("");
+      // 刷新当前页（新项按 id 排在最后，若当前页未满则可见）
+      loadItems(activeType, page);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "创建失败");
     } finally {
@@ -113,10 +125,17 @@ export const DictionaryPage = () => {
     setSubmitting(true);
     try {
       await dictionaryApi.deleteDictionaryItem(activeType, deletingItem.id);
-      setItems((prev) => prev.filter((i) => i.id !== deletingItem.id));
       toast.success("删除成功");
       setIsDeleteOpen(false);
       setDeletingItem(null);
+      // 若当前页删空且不是第一页，回到上一页；否则刷新当前页
+      if (items.length === 1 && page > 0) {
+        const prevPage = page - 1;
+        setPage(prevPage);
+        loadItems(activeType, prevPage);
+      } else {
+        loadItems(activeType, page);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("409") || msg.includes("Conflict")) {
@@ -261,6 +280,47 @@ export const DictionaryPage = () => {
                 </StaggerItem>
               ))}
             </StaggerContainer>
+          </div>
+          {/* 分页栏 */}
+          <div className="pagination-bar" style={{ marginTop: 16 }}>
+            <div className="pagination-left">
+              <span className="pagination-label">每页 {pageSize} 条</span>
+            </div>
+            <div className="pagination-center">
+              <motion.button
+                className="pagination-btn"
+                onClick={() => {
+                  const prev = page - 1;
+                  setPage(prev);
+                  loadItems(activeType, prev);
+                }}
+                disabled={page === 0 || loading}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+              >
+                <ChevronLeft size={16} />
+              </motion.button>
+              <span
+                className="pagination-btn active"
+                style={{ cursor: "default", fontWeight: 600 }}
+              >
+                {page + 1}
+              </span>
+              <motion.button
+                className="pagination-btn"
+                onClick={() => {
+                  const next = page + 1;
+                  setPage(next);
+                  loadItems(activeType, next);
+                }}
+                disabled={!hasMore || loading}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+              >
+                <ChevronRight size={16} />
+              </motion.button>
+            </div>
+            <span className="pagination-info">第 {page + 1} 页</span>
           </div>
         </FadeIn>
       ) : loading ? (

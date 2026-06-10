@@ -134,7 +134,7 @@ async def list_dictionary_items(
         字典项实例列表。
     """
     model = _get_model(dictionary_type)
-    stmt = select(model).order_by(model.name).limit(limit).offset(offset)
+    stmt = select(model).order_by(model.id).limit(limit).offset(offset)
     return (await db.execute(stmt)).scalars().all()
 
 

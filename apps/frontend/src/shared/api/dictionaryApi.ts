@@ -17,9 +17,18 @@ export const createDictionaryApi = ({
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {
-    /** 公开：列出指定类型的字典项。 */
-    listDictionary: (type: DictionaryType) =>
-      request<DictionaryItem[]>(`/dictionary/${type}`, {}, false),
+    /** 公开：列出指定类型的字典项（支持分页）。 */
+    listDictionary: (type: DictionaryType, limit?: number, offset?: number) => {
+      const params = new URLSearchParams();
+      if (limit !== undefined) params.set("limit", String(limit));
+      if (offset !== undefined) params.set("offset", String(offset));
+      const qs = params.toString();
+      return request<DictionaryItem[]>(
+        `/dictionary/${type}${qs ? `?${qs}` : ""}`,
+        {},
+        false,
+      );
+    },
 
     /** 管理员：创建字典项。 */
     createDictionaryItem: (
