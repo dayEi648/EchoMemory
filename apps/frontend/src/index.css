@@ -53,18 +53,22 @@ button {
 .auth-shell {
   display: grid;
   grid-template-columns: minmax(360px, 480px) 1fr;
-  min-height: 100vh;
+  height: 100vh;
   gap: 0;
-  align-items: center;
 }
 
 .auth-panel {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 48px 56px;
   background: var(--color-bg);
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.auth-panel > div {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .auth-panel .brand-mark {
@@ -233,47 +237,165 @@ textarea {
 
 .auth-artifact {
   position: relative;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 20% 20%, #ffb084 0 10%, transparent 11%),
-    radial-gradient(circle at 80% 30%, #b8a4ed 0 14%, transparent 15%),
-    radial-gradient(circle at 50% 80%, #8d7cf6 0 8%, transparent 9%),
-    linear-gradient(145deg, #faf5e8, #f3f0ea);
+  height: 100vh;
+  background: linear-gradient(150deg, #f8f3e6 0%, #f0ebe3 40%, #e8e2d8 100%);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.sound-card {
+/* 点阵纹理背景 */
+.artifact-dot-grid {
   position: absolute;
-  width: min(260px, 36vw);
-  padding: 24px;
-  border-radius: 20px;
-  font-size: 20px;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(22, 21, 20, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 背景光晕 —— framer-motion 驱动漂浮，保留静态样式 */
+.artifact-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.artifact-glow.glow-1 {
+  width: 480px;
+  height: 480px;
+  background: rgba(255, 91, 87, 0.4);
+  top: -5%;
+  left: 2%;
+}
+
+.artifact-glow.glow-2 {
+  width: 400px;
+  height: 400px;
+  background: rgba(141, 124, 246, 0.35);
+  top: 35%;
+  right: 0%;
+}
+
+.artifact-glow.glow-3 {
+  width: 360px;
+  height: 360px;
+  background: rgba(43, 179, 163, 0.3);
+  bottom: 2%;
+  left: 15%;
+}
+
+.artifact-glow.glow-4 {
+  width: 300px;
+  height: 300px;
+  background: rgba(255, 91, 87, 0.25);
+  top: 50%;
+  left: 40%;
+}
+
+/* 中央回声圆环 —— framer-motion 驱动脉冲扩散 */
+.echo-rings {
+  position: absolute;
+  width: 440px;
+  height: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.echo-ring {
+  position: absolute;
+  width: 440px;
+  height: 440px;
+  border-radius: 50%;
+  border: 3.5px solid;
+}
+
+.echo-ring-color-0 {
+  border-color: rgba(255, 91, 87, 0.5);
+  background: radial-gradient(circle, rgba(255, 91, 87, 0.06) 0%, transparent 70%);
+  box-shadow: 0 0 16px rgba(255, 91, 87, 0.25), 0 0 40px rgba(255, 91, 87, 0.12);
+}
+
+.echo-ring-color-1 {
+  border-color: rgba(141, 124, 246, 0.45);
+  background: radial-gradient(circle, rgba(141, 124, 246, 0.06) 0%, transparent 70%);
+  box-shadow: 0 0 16px rgba(141, 124, 246, 0.2), 0 0 40px rgba(141, 124, 246, 0.1);
+}
+
+.echo-ring-color-2 {
+  border-color: rgba(43, 179, 163, 0.45);
+  background: radial-gradient(circle, rgba(43, 179, 163, 0.06) 0%, transparent 70%);
+  box-shadow: 0 0 16px rgba(43, 179, 163, 0.2), 0 0 40px rgba(43, 179, 163, 0.1);
+}
+
+/* 中心品牌图标 */
+.artifact-center {
+  position: absolute;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgba(231, 225, 216, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-ink);
+  opacity: 0.75;
+  z-index: 2;
+  box-shadow: 0 0 50px rgba(255, 255, 255, 0.5), 0 0 100px rgba(255, 91, 87, 0.08);
+}
+
+/* 特性卡片 */
+.feature-card {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(231, 225, 216, 0.55);
+  border-radius: 18px;
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.04);
+  max-width: 240px;
+  z-index: 3;
+}
+
+.feature-card svg {
+  color: var(--color-ink);
+  opacity: 0.55;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.feature-card .feature-title {
+  font-size: 14px;
   font-weight: 700;
-  backdrop-filter: blur(8px);
+  color: var(--color-ink);
+  margin-bottom: 3px;
 }
 
-.sound-card.pink {
-  top: 80px;
-  left: 60px;
-  color: white;
-  background: rgba(255, 77, 139, 0.9);
+.feature-card .feature-desc {
+  font-size: 12px;
+  color: var(--color-muted);
+  line-height: 1.4;
 }
 
-.sound-card.teal {
-  right: 80px;
-  top: 240px;
-  color: white;
-  background: rgba(26, 58, 58, 0.9);
-}
+.feature-card-1 { top: 10%; left: 7%; }
+.feature-card-2 { top: 32%; right: 8%; }
+.feature-card-3 { bottom: 14%; left: 8%; }
+.feature-card-4 { bottom: 14%; right: 8%; }
 
-.sound-card.lavender {
-  left: 100px;
-  bottom: 100px;
-  background: rgba(184, 164, 237, 0.9);
-}
+/* 动画 keyframes —— 所有动画已迁移至 framer-motion */
 
 /* ========== App Shell ========== */
 .app-shell {

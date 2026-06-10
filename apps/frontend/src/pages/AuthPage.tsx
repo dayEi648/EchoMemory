@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Music2 } from "lucide-react";
+import { Music2, Headphones, Network, Tags, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -151,26 +151,102 @@ export const AuthPage = () => {
       </section>
 
       <section className="auth-artifact" aria-hidden="true">
+        {/* 背景纹理 */}
+        <div className="artifact-dot-grid" />
+
+        {/* 背景光晕 —— framer-motion 驱动漂浮 */}
         <motion.div
-          className="sound-card pink"
-          animate={{ y: [0, -8, 0] }}
+          className="artifact-glow glow-1"
+          animate={{ x: [0, 30, 0], y: [0, -22, 0] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="artifact-glow glow-2"
+          animate={{ x: [0, -22, 0], y: [0, 26, 0] }}
+          transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="artifact-glow glow-3"
+          animate={{ x: [0, 15, 0], y: [0, -18, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="artifact-glow glow-4"
+          animate={{ x: [0, -18, 0], y: [0, 20, 0] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* 中央回声圆环 —— framer-motion 驱动脉冲扩散 */}
+        <div className="echo-rings">
+          {[0, 1, 2, 3].map((i) => (
+            <motion.div
+              key={i}
+              className={`echo-ring echo-ring-color-${i % 3}`}
+              initial={{ scale: 0.22, opacity: 0.85 }}
+              animate={{ scale: 1, opacity: 0 }}
+              transition={{
+                duration: 7,
+                delay: i * 1.75,
+                repeat: Infinity,
+                repeatDelay: 3,
+                ease: "easeOut",
+              }}
+            />
+          ))}
+        </div>
+
+        {/* 中心品牌图标 */}
+        <div className="artifact-center">
+          <Music2 size={32} strokeWidth={1.5} />
+        </div>
+
+        {/* 特性卡片 */}
+        <motion.div
+          className="feature-card feature-card-1"
+          animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         >
-          Agent Profile
+          <Headphones size={20} />
+          <div>
+            <div className="feature-title">AI 音乐推荐</div>
+            <div className="feature-desc">智能理解你的音乐品味</div>
+          </div>
         </motion.div>
+
         <motion.div
-          className="sound-card teal"
-          animate={{ y: [0, 10, 0] }}
+          className="feature-card feature-card-2"
+          animate={{ y: [0, 8, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         >
-          Memory Graph
+          <Network size={20} />
+          <div>
+            <div className="feature-title">记忆图谱</div>
+            <div className="feature-desc">构建你的专属音乐记忆网络</div>
+          </div>
         </motion.div>
+
         <motion.div
-          className="sound-card lavender"
-          animate={{ y: [0, -6, 0] }}
+          className="feature-card feature-card-3"
+          animate={{ y: [0, -5, 0] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         >
-          Taste Tags
+          <Tags size={20} />
+          <div>
+            <div className="feature-title">口味标签</div>
+            <div className="feature-desc">精准刻画听歌偏好</div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="feature-card feature-card-4"
+          animate={{ y: [0, 7, 0] }}
+          transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+        >
+          <Sparkles size={20} />
+          <div>
+            <div className="feature-title">AI 回声</div>
+            <div className="feature-desc">与你对话的音乐智能体</div>
+          </div>
         </motion.div>
       </section>
     </main>
