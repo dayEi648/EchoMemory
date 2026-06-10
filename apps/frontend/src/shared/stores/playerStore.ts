@@ -45,51 +45,59 @@ const shouldRecordPlay = (currentTime: number, duration: number, recorded: boole
   return false;
 };
 
+/** 模块级单例 Audio 实例，避免 Zustand store 重新初始化时创建多个实例。 */
+const audio = new Audio();
+audio.volume = 0.8;
+
+/** 确保事件监听器只绑定一次，防止 Strict Mode / Fast Refresh 导致重复监听。 */
+let _listenersBound = false;
+
 export const usePlayerStore = create<PlayerState>((set, get) => {
-  const audio = new Audio();
-  audio.volume = 0.8;
+  if (!_listenersBound) {
+    _listenersBound = true;
 
-  audio.addEventListener("timeupdate", () => {
-    const state = get();
-    const currentTime = audio.currentTime;
-    const duration = audio.duration || 0;
-    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+    audio.addEventListener("timeupdate", () => {
+      const state = get();
+      const currentTime = audio.currentTime;
+      const duration = audio.duration || 0;
+      const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-    if (shouldRecordPlay(currentTime, duration, state.recorded) && state.currentTrack) {
-      set({ recorded: true });
-      playHistoryApi.recordPlay(state.currentTrack.id).catch(() => {
-        // silently fail
-      });
-    }
+      if (shouldRecordPlay(currentTime, duration, state.recorded) && state.currentTrack) {
+        set({ recorded: true });
+        playHistoryApi.recordPlay(state.currentTrack.id).catch(() => {
+          // silently fail
+        });
+      }
 
-    set({ currentTime, duration, progress });
-  });
+      set({ currentTime, duration, progress });
+    });
 
-  audio.addEventListener("ended", () => {
-    const state = get();
-    if (state.isRepeat && state.currentTrack) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
-    } else {
-      state.next();
-    }
-  });
+    audio.addEventListener("ended", () => {
+      const state = get();
+      if (state.isRepeat && state.currentTrack) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        state.next();
+      }
+    });
 
-  audio.addEventListener("error", () => {
-    set({ isPlaying: false });
-  });
+    audio.addEventListener("error", () => {
+      set({ isPlaying: false });
+    });
 
-  audio.addEventListener("play", () => {
-    set({ isPlaying: true });
-  });
+    audio.addEventListener("play", () => {
+      set({ isPlaying: true });
+    });
 
-  audio.addEventListener("pause", () => {
-    set({ isPlaying: false });
-  });
+    audio.addEventListener("pause", () => {
+      set({ isPlaying: false });
+    });
 
-  audio.addEventListener("loadedmetadata", () => {
-    set({ duration: audio.duration || 0 });
-  });
+    audio.addEventListener("loadedmetadata", () => {
+      set({ duration: audio.duration || 0 });
+    });
+  }
 
   return {
     currentTrack: null,

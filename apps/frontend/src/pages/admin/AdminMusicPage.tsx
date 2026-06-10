@@ -19,6 +19,7 @@ import { useAuthStore } from "../../shared/stores/authStore";
 import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
+import { PaginationBar } from "../../components/ui/PaginationBar";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import {
@@ -495,56 +496,15 @@ export const AdminMusicPage = () => {
           </div>
 
           {totalPages > 1 && (
-            <div className="pagination-bar">
-              <div className="pagination-left">
-                <span className="pagination-label">每页</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-                  className="pagination-size-select"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <span className="pagination-label">条</span>
-              </div>
-              <div className="pagination-center">
-                <motion.button
-                  className="pagination-btn"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 0 || loading}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                >
-                  ←
-                </motion.button>
-                {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
-                  <motion.button
-                    key={p}
-                    className={`pagination-btn ${p === page ? "active" : ""}`}
-                    onClick={() => setPage(p)}
-                    disabled={loading}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                  >
-                    {p + 1}
-                  </motion.button>
-                ))}
-                <motion.button
-                  className="pagination-btn"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page >= totalPages - 1 || loading}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                >
-                  →
-                </motion.button>
-              </div>
-              <span className="pagination-info">
-                第 {page + 1} / {totalPages} 页，共 {total} 条
-              </span>
-            </div>
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+              loading={loading}
+              total={total}
+            />
           )}
         </FadeIn>
       ) : (

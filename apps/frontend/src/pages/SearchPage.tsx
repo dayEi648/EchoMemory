@@ -6,8 +6,6 @@ import {
   Disc,
   User,
   Search,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -31,6 +29,7 @@ import {
 } from "../components/motion/StaggerContainer";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
+import { PaginationBar } from "../components/ui/PaginationBar";
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
@@ -273,53 +272,13 @@ export const SearchPage = () => {
                   {/* 单曲分页（仅分类页） */}
                   {activeTab === "songs" && songTotalPages > 1 && (
                     <FadeIn delay={0.1}>
-                      <div className="pagination-bar" style={{ marginTop: 16 }}>
-                        <div className="pagination-left">
-                          <span className="pagination-label">
-                            每页 {PAGE_SIZE} 条
-                          </span>
-                        </div>
-                        <div className="pagination-center">
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setSongPage((p) => p - 1)}
-                            disabled={songPage === 0 || loading}
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronLeft size={16} />
-                          </motion.button>
-                          {Array.from(
-                            { length: songTotalPages },
-                            (_, i) => i
-                          ).map((p) => (
-                            <motion.button
-                              key={p}
-                              className={`pagination-btn ${p === songPage ? "active" : ""}`}
-                              onClick={() => setSongPage(p)}
-                              disabled={loading}
-                              whileTap={{ scale: 0.95 }}
-                              type="button"
-                            >
-                              {p + 1}
-                            </motion.button>
-                          ))}
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setSongPage((p) => p + 1)}
-                            disabled={
-                              songPage >= songTotalPages - 1 || loading
-                            }
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronRight size={16} />
-                          </motion.button>
-                        </div>
-                        <span className="pagination-info">
-                          第 {songPage + 1} / {songTotalPages} 页，共 {songTotal} 条
-                        </span>
-                      </div>
+                      <PaginationBar
+                        page={songPage}
+                        totalPages={songTotalPages}
+                        onPageChange={setSongPage}
+                        loading={loading}
+                        total={songTotal}
+                      />
                     </FadeIn>
                   )}
                 </>
@@ -404,53 +363,13 @@ export const SearchPage = () => {
                   {/* 专辑分页（仅分类页） */}
                   {activeTab === "albums" && albumTotalPages > 1 && (
                     <FadeIn delay={0.1}>
-                      <div className="pagination-bar" style={{ marginTop: 16 }}>
-                        <div className="pagination-left">
-                          <span className="pagination-label">
-                            每页 {PAGE_SIZE} 条
-                          </span>
-                        </div>
-                        <div className="pagination-center">
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setAlbumPage((p) => p - 1)}
-                            disabled={albumPage === 0 || loading}
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronLeft size={16} />
-                          </motion.button>
-                          {Array.from(
-                            { length: albumTotalPages },
-                            (_, i) => i
-                          ).map((p) => (
-                            <motion.button
-                              key={p}
-                              className={`pagination-btn ${p === albumPage ? "active" : ""}`}
-                              onClick={() => setAlbumPage(p)}
-                              disabled={loading}
-                              whileTap={{ scale: 0.95 }}
-                              type="button"
-                            >
-                              {p + 1}
-                            </motion.button>
-                          ))}
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setAlbumPage((p) => p + 1)}
-                            disabled={
-                              albumPage >= albumTotalPages - 1 || loading
-                            }
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronRight size={16} />
-                          </motion.button>
-                        </div>
-                        <span className="pagination-info">
-                          第 {albumPage + 1} / {albumTotalPages} 页，共 {albumTotal} 条
-                        </span>
-                      </div>
+                      <PaginationBar
+                        page={albumPage}
+                        totalPages={albumTotalPages}
+                        onPageChange={setAlbumPage}
+                        loading={loading}
+                        total={albumTotal}
+                      />
                     </FadeIn>
                   )}
                 </>
@@ -535,53 +454,13 @@ export const SearchPage = () => {
                   {/* 用户分页（仅分类页） */}
                   {activeTab === "users" && userTotalPages > 1 && (
                     <FadeIn delay={0.1}>
-                      <div className="pagination-bar" style={{ marginTop: 16 }}>
-                        <div className="pagination-left">
-                          <span className="pagination-label">
-                            每页 {PAGE_SIZE} 条
-                          </span>
-                        </div>
-                        <div className="pagination-center">
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setUserPage((p) => p - 1)}
-                            disabled={userPage === 0 || loading}
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronLeft size={16} />
-                          </motion.button>
-                          {Array.from(
-                            { length: userTotalPages },
-                            (_, i) => i
-                          ).map((p) => (
-                            <motion.button
-                              key={p}
-                              className={`pagination-btn ${p === userPage ? "active" : ""}`}
-                              onClick={() => setUserPage(p)}
-                              disabled={loading}
-                              whileTap={{ scale: 0.95 }}
-                              type="button"
-                            >
-                              {p + 1}
-                            </motion.button>
-                          ))}
-                          <motion.button
-                            className="pagination-btn"
-                            onClick={() => setUserPage((p) => p + 1)}
-                            disabled={
-                              userPage >= userTotalPages - 1 || loading
-                            }
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                          >
-                            <ChevronRight size={16} />
-                          </motion.button>
-                        </div>
-                        <span className="pagination-info">
-                          第 {userPage + 1} / {userTotalPages} 页，共 {userTotal} 条
-                        </span>
-                      </div>
+                      <PaginationBar
+                        page={userPage}
+                        totalPages={userTotalPages}
+                        onPageChange={setUserPage}
+                        loading={loading}
+                        total={userTotal}
+                      />
                     </FadeIn>
                   )}
                 </>

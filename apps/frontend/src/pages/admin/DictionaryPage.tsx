@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, BookOpen, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { createDictionaryApi } from "../../shared/api/dictionaryApi";
@@ -10,6 +10,7 @@ import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
+import { PaginationBar } from "../../components/ui/PaginationBar";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
 const tokenStore = createLocalStorageTokenStore();
@@ -285,57 +286,16 @@ export const DictionaryPage = () => {
           </div>
           {/* 分页栏 */}
           {totalPages > 1 && (
-            <div className="pagination-bar" style={{ marginTop: 16 }}>
-              <div className="pagination-left">
-                <span className="pagination-label">每页 {pageSize} 条</span>
-              </div>
-              <div className="pagination-center">
-                <motion.button
-                  className="pagination-btn"
-                  onClick={() => {
-                    const prev = page - 1;
-                    setPage(prev);
-                    loadItems(activeType, prev);
-                  }}
-                  disabled={page === 0 || loading}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                >
-                  <ChevronLeft size={16} />
-                </motion.button>
-                {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
-                  <motion.button
-                    key={p}
-                    className={`pagination-btn ${p === page ? "active" : ""}`}
-                    onClick={() => {
-                      setPage(p);
-                      loadItems(activeType, p);
-                    }}
-                    disabled={loading}
-                    whileTap={{ scale: 0.95 }}
-                    type="button"
-                  >
-                    {p + 1}
-                  </motion.button>
-                ))}
-                <motion.button
-                  className="pagination-btn"
-                  onClick={() => {
-                    const next = page + 1;
-                    setPage(next);
-                    loadItems(activeType, next);
-                  }}
-                  disabled={page >= totalPages - 1 || loading}
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                >
-                  <ChevronRight size={16} />
-                </motion.button>
-              </div>
-              <span className="pagination-info">
-                第 {page + 1} / {totalPages} 页，共 {total} 条
-              </span>
-            </div>
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={(p) => {
+                setPage(p);
+                loadItems(activeType, p);
+              }}
+              loading={loading}
+              total={total}
+            />
           )}
         </FadeIn>
       ) : loading ? (
