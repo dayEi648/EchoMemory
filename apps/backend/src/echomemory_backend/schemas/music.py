@@ -155,6 +155,41 @@ class MusicListOut(BaseModel):
         ]
 
 
+class AdminMusicListOut(BaseModel):
+    """管理员音乐列表项输出（含上架状态及风格/语言）。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    is_vip: bool
+    is_published: bool
+    hot: int
+    play_count: int
+    cover_icon_url: str | None = None
+    style: TagOut | None = None
+    language: TagOut | None = None
+    authors: list[AuthorOut] = []
+    created_at: datetime
+
+    @field_validator("authors", mode="before")
+    @classmethod
+    def _flatten_authors(cls, v):
+        """将关联模型列表展平为作者输出字典列表。"""
+        if not v:
+            return []
+        return [
+            {
+                "id": a.author.id,
+                "username": a.author.username,
+                "nickname": a.author.nickname,
+                "avatar_url": a.author.avatar_url,
+                "ordinal": a.ordinal,
+            }
+            for a in v
+        ]
+
+
 # ---------------------------------------------------------------------------
 # 音乐更新模型
 # ---------------------------------------------------------------------------
@@ -163,6 +198,13 @@ class PaginatedMusicListOut(BaseModel):
     """音乐列表分页响应 Schema。"""
 
     items: list[MusicListOut]
+    total: int
+
+
+class PaginatedAdminMusicListOut(BaseModel):
+    """管理员音乐列表分页响应 Schema。"""
+
+    items: list[AdminMusicListOut]
     total: int
 
 

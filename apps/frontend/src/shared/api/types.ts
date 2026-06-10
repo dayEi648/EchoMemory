@@ -141,6 +141,15 @@ export type PaginatedMusicList = {
   total: number;
 };
 
+export type AdminMusicListItem = MusicListItem & {
+  is_published: boolean;
+};
+
+export type PaginatedAdminMusicList = {
+  items: AdminMusicListItem[];
+  total: number;
+};
+
 export type MusicDetail = {
   id: number;
   title: string;

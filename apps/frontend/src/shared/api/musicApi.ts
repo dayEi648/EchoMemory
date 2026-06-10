@@ -1,5 +1,5 @@
 import type { TokenStore } from "../auth/tokenStore";
-import type { MusicDetail, MusicListItem, MusicUpdateInput, PaginatedMusicList } from "./types";
+import type { MusicDetail, MusicListItem, MusicUpdateInput, PaginatedAdminMusicList, PaginatedMusicList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
 const appendDefined = (formData: FormData, key: string, value: unknown) => {
@@ -89,6 +89,25 @@ export const createMusicApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOpti
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
+    adminListMusic: (params: {
+      q?: string;
+      style_id?: number;
+      language_id?: number;
+      is_vip?: boolean;
+      is_published?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {}) => {
+      const query = new URLSearchParams();
+      query.set("limit", String(params.limit ?? 20));
+      query.set("offset", String(params.offset ?? 0));
+      if (params.q) query.set("q", params.q);
+      if (params.style_id !== undefined) query.set("style_id", String(params.style_id));
+      if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
+      if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));
+      if (params.is_published !== undefined) query.set("is_published", String(params.is_published));
+      return request<PaginatedAdminMusicList>(`/music/admin/list?${query.toString()}`);
+    },
     adminPublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/publish`, { method: "POST" }),
     adminUnpublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/unpublish`, { method: "POST" }),
   };

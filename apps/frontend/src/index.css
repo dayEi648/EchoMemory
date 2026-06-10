@@ -1620,6 +1620,429 @@ textarea {
   max-width: 560px;
 }
 
+/* ========== Import Music Page ========== */
+.import-form-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.import-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.import-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 14px;
+}
+
+.import-file-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-file-zone:hover,
+.import-file-zone.drag-over {
+  border-color: var(--color-ink);
+}
+
+.import-file-zone .file-name {
+  font-size: 13px;
+  color: var(--color-ink);
+}
+
+.import-file-zone .file-hint {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 8px 0 0;
+}
+
+.import-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.import-search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.import-search-dropdown-item:hover {
+  background: var(--color-surface-soft);
+}
+
+.import-search-dropdown-item:first-child {
+  border-radius: 10px 10px 0 0;
+}
+
+.import-search-dropdown-item:last-child {
+  border-radius: 0 0 10px 10px;
+}
+
+.import-search-wrapper {
+  position: relative;
+}
+
+.import-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--color-ink);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.import-tag-pill-removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.import-tag-pill-removable:hover {
+  background: var(--color-surface-hover);
+}
+
+.import-tag-pill-removable .remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.import-tag-pill-removable .remove-btn:hover {
+  background: var(--color-border);
+  color: var(--color-ink);
+}
+
+.import-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  user-select: none;
+}
+
+.import-toggle-switch {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--color-border);
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.import-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.import-toggle input:checked + .import-toggle-switch {
+  background: var(--color-ink);
+}
+
+.import-toggle input:checked + .import-toggle-switch::after {
+  transform: translateX(18px);
+}
+
+.import-toggle input {
+  display: none;
+}
+
+/* 紧凑文件上传行（音频/歌词） */
+.import-compact-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+  min-height: 40px;
+}
+
+.import-compact-file-row:hover,
+.import-compact-file-row.drag-over {
+  border-color: var(--color-ink);
+}
+
+.import-compact-file-row .file-icon {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.import-compact-file-row .file-name {
+  font-size: 13px;
+  color: var(--color-ink);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-compact-file-row .file-placeholder {
+  font-size: 13px;
+  color: var(--color-muted);
+  flex: 1;
+}
+
+.import-compact-file-row .file-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--color-muted);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.import-compact-file-row .file-remove:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+}
+
+/* 图片预览上传区 */
+.import-image-preview-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-image-preview-zone:hover,
+.import-image-preview-zone.drag-over {
+  border-color: var(--color-ink);
+}
+
+.import-image-preview-zone .preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.import-image-preview-zone .preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.2s;
+  pointer-events: none;
+}
+
+.import-image-preview-zone:hover .preview-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.import-image-preview-zone .preview-overlay .replace-hint {
+  opacity: 0;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.import-image-preview-zone:hover .preview-overlay .replace-hint {
+  opacity: 1;
+}
+
+.import-image-preview-zone .preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 6px;
+}
+
+.import-image-preview-zone .preview-placeholder .placeholder-label {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.import-image-preview-zone .preview-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+
+.import-image-preview-zone:hover .preview-remove {
+  opacity: 1;
+}
+
+.import-image-preview-zone .preview-remove:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* 搜索输入框 + 按钮 inline */
+.import-search-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.import-search-inline input {
+  flex: 1;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.import-search-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.import-search-trigger-btn:hover {
+  border-color: var(--color-muted);
+  color: var(--color-ink);
+}
+
+.import-search-trigger-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.import-selected-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--color-ink);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.import-selected-item .remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.import-selected-item .remove-btn:hover {
+  opacity: 1;
+}
+
+@media (max-width: 960px) {
+  .import-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-panel h3 {
   font-size: 16px;
   font-weight: 700;

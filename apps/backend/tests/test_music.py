@@ -531,14 +531,15 @@ class TestSearchMusics:
         resp = client.get(f"{BASE_URL}/search", params={"q": "Amazing"})
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["title"] == "Amazing Grace"
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "Amazing Grace"
+        assert data["total"] == 1
 
     async def test_search_no_match(self, client: TestClient):
         """测试无匹配结果时返回空列表。"""
         resp = client.get(f"{BASE_URL}/search", params={"q": "zzzzzzzzz"})
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json() == {"items": [], "total": 0}
 
     async def test_search_empty_query_returns_all(self, client: TestClient, db_session: AsyncSession):
         """测试空查询时返回全部已上架音乐。"""
@@ -547,9 +548,10 @@ class TestSearchMusics:
         resp = client.get(f"{BASE_URL}/search")
         assert resp.status_code == 200
         data = resp.json()
-        titles = {m["title"] for m in data}
+        titles = {m["title"] for m in data["items"]}
         assert "SongA" in titles
         assert "SongB" in titles
+        assert data["total"] == 2
 
 
 # ---------------------------------------------------------------------------

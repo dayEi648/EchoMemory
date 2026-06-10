@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, Pencil, Eye, ArrowUpCircle, ArrowDownCircle, Music, Plus } from "lucide-react";
+import {
+  Search,
+  Pencil,
+  Eye,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Music,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { createMusicApi } from "../../shared/api/musicApi";
 import { createDictionaryApi } from "../../shared/api/dictionaryApi";
 import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
-import type { MusicListItem, MusicDetail, DictionaryItem } from "../../shared/api/types";
+import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { FadeIn } from "../../components/motion/FadeIn";
@@ -18,12 +26,20 @@ const tokenStore = createLocalStorageTokenStore();
 const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
 const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore });
 
+/**
+ * 音乐管理页面。
+ *
+ * 使用管理员专用接口 /music/admin/list，可查询所有音乐（含未上架），
+ * 支持按标题搜索、风格/语言/上架状态筛选及分页。
+ */
 export const AdminMusicPage = () => {
   const navigate = useNavigate();
-  const [musics, setMusics] = useState<MusicListItem[]>([]);
+  const [musics, setMusics] = useState<AdminMusicListItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [styleFilter, setStyleFilter] = useState<string>("");
   const [languageFilter, setLanguageFilter] = useState<string>("");
+  const [publishedFilter, setPublishedFilter] = useState<string>("");
   const [styles, setStyles] = useState<DictionaryItem[]>([]);
   const [languages, setLanguages] = useState<DictionaryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,18 +61,22 @@ export const AdminMusicPage = () => {
   const loadMusics = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await musicApi.searchMusic({
+      const result = await musicApi.adminListMusic({
         q: query || undefined,
+        style_id: styleFilter ? Number(styleFilter) : undefined,
+        language_id: languageFilter ? Number(languageFilter) : undefined,
+        is_published: publishedFilter === "" ? undefined : publishedFilter === "true",
         limit: pageSize,
         offset: page * pageSize,
       });
       setMusics(result.items);
+      setTotal(result.total);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "加载失败");
     } finally {
       setLoading(false);
     }
-  }, [query, page, pageSize]);
+  }, [query, styleFilter, languageFilter, publishedFilter, page, pageSize]);
 
   useEffect(() => {
     loadMusics();
@@ -80,10 +100,11 @@ export const AdminMusicPage = () => {
 
   const handleSearch = () => setPage(0);
 
-  const handleTogglePublish = async (music: MusicListItem) => {
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handleTogglePublish = async (music: AdminMusicListItem) => {
     try {
-      const detail = await musicApi.getMusicDetail(music.id);
-      if (detail.is_published) {
+      if (music.is_published) {
         await musicApi.adminUnpublishMusic(music.id);
         toast.success("已下架");
       } else {
@@ -96,7 +117,7 @@ export const AdminMusicPage = () => {
     }
   };
 
-  const openEdit = async (music: MusicListItem) => {
+  const openEdit = async (music: AdminMusicListItem) => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       setEditMusic(detail);
@@ -134,12 +155,6 @@ export const AdminMusicPage = () => {
       setEditSubmitting(false);
     }
   };
-
-  const filteredMusics = musics.filter((m) => {
-    if (styleFilter && String(m.style?.id) !== styleFilter) return false;
-    if (languageFilter && String(m.language?.id) !== languageFilter) return false;
-    return true;
-  });
 
   return (
     <div>
@@ -204,6 +219,16 @@ export const AdminMusicPage = () => {
             ))}
           </select>
 
+          <select
+            value={publishedFilter}
+            onChange={(e) => { setPublishedFilter(e.target.value); setPage(0); }}
+            style={{ width: 110, fontSize: 13 }}
+          >
+            <option value="">全部状态</option>
+            <option value="true">已上架</option>
+            <option value="false">未上架</option>
+          </select>
+
           <motion.button
             className="primary-button"
             onClick={handleSearch}
@@ -217,26 +242,27 @@ export const AdminMusicPage = () => {
         </div>
       </FadeIn>
 
-      {filteredMusics.length > 0 ? (
+      {musics.length > 0 ? (
         <FadeIn delay={0.15}>
           <div className="admin-table-container">
             <div
               className="admin-table-header"
-              style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 100px" }}
+              style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 0.7fr 100px" }}
             >
               <span>ID</span>
               <span>歌曲</span>
               <span>风格</span>
               <span>语言</span>
               <span>播放量</span>
+              <span>状态</span>
               <span>操作</span>
             </div>
             <StaggerContainer staggerDelay={0.03}>
-              {filteredMusics.map((item) => (
+              {musics.map((item) => (
                 <StaggerItem key={item.id}>
                   <motion.div
                     className="admin-table-row"
-                    style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 100px", alignItems: "center" }}
+                    style={{ gridTemplateColumns: "50px 1.5fr 0.8fr 0.8fr 0.6fr 0.7fr 100px", alignItems: "center" }}
                     whileHover={{ backgroundColor: "var(--color-surface-soft)" }}
                   >
                     <span style={{ fontSize: 12, color: "var(--color-muted)" }}>{item.id}</span>
@@ -275,6 +301,17 @@ export const AdminMusicPage = () => {
                     <span style={{ fontSize: 13 }}>{item.style?.name ?? "—"}</span>
                     <span style={{ fontSize: 13 }}>{item.language?.name ?? "—"}</span>
                     <span style={{ fontSize: 13 }}>{item.play_count}</span>
+                    <span>
+                      <span
+                        className={`status-badge ${item.is_published ? "active" : "banned"}`}
+                        style={{
+                          background: item.is_published ? "#e6f7f4" : "#f0eeea",
+                          color: item.is_published ? "#2bb3a3" : "#77716a",
+                        }}
+                      >
+                        {item.is_published ? "已上架" : "未上架"}
+                      </span>
+                    </span>
                     <div style={{ display: "flex", gap: 6 }}>
                       <motion.button
                         className="ghost-button"
@@ -293,10 +330,10 @@ export const AdminMusicPage = () => {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         type="button"
-                        title="上架/下架"
+                        title={item.is_published ? "下架" : "上架"}
                         style={{ padding: "6px 8px", minHeight: "auto" }}
                       >
-                        <Eye size={14} />
+                        {item.is_published ? <ArrowDownCircle size={14} /> : <ArrowUpCircle size={14} />}
                       </motion.button>
                     </div>
                   </motion.div>
@@ -305,44 +342,58 @@ export const AdminMusicPage = () => {
             </StaggerContainer>
           </div>
 
-          <div className="pagination-bar">
-            <div className="pagination-left">
-              <span className="pagination-label">每页</span>
-              <select
-                value={pageSize}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-                className="pagination-size-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <span className="pagination-label">条</span>
-            </div>
-            <div className="pagination-center">
-              <motion.button
-                className="pagination-btn"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 0 || loading}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-              >
-                ←
-              </motion.button>
-              <span style={{ fontSize: 13, padding: "0 12px" }}>
-                第 {page + 1} 页
+          {totalPages > 1 && (
+            <div className="pagination-bar">
+              <div className="pagination-left">
+                <span className="pagination-label">每页</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+                  className="pagination-size-select"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="pagination-label">条</span>
+              </div>
+              <div className="pagination-center">
+                <motion.button
+                  className="pagination-btn"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 0 || loading}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                >
+                  ←
+                </motion.button>
+                {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
+                  <motion.button
+                    key={p}
+                    className={`pagination-btn ${p === page ? "active" : ""}`}
+                    onClick={() => setPage(p)}
+                    disabled={loading}
+                    whileTap={{ scale: 0.95 }}
+                    type="button"
+                  >
+                    {p + 1}
+                  </motion.button>
+                ))}
+                <motion.button
+                  className="pagination-btn"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= totalPages - 1 || loading}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                >
+                  →
+                </motion.button>
+              </div>
+              <span className="pagination-info">
+                第 {page + 1} / {totalPages} 页，共 {total} 条
               </span>
-              <motion.button
-                className="pagination-btn"
-                onClick={() => setPage(page + 1)}
-                disabled={musics.length < pageSize || loading}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-              >
-                →
-              </motion.button>
             </div>
-          </div>
+          )}
         </FadeIn>
       ) : (
         <FadeIn delay={0.15}>

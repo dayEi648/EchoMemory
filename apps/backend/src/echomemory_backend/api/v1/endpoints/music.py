@@ -11,7 +11,13 @@ from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
-from echomemory_backend.schemas.music import MusicListOut, MusicOut, MusicUpdate, PaginatedMusicListOut
+from echomemory_backend.schemas.music import (
+    MusicListOut,
+    MusicOut,
+    MusicUpdate,
+    PaginatedAdminMusicListOut,
+    PaginatedMusicListOut,
+)
 from echomemory_backend.services import music_service
 
 router = APIRouter(prefix="/music", tags=["music"])
@@ -232,6 +238,31 @@ async def admin_unpublish_music(
     music = await music_service.set_music_published(db, music, published=False)
     music = await music_service.get_music_by_id(db, music.id)
     return music
+
+
+@router.get("/admin/list", response_model=PaginatedAdminMusicListOut)
+async def admin_list_music(
+    db: SessionDep,
+    _: AdminUser,
+    q: str | None = Query(None, description="按标题模糊搜索"),
+    style_id: int | None = Query(None),
+    language_id: int | None = Query(None),
+    is_vip: bool | None = Query(None),
+    is_published: bool | None = Query(None, description="按上架状态筛选，None 表示不筛选"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """管理员列出所有音乐（含未上架），支持搜索和多条件筛选。"""
+    return await music_service.admin_search_musics(
+        db,
+        q=q,
+        style_id=style_id,
+        language_id=language_id,
+        is_vip=is_vip,
+        is_published=is_published,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # ---------------------------------------------------------------------------

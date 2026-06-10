@@ -314,6 +314,62 @@ async def search_musics(
     return {"items": items, "total": total}
 
 
+async def admin_search_musics(
+    db: AsyncSession,
+    *,
+    q: str | None = None,
+    style_id: int | None = None,
+    language_id: int | None = None,
+    is_vip: bool | None = None,
+    is_published: bool | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, object]:
+    """管理员查询所有音乐（含未上架），支持搜索和多条件筛选。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        q: 搜索关键词，默认 None 表示不搜索。
+        style_id: 按风格 ID 筛选，默认 None 表示不筛选。
+        language_id: 按语言 ID 筛选，默认 None 表示不筛选。
+        is_vip: 按是否 VIP 筛选，默认 None 表示不筛选。
+        is_published: 按是否上架筛选，默认 None 表示不筛选。
+        limit: 每页返回的最大记录数，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        {"items": 音乐实例列表, "total": 总记录数}。
+    """
+    where_clause: list = []
+    if is_published is not None:
+        where_clause.append(Music.is_published == is_published)
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+    if style_id is not None:
+        where_clause.append(Music.style_id == style_id)
+    if language_id is not None:
+        where_clause.append(Music.language_id == language_id)
+    if is_vip is not None:
+        where_clause.append(Music.is_vip == is_vip)
+
+    stmt = select(Music).order_by(desc(Music.created_at)).limit(limit).offset(offset)
+    count_stmt = select(func.count()).select_from(Music)
+
+    if where_clause:
+        stmt = stmt.where(*where_clause)
+        count_stmt = count_stmt.where(*where_clause)
+
+    stmt = stmt.options(
+        selectinload(Music.authors).selectinload(MusicAuthor.author),
+        selectinload(Music.style),
+        selectinload(Music.language),
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (await db.execute(count_stmt)).scalar_one()
+    return {"items": items, "total": total}
+
+
 async def update_music(
     db: AsyncSession,
     music: Music,
