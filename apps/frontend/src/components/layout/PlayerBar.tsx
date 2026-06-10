@@ -14,13 +14,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { usePlayerStore } from "../../shared/stores/playerStore";
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+import { formatTime } from "../../shared/utils";
 
 export const PlayerBar = () => {
   const {
@@ -85,7 +79,7 @@ export const PlayerBar = () => {
     };
   }, [isDraggingProgress, duration, seek]);
 
-  const displayProgress = isDraggingProgress ? progress : progress;
+  const displayProgress = progress;
 
   return (
     <>

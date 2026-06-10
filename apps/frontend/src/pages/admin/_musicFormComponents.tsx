@@ -8,14 +8,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Music,
-  FileText,
   Image as ImageIcon,
   X,
   Search,
   User,
   Check,
-  FileAudio,
 } from "lucide-react";
 import type { DictionaryItem } from "../../shared/api/types";
 

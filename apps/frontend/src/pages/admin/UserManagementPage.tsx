@@ -44,16 +44,16 @@ const genderLabel: Record<number, string> = {
 
 /** 判断当前登录的管理员是否有权限操作目标用户。
  *
- * 权限规则：
- * - 超级管理员可以管理自己以及所有非超级管理员
- * - 超级管理员不能管理其他超级管理员
+ * 权限规则（与后端保持一致）：
+ * - 超级管理员可以管理所有非超级管理员
+ * - 超级管理员不能管理其他超级管理员，也不能管理自己
  * - 管理员只能管理普通用户(0)和VIP(1)
  * - 管理员不能管理自己、其他管理员(2)和超级管理员(3)
  */
 const canManage = (currentUser: UserMe | null, target: UserMe): boolean => {
   if (!currentUser) return false;
   if (currentUser.role === 3) {
-    return target.role < 3 || target.id === currentUser.id;
+    return target.role < 3 && target.id !== currentUser.id;
   }
   if (currentUser.role === 2) {
     return target.id !== currentUser.id && target.role < 2;
@@ -276,7 +276,8 @@ export const UserManagementPage = () => {
             onChange={(e) => { setDeletedFilter(e.target.value); setPage(0); }}
             style={{ width: 110, fontSize: 13 }}
           >
-            <option value="">未注销</option>
+            <option value="">全部</option>
+            <option value="false">未注销</option>
             <option value="true">已注销</option>
           </select>
 

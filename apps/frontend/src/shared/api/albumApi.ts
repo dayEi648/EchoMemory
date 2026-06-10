@@ -1,23 +1,8 @@
 import type { TokenStore } from "../auth/tokenStore";
 import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
+import { appendDefined } from "../utils";
 
-const appendDefined = (formData: FormData, key: string, value: unknown) => {
-  if (value === undefined || value === null || value === "") {
-    return;
-  }
-  if (value instanceof File) {
-    formData.append(key, value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      formData.append(key, String(item));
-    }
-    return;
-  }
-  formData.append(key, String(value));
-};
 
 export const createAlbumApi = ({ baseUrl, fetcher = fetch, tokenStore }: ApiOptions) => {
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });

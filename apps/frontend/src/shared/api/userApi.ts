@@ -34,16 +34,8 @@ const toTokenPair = (token: TokenResponse) => ({
   refreshToken: token.refresh_token,
 });
 
-const appendDefined = (formData: FormData, key: string, value: unknown) => {
-  if (value === undefined || value === null || value === "") {
-    return;
-  }
-  if (value instanceof File) {
-    formData.append(key, value);
-    return;
-  }
-  formData.append(key, String(value));
-};
+import { appendDefined } from "../utils";
+
 
 const toRegisterFormData = (input: RegisterInput) => {
   const formData = new FormData();
