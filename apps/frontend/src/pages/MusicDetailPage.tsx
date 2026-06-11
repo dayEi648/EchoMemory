@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Play, Clock, BarChart3, Calendar, ArrowLeft, Music } from "lucide-react";
+import { Play, Clock, BarChart3, Calendar, ArrowLeft, Music, Heart } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
 import { createMusicApi } from "../shared/api/musicApi";
+import { createCollectionApi } from "../shared/api/collectionApi";
 import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { MusicDetail, MusicListItem } from "../shared/api/types";
 import { FadeIn } from "../components/motion/FadeIn";
@@ -16,6 +17,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
 const tokenStore = createLocalStorageTokenStore();
 const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
+const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "未知";
@@ -32,6 +34,7 @@ export const MusicDetailPage = () => {
   const [music, setMusic] = useState<MusicDetail | null>(null);
   const [related, setRelated] = useState<MusicListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collected, setCollected] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -75,6 +78,23 @@ export const MusicDetailPage = () => {
       interest_tags: music.interest_tags,
       albums: [],
     });
+  };
+
+  const handleToggleCollect = async () => {
+    if (!music) return;
+    try {
+      if (collected) {
+        await collectionApi.uncollectMusic(music.id);
+        setCollected(false);
+        toast.success("已取消收藏");
+      } else {
+        await collectionApi.collectMusic(music.id);
+        setCollected(true);
+        toast.success("已收藏");
+      }
+    } catch {
+      toast.error("操作失败");
+    }
   };
 
   if (loading) {
@@ -226,6 +246,30 @@ export const MusicDetailPage = () => {
               >
                 <Play size={18} fill="white" />
                 播放
+              </motion.button>
+              <motion.button
+                onClick={handleToggleCollect}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.92 }}
+                type="button"
+                title={collected ? "取消收藏" : "收藏"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginLeft: 10,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background: collected ? "var(--color-accent)" : "transparent",
+                  color: collected ? "white" : "var(--color-muted)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <Heart size={16} fill={collected ? "white" : "none"} />
+                {collected ? "已收藏" : "收藏"}
               </motion.button>
             </div>
           </div>

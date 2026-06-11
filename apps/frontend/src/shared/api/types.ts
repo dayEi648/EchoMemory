@@ -346,6 +346,38 @@ export type PlaylistUpdateInput = {
   is_private?: boolean;
 };
 
+/* ==================== Collection ==================== */
+
+export type MusicCollectionItem = {
+  music: MusicListItem;
+  created_at: string;
+};
+
+export type AlbumCollectionItem = {
+  album: AlbumListItem;
+  created_at: string;
+};
+
+export type PlaylistCollectionItem = {
+  playlist: PlaylistListItem;
+  created_at: string;
+};
+
+export type PaginatedMusicCollection = {
+  items: MusicCollectionItem[];
+  total: number;
+};
+
+export type PaginatedAlbumCollection = {
+  items: AlbumCollectionItem[];
+  total: number;
+};
+
+export type PaginatedPlaylistCollection = {
+  items: PlaylistCollectionItem[];
+  total: number;
+};
+
 /* ==================== Space Post ==================== */
 
 export type SpacePostImage = {

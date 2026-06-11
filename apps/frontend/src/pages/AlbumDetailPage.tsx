@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Play, BarChart3, ArrowLeft, Music, Disc3 } from "lucide-react";
+import { Play, BarChart3, ArrowLeft, Music, Disc3, Heart } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
 import { createAlbumApi } from "../shared/api/albumApi";
 import { createMusicApi } from "../shared/api/musicApi";
+import { createCollectionApi } from "../shared/api/collectionApi";
 import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { AlbumDetail } from "../shared/api/types";
 import { FadeIn } from "../components/motion/FadeIn";
@@ -18,6 +19,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?
 const tokenStore = createLocalStorageTokenStore();
 const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
 const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
+const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
 
 export const AlbumDetailPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
@@ -28,6 +30,7 @@ export const AlbumDetailPage = () => {
 
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [collected, setCollected] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +58,23 @@ export const AlbumDetailPage = () => {
     };
     load();
   }, [albumId]);
+
+  const handleToggleCollect = async () => {
+    if (!album) return;
+    try {
+      if (collected) {
+        await collectionApi.uncollectAlbum(album.id);
+        setCollected(false);
+        toast.success("已取消收藏");
+      } else {
+        await collectionApi.collectAlbum(album.id);
+        setCollected(true);
+        toast.success("已收藏");
+      }
+    } catch {
+      toast.error("操作失败");
+    }
+  };
 
   const handlePlayAll = () => {
     if (!album || album.musics.length === 0) return;
@@ -218,6 +238,30 @@ export const AlbumDetailPage = () => {
               >
                 <Play size={18} fill="white" />
                 播放全部
+              </motion.button>
+              <motion.button
+                onClick={handleToggleCollect}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.92 }}
+                type="button"
+                title={collected ? "取消收藏" : "收藏"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginLeft: 10,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1px solid var(--color-border)",
+                  background: collected ? "var(--color-accent)" : "transparent",
+                  color: collected ? "white" : "var(--color-muted)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                <Heart size={16} fill={collected ? "white" : "none"} />
+                {collected ? "已收藏" : "收藏"}
               </motion.button>
             </div>
           </div>
