@@ -5,12 +5,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.redis_client import increment_user_token_version
+from echomemory_backend.core.security import get_password_hash
 from echomemory_backend.core.utils import parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
-from echomemory_backend.schemas.user import UserAdminUpdate, UserBanAction
+from echomemory_backend.schemas.user import UserAdminCreate, UserAdminUpdate, UserBanAction
 from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.services.user_service import get_user_by_id
+from echomemory_backend.services.user_service import (
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_phone,
+    get_user_by_username,
+)
 
 
 async def list_users_with_count(
@@ -91,6 +98,62 @@ def _assert_can_manage(admin: User, target: User) -> None:
             raise BusinessError("无权操作该用户", 403)
         return
     raise BusinessError("无权操作该用户", 403)
+
+
+async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdminCreate) -> User:
+    """以管理员身份创建新用户。
+
+    权限规则：
+    - 超级管理员可以创建任意角色的用户
+    - 管理员只能创建普通用户(0)和VIP(1)，不能创建管理员(2)或超级管理员(3)
+    - 管理员不能创建与自己同级或更高级别的用户
+
+    Args:
+        db: SQLAlchemy AsyncSession。
+        admin: 执行操作的管理员。
+        user_in: 用户创建内容。
+
+    Raises:
+        BusinessError: 权限不足或唯一性约束冲突时抛出。
+    """
+    # 权限校验：管理员不能创建同级或更高级别用户
+    if admin.role == UserRole.ADMIN and user_in.role >= UserRole.ADMIN:
+        raise BusinessError("无权创建该角色的用户", 403)
+
+    # 校验用户名/邮箱/手机唯一性
+    if await get_user_by_username(db, user_in.username):
+        raise BusinessError("用户名已被注册", 409)
+    if user_in.email and await get_user_by_email(db, user_in.email):
+        raise BusinessError("邮箱已被注册", 409)
+    if user_in.phone and await get_user_by_phone(db, user_in.phone):
+        raise BusinessError("手机号已被注册", 409)
+
+    password_hash = get_password_hash(user_in.password)
+
+    user = User(
+        username=user_in.username,
+        password_hash=password_hash,
+        nickname=user_in.nickname,
+        email=user_in.email,
+        phone=user_in.phone,
+        gender=user_in.gender,
+        birth=user_in.birth,
+        bio=user_in.bio,
+        city=user_in.city,
+        role=user_in.role,
+        status=user_in.status,
+        safety_score=user_in.safety_score,
+        is_verified=user_in.is_verified,
+        exp=user_in.exp,
+    )
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise BusinessError("用户名、邮箱或手机号已被注册", 409)
+    await db.refresh(user)
+    return user
 
 
 async def update_user_as_admin(

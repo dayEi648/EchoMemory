@@ -17,6 +17,7 @@ from echomemory_backend.schemas.user import (
     PaginatedFollowerOut,
     PaginatedUserAdminOut,
     PaginatedUserSearchOut,
+    UserAdminCreate,
     UserAdminUpdate,
     UserBanAction,
     UserMeOut,
@@ -200,6 +201,20 @@ async def admin_list_users(
         is_deleted=is_deleted,
     )
     return PaginatedUserAdminOut(items=items, total=total)
+
+
+@router.post("/admin/create", response_model=UserMeOut, status_code=status.HTTP_201_CREATED)
+async def admin_create_user(
+    db: SessionDep,
+    admin: AdminUser,
+    user_in: UserAdminCreate,
+) -> User:
+    """以管理员身份创建新用户。
+
+    与普通注册不同，管理员可以指定 role、status、safety_score、is_verified、exp 等字段。
+    权限规则：管理员不能创建与自己同级或更高级别的用户。
+    """
+    return await admin_service.create_user_as_admin(db, admin, user_in)
 
 
 @router.patch("/{user_id}/admin", response_model=UserMeOut)

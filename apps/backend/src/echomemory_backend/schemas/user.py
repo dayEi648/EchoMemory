@@ -27,6 +27,23 @@ class UserCreate(UserBase):
     city: str | None = Field(None, max_length=50)
 
 
+class UserAdminCreate(UserBase):
+    """管理员创建用户 Schema，支持指定更多字段。"""
+
+    password: str = Field(..., min_length=6, max_length=128)
+    email: EmailStr | None = None
+    phone: str | None = Field(None, max_length=20)
+    gender: Literal[0, 1, 2] = 0
+    birth: date | None = None
+    bio: str | None = Field(None, max_length=500)
+    city: str | None = Field(None, max_length=50)
+    role: Literal[0, 1, 2, 3] = 0
+    status: Literal[0, 1, 2, 3] = 0
+    safety_score: int = Field(default=10, ge=0, le=10)
+    is_verified: bool = False
+    exp: int = Field(default=0, ge=0)
+
+
 class UserUpdate(BaseModel):
     """用户个人信息更新 Schema。"""
 

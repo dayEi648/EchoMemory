@@ -16,7 +16,6 @@ export const AlbumDetailPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
   const navigate = useNavigate();
   const playInContext = usePlayerStore((s) => s.playInContext);
-  const playQueue = usePlayerStore((s) => s.playQueue);
 
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,9 +82,9 @@ export const AlbumDetailPage = () => {
         emotion_tags: [],
         interest_tags: [],
         albums: [],
-      }));
+    }));
     if (tracks.length > 0) {
-      playQueue(tracks, 0);
+      playInContext(tracks[0], tracks, { type: "album", id: album.id, name: album.title });
     } else {
       toast.error("暂无可播放的歌曲");
     }

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ListMusic } from "lucide-react";
 
@@ -13,14 +12,10 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationBar } from "../components/ui/PaginationBar";
 
-const categories = ["全部", "流行", "摇滚", "电子", "轻音乐", "学习", "睡眠", "运动", "派对"];
-
 const PAGE_SIZE = 12;
 
 export const PlaylistsPage = () => {
   const navigate = useNavigate();
-  const [activeCat, setActiveCat] = useState("全部");
-
   const [playlists, setPlaylists] = useState<PlaylistListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -51,24 +46,7 @@ export const PlaylistsPage = () => {
   return (
     <div>
       <FadeIn>
-        <h1 className="page-title">播放列表广场</h1>
-      </FadeIn>
-
-      <FadeIn delay={0.08}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {categories.map((cat) => (
-            <motion.button
-              key={cat}
-              className={`tag-pill ${cat === activeCat ? "active" : ""}`}
-              onClick={() => setActiveCat(cat)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-            >
-              {cat}
-            </motion.button>
-          ))}
-        </div>
+        <h1 className="page-title">我的歌单</h1>
       </FadeIn>
 
       {loading ? (

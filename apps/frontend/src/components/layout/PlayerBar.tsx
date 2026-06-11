@@ -27,6 +27,8 @@ const queueContextLabel = (ctx: QueueContext): { icon: typeof Disc; label: strin
       return { icon: Disc, label: ctx.name };
     case "history":
       return { icon: Clock, label: "播放历史" };
+    case "temporary":
+      return { icon: ListMusic, label: "临时播放列表" };
   }
 };
 
@@ -409,7 +411,7 @@ export const PlayerBar = () => {
                 queue.map((track, i) => (
                   <div
                     key={`${track.id}-${i}`}
-                    onClick={() => usePlayerStore.getState().playQueue(queue, i)}
+                    onClick={() => usePlayerStore.getState().playQueue(queue, i, queueContext)}
                     style={{
                       display: "flex",
                       alignItems: "center",

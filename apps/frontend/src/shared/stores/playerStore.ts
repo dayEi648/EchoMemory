@@ -20,6 +20,7 @@ export type QueueContext =
   | { type: "playlist"; id: number; name: string }
   | { type: "album"; id: number; name: string }
   | { type: "history" }
+  | { type: "temporary" }
   | null;
 
 interface PlayerState {
@@ -44,10 +45,10 @@ interface PlayerState {
     contextTracks: PlayerTrack[],
     context: NonNullable<QueueContext>,
   ) => void;
-  /** 独立播放模式：自动将当前歌曲 + 播放历史拼接为队列 */
+  /** 独立播放模式：将单曲加入当前临时播放列表 */
   playStandalone: (track: PlayerTrack) => Promise<void>;
   /** 设置队列并开始播放（底层方法） */
-  playQueue: (queue: PlayerTrack[], startIndex?: number) => void;
+  playQueue: (queue: PlayerTrack[], startIndex?: number, context?: QueueContext) => void;
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
@@ -162,6 +163,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
   };
 
+  /** 将单独播放的歌曲加入临时播放列表并切换到该歌曲 */
+  const _playTemporaryTrack = (track: PlayerTrack) => {
+    if (!track.file_url) return;
+
+    const { queue, queueContext } = get();
+    const baseQueue = queueContext?.type === "temporary" ? queue : [];
+    const existingIndex = baseQueue.findIndex((item) => item.id === track.id);
+    const nextQueue = existingIndex >= 0 ? [...baseQueue] : [...baseQueue, track];
+    const startIndex = existingIndex >= 0 ? existingIndex : nextQueue.length - 1;
+
+    if (existingIndex >= 0) {
+      nextQueue[existingIndex] = track;
+    }
+
+    audio.src = track.file_url;
+    audio.load();
+    audio.play().catch(() => {});
+    set({
+      queue: nextQueue,
+      queueIndex: startIndex,
+      queueContext: { type: "temporary" },
+      currentTrack: track,
+      isPlaying: true,
+      progress: 0,
+      currentTime: 0,
+      duration: 0,
+      recorded: false,
+    });
+  };
+
   /** 跳到队列中的下一首（支持懒加载 file_url） */
   const _advance = async (direction: 1 | -1) => {
     const { queue, queueIndex, isShuffle } = get();
@@ -223,21 +254,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         state.togglePlay();
         return;
       }
-      if (!track.file_url) {
-        return;
-      }
-      audio.src = track.file_url;
-      audio.load();
-      audio.play().catch(() => {});
-      set({
-        currentTrack: track,
-        queueContext: null,
-        isPlaying: true,
-        progress: 0,
-        currentTime: 0,
-        duration: 0,
-        recorded: false,
-      });
+      _playTemporaryTrack(track);
     },
 
     playInContext: (track, contextTracks, context) => {
@@ -264,52 +281,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     playStandalone: async (track) => {
-      if (!track.file_url) return;
-
-      // 获取最近播放历史
-      let historyTracks: PlayerTrack[] = [];
-      try {
-        const history = await playHistoryApi.listPlayHistory({ limit: 50 });
-        historyTracks = history.items
-          .filter((h) => h.music.id !== track.id)
-          .map(
-            (h): PlayerTrack => ({
-              id: h.music.id,
-              title: h.music.title,
-              is_vip: false,
-              hot: 0,
-              play_count: 0,
-              cover_icon_url: h.music.cover_icon_url,
-              authors: [],
-              emotion_tags: [],
-              interest_tags: [],
-              albums: [],
-              created_at: "",
-              file_url: null, // 懒加载
-            }),
-          );
-      } catch {
-        // 获取历史失败也不影响播放
-      }
-
-      const queue = [track, ...historyTracks];
-      audio.src = track.file_url;
-      audio.load();
-      audio.play().catch(() => {});
-      set({
-        queue,
-        queueIndex: 0,
-        queueContext: { type: "history" },
-        currentTrack: track,
-        isPlaying: true,
-        progress: 0,
-        currentTime: 0,
-        duration: 0,
-        recorded: false,
-      });
+      _playTemporaryTrack(track);
     },
 
-    playQueue: (queue, startIndex = 0) => {
+    playQueue: (queue, startIndex = 0, context = null) => {
       const track = queue[startIndex];
       if (!track || !track.file_url) return;
       audio.src = track.file_url;
@@ -318,7 +293,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({
         queue,
         queueIndex: startIndex,
-        queueContext: null,
+        queueContext: context,
         currentTrack: track,
         isPlaying: true,
         progress: 0,

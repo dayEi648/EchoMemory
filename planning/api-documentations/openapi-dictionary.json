@@ -1,0 +1,3928 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "echomemory backend",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/dictionary/{dictionary_type}": {
+      "post": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Create Dictionary Item",
+        "description": "管理员：创建字典项。",
+        "operationId": "create_dictionary_item_api_v1_dictionary__dictionary_type__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dictionary_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dictionary Type"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryItemCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "List Dictionary Items",
+        "description": "公开：分页列出字典项。",
+        "operationId": "list_dictionary_items_api_v1_dictionary__dictionary_type__get",
+        "parameters": [
+          {
+            "name": "dictionary_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dictionary Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryItemListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dictionary/{dictionary_type}/{item_id}": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Get Dictionary Item",
+        "description": "公开：获取单个字典项。",
+        "operationId": "get_dictionary_item_api_v1_dictionary__dictionary_type___item_id__get",
+        "parameters": [
+          {
+            "name": "dictionary_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dictionary Type"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Update Dictionary Item",
+        "description": "管理员：更新字典项名称。",
+        "operationId": "update_dictionary_item_api_v1_dictionary__dictionary_type___item_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dictionary_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dictionary Type"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionaryItemUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Delete Dictionary Item",
+        "description": "管理员：删除字典项（仅当未被引用时）。",
+        "operationId": "delete_dictionary_item_api_v1_dictionary__dictionary_type___item_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dictionary_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dictionary Type"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminAlbumListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumAuthorOut"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "music_count": {
+            "type": "integer",
+            "title": "Music Count"
+          },
+          "collect_count": {
+            "type": "integer",
+            "title": "Collect Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "hot",
+          "play_count",
+          "created_at",
+          "music_count",
+          "collect_count"
+        ],
+        "title": "AdminAlbumListItem",
+        "description": "管理员专辑列表项，在 AlbumListOut 基础上增加作者、歌曲数和收藏数。"
+      },
+      "AdminMusicListOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_vip": {
+            "type": "boolean",
+            "title": "Is Vip"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorOut"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "emotion_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Emotion Tags",
+            "default": []
+          },
+          "interest_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Interest Tags",
+            "default": []
+          },
+          "albums": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumBriefOut"
+            },
+            "type": "array",
+            "title": "Albums",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_vip",
+          "is_published",
+          "hot",
+          "play_count",
+          "created_at"
+        ],
+        "title": "AdminMusicListOut",
+        "description": "管理员音乐列表项输出（含上架状态及风格/语言/标签/专辑）。"
+      },
+      "AlbumAuthorOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "ordinal"
+        ],
+        "title": "AlbumAuthorOut",
+        "description": "专辑作者输出。"
+      },
+      "AlbumBriefOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "AlbumBriefOut",
+        "description": "专辑简要输出（仅含 ID 与标题）。"
+      },
+      "AlbumCollectionOut": {
+        "properties": {
+          "album": {
+            "$ref": "#/components/schemas/AlbumListOut"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "album",
+          "created_at"
+        ],
+        "title": "AlbumCollectionOut",
+        "description": "专辑收藏项输出。"
+      },
+      "AlbumListOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "hot",
+          "play_count",
+          "created_at"
+        ],
+        "title": "AlbumListOut",
+        "description": "专辑列表项输出（精简）。"
+      },
+      "AlbumMusicOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_vip": {
+            "type": "boolean",
+            "title": "Is Vip"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_vip",
+          "hot",
+          "play_count",
+          "ordinal"
+        ],
+        "title": "AlbumMusicOut",
+        "description": "专辑内嵌套的音乐输出。"
+      },
+      "AlbumOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "collect_count": {
+            "type": "integer",
+            "title": "Collect Count"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumAuthorOut"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "musics": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumMusicOut"
+            },
+            "type": "array",
+            "title": "Musics",
+            "default": []
+          },
+          "emotion_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Emotion Tags",
+            "default": []
+          },
+          "interest_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Interest Tags",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "collect_count",
+          "play_count",
+          "hot",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AlbumOut",
+        "description": "专辑详情输出。"
+      },
+      "AlbumUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "author_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Ids"
+          }
+        },
+        "type": "object",
+        "title": "AlbumUpdate",
+        "description": "管理员修改专辑信息的请求体（不含文件和标签编辑）。"
+      },
+      "AuthorOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "ordinal"
+        ],
+        "title": "AuthorOut",
+        "description": "音乐作者输出。"
+      },
+      "Body_admin_update_album_covers_api_v1_albums_admin__album_id__covers_patch": {
+        "properties": {
+          "cover_icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon"
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover"
+          }
+        },
+        "type": "object",
+        "title": "Body_admin_update_album_covers_api_v1_albums_admin__album_id__covers_patch"
+      },
+      "Body_admin_update_music_api_v1_music_admin__music_id__patch": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "style_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Id"
+          },
+          "language_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Id"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date",
+            "description": "格式: YYYY-MM-DD"
+          },
+          "is_vip": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Vip"
+          },
+          "author_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Ids"
+          },
+          "instrument_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Ids"
+          },
+          "emotion_tag_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emotion Tag Ids"
+          },
+          "interest_tag_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interest Tag Ids"
+          },
+          "audio_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio File"
+          },
+          "cover_icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon"
+          },
+          "cover_home": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Home"
+          },
+          "cover_play": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Play"
+          },
+          "lyrics_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lyrics File"
+          }
+        },
+        "type": "object",
+        "title": "Body_admin_update_music_api_v1_music_admin__music_id__patch"
+      },
+      "Body_create_album_api_v1_albums_admin_post": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "cover_icon": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Cover Icon"
+          },
+          "cover": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Cover"
+          },
+          "author_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Author Ids",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "cover_icon",
+          "cover"
+        ],
+        "title": "Body_create_album_api_v1_albums_admin_post"
+      },
+      "Body_create_playlist_api_v1_playlists__post": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private",
+            "default": false
+          },
+          "cover_icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "Body_create_playlist_api_v1_playlists__post"
+      },
+      "Body_create_space_post_api_v1_space_posts__post": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private",
+            "default": false
+          },
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Body_create_space_post_api_v1_space_posts__post"
+      },
+      "Body_import_music_api_v1_music_admin_import_post": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "audio_file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio File"
+          },
+          "cover_icon": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Cover Icon"
+          },
+          "is_vip": {
+            "type": "boolean",
+            "title": "Is Vip",
+            "default": false
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "style_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Id"
+          },
+          "language_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Id"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date",
+            "description": "格式: YYYY-MM-DD"
+          },
+          "author_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Author Ids",
+            "default": []
+          },
+          "instrument_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Instrument Ids",
+            "default": []
+          },
+          "emotion_tag_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Emotion Tag Ids",
+            "default": []
+          },
+          "interest_tag_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Interest Tag Ids",
+            "default": []
+          },
+          "cover_home": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Home"
+          },
+          "cover_play": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Play"
+          },
+          "lyrics_file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lyrics File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "audio_file",
+          "cover_icon"
+        ],
+        "title": "Body_import_music_api_v1_music_admin_import_post"
+      },
+      "Body_register_api_v1_auth_register_post": {
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Nickname"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 6,
+            "title": "Password"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "gender": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Gender",
+            "default": 0
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "nickname",
+          "password"
+        ],
+        "title": "Body_register_api_v1_auth_register_post"
+      },
+      "Body_update_me_api_v1_users_me_patch": {
+        "properties": {
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          }
+        },
+        "type": "object",
+        "title": "Body_update_me_api_v1_users_me_patch"
+      },
+      "CommentCreate": {
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "title": "Target Type"
+          },
+          "target_id": {
+            "type": "integer",
+            "title": "Target Id"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_type",
+          "target_id",
+          "content"
+        ],
+        "title": "CommentCreate",
+        "description": "发表评论的请求体。"
+      },
+      "CommentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "user": {
+            "$ref": "#/components/schemas/CommentUserOut"
+          },
+          "like_count": {
+            "type": "integer",
+            "title": "Like Count"
+          },
+          "dislike_count": {
+            "type": "integer",
+            "title": "Dislike Count"
+          },
+          "reply_count": {
+            "type": "integer",
+            "title": "Reply Count"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "root_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Id"
+          },
+          "is_nested_reply": {
+            "type": "boolean",
+            "title": "Is Nested Reply"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "content",
+          "user",
+          "like_count",
+          "dislike_count",
+          "reply_count",
+          "is_nested_reply",
+          "created_at"
+        ],
+        "title": "CommentOut",
+        "description": "评论详情输出。"
+      },
+      "CommentUserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname"
+        ],
+        "title": "CommentUserOut",
+        "description": "评论中嵌套的用户精简信息。"
+      },
+      "DictionaryItemCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "DictionaryItemCreate",
+        "description": "创建字典项的请求体。"
+      },
+      "DictionaryItemListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "DictionaryItemListOut",
+        "description": "字典项分页列表输出模型。"
+      },
+      "DictionaryItemOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "DictionaryItemOut",
+        "description": "字典项输出模型。"
+      },
+      "DictionaryItemUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "DictionaryItemUpdate",
+        "description": "更新字典项的请求体。"
+      },
+      "FollowCreate": {
+        "properties": {
+          "followee_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Followee Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "followee_id"
+        ],
+        "title": "FollowCreate",
+        "description": "关注操作请求 Schema。"
+      },
+      "FolloweeOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "level",
+          "is_verified"
+        ],
+        "title": "FolloweeOut",
+        "description": "关注对象（被关注者）列表项输出 Schema。"
+      },
+      "FollowerOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "level"
+        ],
+        "title": "FollowerOut",
+        "description": "粉丝列表项输出 Schema。"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InstrumentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "InstrumentOut",
+        "description": "乐器输出。"
+      },
+      "MusicCollectionOut": {
+        "properties": {
+          "music": {
+            "$ref": "#/components/schemas/MusicListOut"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "music",
+          "created_at"
+        ],
+        "title": "MusicCollectionOut",
+        "description": "音乐收藏项输出。"
+      },
+      "MusicListOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_vip": {
+            "type": "boolean",
+            "title": "Is Vip"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorOut"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_vip",
+          "hot",
+          "play_count",
+          "created_at"
+        ],
+        "title": "MusicListOut",
+        "description": "音乐列表项输出（精简）。"
+      },
+      "MusicOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_vip": {
+            "type": "boolean",
+            "title": "Is Vip"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TagOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collect_count": {
+            "type": "integer",
+            "title": "Collect Count"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "comment_count": {
+            "type": "integer",
+            "title": "Comment Count"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "file_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Url"
+          },
+          "lyrics_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lyrics Url"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "cover_home_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Home Url"
+          },
+          "cover_play_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Play Url"
+          },
+          "authors": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorOut"
+            },
+            "type": "array",
+            "title": "Authors",
+            "default": []
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentOut"
+            },
+            "type": "array",
+            "title": "Instruments",
+            "default": []
+          },
+          "emotion_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Emotion Tags",
+            "default": []
+          },
+          "interest_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Interest Tags",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_vip",
+          "collect_count",
+          "hot",
+          "comment_count",
+          "play_count",
+          "is_published",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MusicOut",
+        "description": "音乐详情输出。"
+      },
+      "PaginatedAdminAlbumListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAlbumListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedAdminAlbumListOut",
+        "description": "管理员专辑列表分页响应 Schema。"
+      },
+      "PaginatedAdminMusicListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMusicListOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedAdminMusicListOut",
+        "description": "管理员音乐列表分页响应 Schema。"
+      },
+      "PaginatedAlbumCollectionOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumCollectionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedAlbumCollectionOut",
+        "description": "专辑收藏列表分页响应 Schema。"
+      },
+      "PaginatedAlbumListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AlbumListOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedAlbumListOut",
+        "description": "专辑列表分页响应 Schema。"
+      },
+      "PaginatedCommentOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommentOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedCommentOut",
+        "description": "评论列表分页响应 Schema。"
+      },
+      "PaginatedFolloweeOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FolloweeOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedFolloweeOut",
+        "description": "关注列表分页响应 Schema。"
+      },
+      "PaginatedFollowerOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FollowerOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedFollowerOut",
+        "description": "粉丝列表分页响应 Schema。"
+      },
+      "PaginatedMusicCollectionOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MusicCollectionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedMusicCollectionOut",
+        "description": "音乐收藏列表分页响应 Schema。"
+      },
+      "PaginatedMusicListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MusicListOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedMusicListOut",
+        "description": "音乐列表分页响应 Schema。"
+      },
+      "PaginatedPlayHistoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlayHistoryOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedPlayHistoryOut",
+        "description": "播放历史列表分页响应 Schema。"
+      },
+      "PaginatedPlaylistCollectionOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlaylistCollectionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedPlaylistCollectionOut",
+        "description": "歌单收藏列表分页响应 Schema。"
+      },
+      "PaginatedPlaylistListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlaylistListOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedPlaylistListOut",
+        "description": "歌单列表分页响应 Schema。"
+      },
+      "PaginatedReleaseOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedReleaseOut",
+        "description": "已发布音乐列表分页响应 Schema。"
+      },
+      "PaginatedSpacePostListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SpacePostListOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedSpacePostListOut",
+        "description": "动态列表分页响应 Schema。"
+      },
+      "PaginatedUserAdminOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserMeOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedUserAdminOut",
+        "description": "管理员用户列表分页响应 Schema。"
+      },
+      "PaginatedUserSearchOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserSearchOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PaginatedUserSearchOut",
+        "description": "用户搜索分页响应 Schema。"
+      },
+      "PlayHistoryCreate": {
+        "properties": {
+          "music_id": {
+            "type": "integer",
+            "title": "Music Id"
+          },
+          "playlist_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playlist Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "music_id"
+        ],
+        "title": "PlayHistoryCreate",
+        "description": "记录播放历史的请求体。"
+      },
+      "PlayHistoryMusicOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "PlayHistoryMusicOut",
+        "description": "播放历史中嵌套的音乐精简信息。"
+      },
+      "PlayHistoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "played_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Played At"
+          },
+          "music": {
+            "$ref": "#/components/schemas/PlayHistoryMusicOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "played_at",
+          "music"
+        ],
+        "title": "PlayHistoryOut",
+        "description": "单条播放历史输出。"
+      },
+      "PlaylistCollectionOut": {
+        "properties": {
+          "playlist": {
+            "$ref": "#/components/schemas/PlaylistListOut"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "playlist",
+          "created_at"
+        ],
+        "title": "PlaylistCollectionOut",
+        "description": "歌单收藏项输出。"
+      },
+      "PlaylistListOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PlaylistUserOut"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_private",
+          "user",
+          "created_at"
+        ],
+        "title": "PlaylistListOut",
+        "description": "歌单列表项输出（精简）。"
+      },
+      "PlaylistMusicOut": {
+        "properties": {
+          "music": {
+            "$ref": "#/components/schemas/MusicListOut"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "music",
+          "ordinal"
+        ],
+        "title": "PlaylistMusicOut",
+        "description": "歌单内嵌套的音乐关联输出。"
+      },
+      "PlaylistOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private"
+          },
+          "cover_icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Icon Url"
+          },
+          "collect_count": {
+            "type": "integer",
+            "title": "Collect Count"
+          },
+          "play_count": {
+            "type": "integer",
+            "title": "Play Count"
+          },
+          "hot": {
+            "type": "integer",
+            "title": "Hot"
+          },
+          "comment_count": {
+            "type": "integer",
+            "title": "Comment Count"
+          },
+          "is_like": {
+            "type": "boolean",
+            "title": "Is Like"
+          },
+          "is_recommended": {
+            "type": "boolean",
+            "title": "Is Recommended"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PlaylistUserOut"
+          },
+          "musics": {
+            "items": {
+              "$ref": "#/components/schemas/PlaylistMusicOut"
+            },
+            "type": "array",
+            "title": "Musics",
+            "default": []
+          },
+          "emotion_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Emotion Tags",
+            "default": []
+          },
+          "interest_tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Interest Tags",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_private",
+          "collect_count",
+          "play_count",
+          "hot",
+          "comment_count",
+          "is_like",
+          "is_recommended",
+          "user",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlaylistOut",
+        "description": "歌单详情输出。"
+      },
+      "PlaylistUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_private": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Private"
+          }
+        },
+        "type": "object",
+        "title": "PlaylistUpdate",
+        "description": "修改歌单信息的请求体（不含封面替换和标签编辑）。"
+      },
+      "PlaylistUserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname"
+        ],
+        "title": "PlaylistUserOut",
+        "description": "歌单中嵌套的用户精简信息。"
+      },
+      "ReleaseOut": {
+        "properties": {
+          "music": {
+            "$ref": "#/components/schemas/MusicListOut"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "music",
+          "created_at"
+        ],
+        "title": "ReleaseOut",
+        "description": "已发布音乐标记项输出。"
+      },
+      "SpacePostImageOut": {
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_url",
+          "ordinal"
+        ],
+        "title": "SpacePostImageOut",
+        "description": "动态图片输出。"
+      },
+      "SpacePostListOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private"
+          },
+          "comment_count": {
+            "type": "integer",
+            "title": "Comment Count"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/SpacePostImageOut"
+            },
+            "type": "array",
+            "title": "Images",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "is_private",
+          "comment_count",
+          "created_at"
+        ],
+        "title": "SpacePostListOut",
+        "description": "动态列表项输出（精简）。"
+      },
+      "SpacePostOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private"
+          },
+          "comment_count": {
+            "type": "integer",
+            "title": "Comment Count"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/SpacePostImageOut"
+            },
+            "type": "array",
+            "title": "Images",
+            "default": []
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "is_private",
+          "comment_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SpacePostOut",
+        "description": "动态详情输出。"
+      },
+      "TagOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TagOut",
+        "description": "标签输出。"
+      },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "Token",
+        "description": "认证令牌响应 Schema。"
+      },
+      "TokenRefresh": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "TokenRefresh",
+        "description": "令牌刷新请求 Schema。"
+      },
+      "UserAdminCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 3,
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Nickname"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 6,
+            "title": "Password"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "gender": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "title": "Gender",
+            "default": 0
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "role": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "title": "Role",
+            "default": 0
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "title": "Status",
+            "default": 0
+          },
+          "safety_score": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Safety Score",
+            "default": 10
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified",
+            "default": false
+          },
+          "exp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Exp",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "nickname",
+          "password"
+        ],
+        "title": "UserAdminCreate",
+        "description": "管理员创建用户 Schema，支持指定更多字段。"
+      },
+      "UserAdminUpdate": {
+        "properties": {
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2,
+                  3
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2,
+                  3
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "safety_score": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Score"
+          },
+          "is_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Verified"
+          },
+          "exp": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exp"
+          },
+          "banned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banned At"
+          },
+          "ban_duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ban Duration"
+          }
+        },
+        "type": "object",
+        "title": "UserAdminUpdate",
+        "description": "管理员更新用户信息 Schema。"
+      },
+      "UserBanAction": {
+        "properties": {
+          "status": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Status"
+          },
+          "ban_duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ban Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "UserBanAction",
+        "description": "用户封禁操作 Schema。"
+      },
+      "UserLogin": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 6,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "UserLogin",
+        "description": "用户登录请求 Schema。"
+      },
+      "UserMeOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "gender": {
+            "type": "integer",
+            "title": "Gender"
+          },
+          "role": {
+            "type": "integer",
+            "title": "Role"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "exp": {
+            "type": "integer",
+            "title": "Exp"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          },
+          "like_count": {
+            "type": "integer",
+            "title": "Like Count"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "safety_score": {
+            "type": "integer",
+            "title": "Safety Score"
+          },
+          "is_deleted": {
+            "type": "boolean",
+            "title": "Is Deleted"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "banned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banned At"
+          },
+          "ban_duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ban Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "gender",
+          "role",
+          "level",
+          "exp",
+          "is_verified",
+          "like_count",
+          "status",
+          "safety_score",
+          "is_deleted"
+        ],
+        "title": "UserMeOut",
+        "description": "当前登录用户完整信息输出 Schema。"
+      },
+      "UserPublicOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "gender": {
+            "type": "integer",
+            "title": "Gender"
+          },
+          "role": {
+            "type": "integer",
+            "title": "Role"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "exp": {
+            "type": "integer",
+            "title": "Exp"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "birth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          },
+          "like_count": {
+            "type": "integer",
+            "title": "Like Count"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "gender",
+          "role",
+          "level",
+          "exp",
+          "is_verified",
+          "like_count"
+        ],
+        "title": "UserPublicOut",
+        "description": "其他用户公开信息输出 Schema。"
+      },
+      "UserSearchOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "nickname": {
+            "type": "string",
+            "title": "Nickname"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "level",
+          "is_verified"
+        ],
+        "title": "UserSearchOut",
+        "description": "用户搜索结果列表项输出 Schema。"
+      },
+      "UserTagOut": {
+        "properties": {
+          "tag_id": {
+            "type": "integer",
+            "title": "Tag Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tag_id",
+          "name",
+          "created_at"
+        ],
+        "title": "UserTagOut",
+        "description": "用户标签偏好输出（情感/兴趣通用）。"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/login"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "dictionary"
+    }
+  ]
+}

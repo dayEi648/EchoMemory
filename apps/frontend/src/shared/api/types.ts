@@ -104,6 +104,23 @@ export type UserAdminUpdate = {
   ban_duration?: string | null;
 };
 
+export type UserAdminCreateInput = {
+  username: string;
+  nickname: string;
+  password: string;
+  email?: string;
+  phone?: string;
+  gender?: number;
+  birth?: string;
+  bio?: string;
+  city?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  safety_score?: number;
+  is_verified?: boolean;
+  exp?: number;
+};
+
 export type PaginatedUsers = {
   items: UserMe[];
   total: number;

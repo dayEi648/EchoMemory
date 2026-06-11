@@ -273,8 +273,9 @@ describe("App", () => {
 
     renderApp({ tokenStore, initialEntries: ["/playlists"] });
 
-    expect(await screen.findByText("播放列表广场")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "我的歌单", level: 1 })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "暂无歌单" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "全部" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/playlists/"), expect.anything());
   });
 

@@ -94,7 +94,7 @@ export const DiscoverPage = () => {
       }
     }
     if (tracks.length > 0) {
-      playQueue(tracks, 0);
+      playQueue(tracks, 0, { type: "temporary" });
     } else {
       toast.error("暂无可播放的歌曲");
     }

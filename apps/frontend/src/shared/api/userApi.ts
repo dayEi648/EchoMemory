@@ -6,6 +6,7 @@ import type {
   TokenResponse,
   UpdateMeInput,
   UserAdminUpdate,
+  UserAdminCreateInput,
   UserMe,
   UserPublic,
   PaginatedUserSearch,
@@ -134,6 +135,12 @@ export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     adminGetUserFull: (userId: number) => request<UserMe>(`/users/${userId}/admin`),
     adminDeleteUser: (userId: number) =>
       request<void>(`/users/${userId}/admin`, { method: "DELETE" }),
+    adminCreateUser: (input: UserAdminCreateInput) =>
+      request<UserMe>("/users/admin/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
     logout: async () => {
       const tokens = tokenStore.get();
       if (!tokens) return;

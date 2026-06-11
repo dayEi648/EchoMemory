@@ -15,6 +15,7 @@ SEARCH_URL = f"{BASE}/"
 FOLLOW_URL = f"{BASE}/follow"
 UNFOLLOW_URL = f"{BASE}/unfollow"
 ADMIN_LIST_URL = f"{BASE}/admin/list"
+ADMIN_CREATE_URL = f"{BASE}/admin/create"
 
 
 def _make_image_bytes() -> bytes:
@@ -341,5 +342,148 @@ class TestAdmin:
             f"{BASE}/{sa2.id}/ban",
             headers=_auth_header(sa1),
             json={"status": UserStatus.BANNED.value},
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_create_user_success(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员创建普通用户成功。"""
+        admin = await _create_user(db_session, "admin_creator", role=UserRole.ADMIN.value)
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(admin),
+            json={
+                "username": "newuser1",
+                "nickname": "New User",
+                "password": "password123",
+                "email": "new@example.com",
+                "role": UserRole.USER.value,
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["username"] == "newuser1"
+        assert data["nickname"] == "New User"
+        assert data["role"] == UserRole.USER.value
+        assert data["email"] == "new@example.com"
+
+    async def test_admin_create_user_with_full_fields(self, client: TestClient, db_session: AsyncSession):
+        """测试超级管理员创建用户并指定所有可选字段。"""
+        super_admin = await _create_user(db_session, "sa_creator", role=UserRole.SUPER_ADMIN.value)
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(super_admin),
+            json={
+                "username": "fulluser",
+                "nickname": "Full User",
+                "password": "password123",
+                "email": "full@example.com",
+                "phone": "13800138000",
+                "gender": 1,
+                "birth": "2000-01-01",
+                "bio": "Test bio",
+                "city": "Beijing",
+                "role": UserRole.ADMIN.value,
+                "status": UserStatus.ACTIVE.value,
+                "safety_score": 8,
+                "is_verified": True,
+                "exp": 100,
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["username"] == "fulluser"
+        assert data["role"] == UserRole.ADMIN.value
+        assert data["safety_score"] == 8
+        assert data["is_verified"] is True
+        assert data["exp"] == 100
+
+    async def test_admin_cannot_create_admin_user(self, client: TestClient, db_session: AsyncSession):
+        """测试普通管理员不能创建管理员角色的用户。"""
+        admin = await _create_user(db_session, "admin_limited2", role=UserRole.ADMIN.value)
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(admin),
+            json={
+                "username": "shouldfail",
+                "nickname": "Should Fail",
+                "password": "password123",
+                "role": UserRole.ADMIN.value,
+            },
+        )
+        assert resp.status_code == 403
+
+    async def test_admin_cannot_create_super_admin_user(self, client: TestClient, db_session: AsyncSession):
+        """测试普通管理员不能创建超级管理员角色的用户。"""
+        admin = await _create_user(db_session, "admin_limited3", role=UserRole.ADMIN.value)
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(admin),
+            json={
+                "username": "shouldfail2",
+                "nickname": "Should Fail 2",
+                "password": "password123",
+                "role": UserRole.SUPER_ADMIN.value,
+            },
+        )
+        assert resp.status_code == 403
+
+    async def test_super_admin_can_create_admin_user(self, client: TestClient, db_session: AsyncSession):
+        """测试超级管理员可以创建管理员角色的用户。"""
+        super_admin = await _create_user(db_session, "sa_grant", role=UserRole.SUPER_ADMIN.value)
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(super_admin),
+            json={
+                "username": "newadmin",
+                "nickname": "New Admin",
+                "password": "password123",
+                "role": UserRole.ADMIN.value,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["role"] == UserRole.ADMIN.value
+
+    async def test_admin_create_duplicate_username(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员创建用户名已存在的用户返回 409。"""
+        admin = await _create_user(db_session, "admin_dup", role=UserRole.ADMIN.value)
+        await _create_user(db_session, "existing_user")
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(admin),
+            json={
+                "username": "existing_user",
+                "nickname": "Duplicate",
+                "password": "password123",
+            },
+        )
+        assert resp.status_code == 409
+
+    async def test_admin_create_duplicate_email(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员创建邮箱已存在的用户返回 409。"""
+        admin = await _create_user(db_session, "admin_dup_email", role=UserRole.ADMIN.value)
+        await _create_user(db_session, "email_owner2", email="dup@example.com")
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(admin),
+            json={
+                "username": "newuser_email",
+                "nickname": "New User",
+                "password": "password123",
+                "email": "dup@example.com",
+            },
+        )
+        assert resp.status_code == 409
+
+    async def test_normal_user_cannot_create_user_via_admin(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户不能通过管理员接口创建用户。"""
+        user = await _create_user(db_session, "normal_user2")
+        resp = client.post(
+            ADMIN_CREATE_URL,
+            headers=_auth_header(user),
+            json={
+                "username": "shouldfail3",
+                "nickname": "Should Fail 3",
+                "password": "password123",
+            },
         )
         assert resp.status_code == 403

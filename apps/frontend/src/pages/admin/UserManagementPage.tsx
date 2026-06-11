@@ -8,12 +8,13 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { useAuthStore } from "../../shared/stores/authStore";
-import type { UserMe, UserAdminUpdate } from "../../shared/api/types";
+import type { UserMe, UserAdminUpdate, UserAdminCreateInput } from "../../shared/api/types";
 import { Avatar } from "../../components/ui/Avatar";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
@@ -101,10 +102,25 @@ export const UserManagementPage = () => {
   const [editUser, setEditUser] = useState<UserMe | null>(null);
   const [banUser, setBanUser] = useState<UserMe | null>(null);
   const [deleteUser, setDeleteUser] = useState<UserMe | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // 编辑表单
   const [editForm, setEditForm] = useState<UserAdminUpdate>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // 创建用户表单
+  const [createForm, setCreateForm] = useState<UserAdminCreateInput>({
+    username: "",
+    nickname: "",
+    password: "",
+    gender: 0,
+    role: 0,
+    status: 0,
+    safety_score: 10,
+    is_verified: false,
+    exp: 0,
+  });
+  const [createSubmitting, setCreateSubmitting] = useState(false);
 
   // 封禁表单
   const [banStatus, setBanStatus] = useState<1 | 2 | 3>(3);
@@ -221,10 +237,59 @@ export const UserManagementPage = () => {
     }
   };
 
+  const handleCreateSubmit = async () => {
+    if (!createForm.username || !createForm.nickname || !createForm.password) return;
+    setCreateSubmitting(true);
+    try {
+      const newUser = await api.adminCreateUser(createForm);
+      setUsers((prev) => [newUser, ...prev]);
+      setTotal((t) => t + 1);
+      toast.success("用户创建成功");
+      setCreateModalOpen(false);
+      setCreateForm({
+        username: "",
+        nickname: "",
+        password: "",
+        gender: 0,
+        role: 0,
+        status: 0,
+        safety_score: 10,
+        is_verified: false,
+        exp: 0,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "创建失败");
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  /** 根据当前管理员角色返回可创建的角色选项。
+   * - 超级管理员可创建所有角色
+   * - 普通管理员只能创建普通用户和VIP
+   */
+  const getCreatableRoles = (): UserMe["role"][] => {
+    if (currentUser?.role === 3) return [0, 1, 2, 3];
+    return [0, 1];
+  };
+
   return (
     <div>
       <FadeIn>
-        <h1 className="page-title">用户管理</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h1 className="page-title" style={{ margin: 0 }}>用户管理</h1>
+          <motion.button
+            className="primary-button"
+            onClick={() => setCreateModalOpen(true)}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
+          >
+            <Plus size={16} />
+            创建用户
+          </motion.button>
+        </div>
       </FadeIn>
 
       <FadeIn delay={0.08}>
@@ -749,6 +814,172 @@ export const UserManagementPage = () => {
             </label>
           </div>
         )}
+      </Modal>
+
+      {/* 创建用户弹窗 */}
+      <Modal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        title="创建用户"
+        maxWidth={560}
+        footer={
+          <>
+            <motion.button
+              className="ghost-button"
+              onClick={() => setCreateModalOpen(false)}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+            >
+              取消
+            </motion.button>
+            <motion.button
+              className="primary-button"
+              onClick={handleCreateSubmit}
+              disabled={
+                createSubmitting ||
+                !createForm.username ||
+                !createForm.nickname ||
+                !createForm.password
+              }
+              whileTap={{ scale: 0.97 }}
+              type="button"
+            >
+              {createSubmitting ? "创建中..." : "创建用户"}
+            </motion.button>
+          </>
+        }
+      >
+        <div className="form-stack">
+          <label>
+            用户名 *
+            <input
+              value={createForm.username}
+              onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
+              placeholder="3-32 位字符"
+              required
+            />
+          </label>
+          <label>
+            昵称 *
+            <input
+              value={createForm.nickname}
+              onChange={(e) => setCreateForm((f) => ({ ...f, nickname: e.target.value }))}
+              placeholder="1-32 位字符"
+              required
+            />
+          </label>
+          <label>
+            密码 *
+            <input
+              type="password"
+              value={createForm.password}
+              onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="至少 6 位"
+              required
+            />
+          </label>
+          <label>
+            邮箱
+            <input
+              type="email"
+              value={createForm.email ?? ""}
+              onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value || undefined }))}
+            />
+          </label>
+          <label>
+            手机号
+            <input
+              value={createForm.phone ?? ""}
+              onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value || undefined }))}
+            />
+          </label>
+          <label>
+            性别
+            <select
+              value={String(createForm.gender ?? 0)}
+              onChange={(e) => setCreateForm((f) => ({ ...f, gender: Number(e.target.value) }))}
+            >
+              <option value="0">未知</option>
+              <option value="1">男</option>
+              <option value="2">女</option>
+            </select>
+          </label>
+          <label>
+            生日
+            <input
+              type="date"
+              value={createForm.birth ?? ""}
+              onChange={(e) => setCreateForm((f) => ({ ...f, birth: e.target.value || undefined }))}
+            />
+          </label>
+          <label>
+            城市
+            <input
+              value={createForm.city ?? ""}
+              onChange={(e) => setCreateForm((f) => ({ ...f, city: e.target.value || undefined }))}
+            />
+          </label>
+          <label>
+            简介
+            <textarea
+              rows={3}
+              value={createForm.bio ?? ""}
+              onChange={(e) => setCreateForm((f) => ({ ...f, bio: e.target.value || undefined }))}
+            />
+          </label>
+          <label>
+            角色
+            <select
+              value={String(createForm.role ?? 0)}
+              onChange={(e) => setCreateForm((f) => ({ ...f, role: Number(e.target.value) as UserMe["role"] }))}
+            >
+              {getCreatableRoles().map((r) => (
+                <option key={r} value={r}>
+                  {roleLabel[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            状态
+            <select
+              value={String(createForm.status ?? 0)}
+              onChange={(e) => setCreateForm((f) => ({ ...f, status: Number(e.target.value) as UserMe["status"] }))}
+            >
+              <option value="0">正常</option>
+              <option value="1">临时封禁</option>
+              <option value="2">限制中</option>
+              <option value="3">已封禁</option>
+            </select>
+          </label>
+          <label>
+            安全分
+            <input
+              type="number"
+              min={0}
+              max={10}
+              value={createForm.safety_score ?? 10}
+              onChange={(e) => setCreateForm((f) => ({ ...f, safety_score: Number(e.target.value) }))}
+            />
+          </label>
+          <label>
+            经验值
+            <input
+              type="number"
+              min={0}
+              value={createForm.exp ?? 0}
+              onChange={(e) => setCreateForm((f) => ({ ...f, exp: Number(e.target.value) }))}
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={createForm.is_verified ?? false}
+              onChange={(e) => setCreateForm((f) => ({ ...f, is_verified: e.target.checked }))}
+            />
+            <span style={{ fontSize: 13 }}>已认证</span>
+          </label>
+        </div>
       </Modal>
     </div>
   );

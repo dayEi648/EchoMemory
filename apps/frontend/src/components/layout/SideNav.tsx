@@ -8,7 +8,7 @@ import type { PlaylistListItem } from "../../shared/api/types";
 
 const mainLinks = [
   { to: "/", icon: Compass, label: "发现音乐" },
-  { to: "/playlists", icon: LayoutList, label: "播放列表" },
+  { to: "/playlists", icon: LayoutList, label: "我的歌单" },
   { to: "/library", icon: Heart, label: "我的收藏" },
   { to: "/history", icon: Clock, label: "最近播放" },
   { to: "/echo", icon: Sparkles, label: "AI 回声" },
