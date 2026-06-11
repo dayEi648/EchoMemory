@@ -14,6 +14,7 @@ from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
+from echomemory_backend.services.playlist_service import DEFAULT_LIKE_PLAYLIST_TITLE
 
 BASE_URL = "/api/v1/playlists"
 
@@ -69,12 +70,14 @@ async def _create_playlist_directly(
     title: str = "TestPlaylist",
     is_private: bool = False,
     cover_icon_url: str | None = None,
+    is_like: bool = False,
 ) -> Playlist:
     playlist = Playlist(
         title=title,
         user_id=user_id,
         is_private=is_private,
         cover_icon_url=cover_icon_url,
+        is_like=is_like,
     )
     db.add(playlist)
     await db.commit()
@@ -390,6 +393,23 @@ class TestDeletePlaylist:
 
         resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(hacker))
         assert resp.status_code == 403
+
+    async def test_delete_like_playlist_forbidden(self, client: TestClient, db_session: AsyncSession):
+        """测试系统默认「我喜欢的音乐」歌单不可删除。"""
+        user = await _create_user(db_session, "delete_like_user")
+        playlist = await _create_playlist_directly(
+            db_session,
+            user.id,
+            title=DEFAULT_LIKE_PLAYLIST_TITLE,
+            is_private=True,
+            is_like=True,
+        )
+
+        resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 403
+
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

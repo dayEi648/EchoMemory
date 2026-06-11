@@ -19,6 +19,7 @@ import { Avatar } from "../../components/ui/Avatar";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { PaginationBar } from "../../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../../components/layout/PaginatedPageLayout";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 
@@ -274,7 +275,10 @@ export const UserManagementPage = () => {
   };
 
   return (
-    <div>
+    <>
+      <PaginatedPageLayout
+        header={(
+          <>
       <FadeIn>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h1 className="page-title" style={{ margin: 0 }}>用户管理</h1>
@@ -395,7 +399,22 @@ export const UserManagementPage = () => {
           </div>
         </div>
       </FadeIn>
-
+          </>
+        )}
+        footer={
+          users.length > 0 && (totalPages > 1 || total > 0) ? (
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+              loading={loading}
+              total={total}
+            />
+          ) : undefined
+        }
+      >
       {users.length > 0 ? (
         <FadeIn delay={0.15}>
           <div className="admin-table-container">
@@ -504,18 +523,6 @@ export const UserManagementPage = () => {
               ))}
             </StaggerContainer>
           </div>
-
-          {(totalPages > 1 || total > 0) && (
-            <PaginationBar
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              pageSize={pageSize}
-              onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
-              loading={loading}
-              total={total}
-            />
-          )}
         </FadeIn>
       ) : (
         <FadeIn delay={0.15}>
@@ -526,6 +533,7 @@ export const UserManagementPage = () => {
           />
         </FadeIn>
       )}
+      </PaginatedPageLayout>
 
       {/* 查看详情弹窗 */}
       <Modal
@@ -981,6 +989,6 @@ export const UserManagementPage = () => {
           </label>
         </div>
       </Modal>
-    </div>
+    </>
   );
 };

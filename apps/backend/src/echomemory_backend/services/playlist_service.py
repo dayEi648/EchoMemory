@@ -24,6 +24,8 @@ from echomemory_backend.services.dictionary_reference_service import (
     validate_interest_tags_exist,
 )
 
+DEFAULT_LIKE_PLAYLIST_TITLE = "我喜欢的音乐"
+
 
 async def _set_playlist_emotion_tags(
     db: AsyncSession, playlist: Playlist, tag_ids: list[int]
@@ -114,6 +116,47 @@ async def _sync_playlist_tags_from_musics(
         db.add(PlaylistInterestTag(playlist_id=playlist_id, interest_tag_id=tag_id))
 
 
+async def create_default_like_playlist(
+    db: AsyncSession, user_id: int, *, commit: bool = True
+) -> Playlist:
+    """为新用户创建默认的「我喜欢的音乐」私密系统歌单。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键 ID。
+        commit: 是否立即提交事务，默认 True。
+
+    Returns:
+        创建或已存在的系统喜欢歌单实例。
+
+    Raises:
+        BusinessError: 数据库唯一约束冲突时抛出，状态码 409。
+    """
+    stmt = select(Playlist.id).where(
+        Playlist.user_id == user_id,
+        Playlist.is_like.is_(True),
+    )
+    existing_id = (await db.execute(stmt)).scalar_one_or_none()
+    if existing_id is not None:
+        existing = await db.get(Playlist, existing_id)
+        assert existing is not None
+        return existing
+
+    playlist = Playlist(
+        title=DEFAULT_LIKE_PLAYLIST_TITLE,
+        user_id=user_id,
+        is_private=True,
+        is_like=True,
+    )
+    db.add(playlist)
+    if commit:
+        await db.commit()
+        await db.refresh(playlist)
+    else:
+        await db.flush()
+    return playlist
+
+
 async def create_playlist(
     db: AsyncSession,
     *,
@@ -199,7 +242,7 @@ async def list_user_playlists(
     stmt = (
         select(Playlist)
         .where(*where_clause)
-        .order_by(desc(Playlist.created_at))
+        .order_by(desc(Playlist.is_like), desc(Playlist.created_at))
         .limit(limit)
         .offset(offset)
         .options(selectinload(Playlist.user))
@@ -232,7 +275,16 @@ async def update_playlist(
 
     Returns:
         更新后的歌单实例。
+
+    Raises:
+        BusinessError: 系统喜欢歌单不允许修改标题或公开时抛出，状态码 403。
     """
+    if playlist.is_like:
+        if title is not None and title != playlist.title:
+            raise BusinessError("系统歌单不可修改标题", 403)
+        if is_private is not None and not is_private:
+            raise BusinessError("系统歌单必须保持私密", 403)
+
     if title is not None:
         playlist.title = title
     if description is not None:
@@ -256,7 +308,13 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
 
     Returns:
         None。
+
+    Raises:
+        BusinessError: 系统喜欢歌单不可删除时抛出，状态码 403。
     """
+    if playlist.is_like:
+        raise BusinessError("系统歌单不可删除", 403)
+
     # 若 musics 已被加载到 session（如通过 selectinload），显式删除以避免 ORM 级联冲突
     if hasattr(playlist, "musics") and playlist.musics:
         for pm in list(playlist.musics):

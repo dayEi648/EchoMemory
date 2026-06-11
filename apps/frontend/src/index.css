@@ -749,6 +749,32 @@ textarea {
   background: var(--color-bg);
 }
 
+/* 分页列表页：短内容时将分页栏推至可视区域底部 */
+.paginated-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.paginated-page__header {
+  flex-shrink: 0;
+}
+
+.paginated-page__body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.paginated-page__footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.paginated-page__footer .pagination-bar {
+  margin-top: 0;
+}
+
 .main-content.page-enter {
   animation: page-fade-in 0.25s ease;
 }
@@ -1461,6 +1487,10 @@ textarea {
   overflow-y: auto;
   padding: 24px 28px;
   background: var(--color-bg);
+}
+
+.admin-content > div {
+  min-height: 100%;
 }
 
 /* Admin Table */

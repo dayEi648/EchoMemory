@@ -258,16 +258,6 @@ export const MusicDetailPage = () => {
         </div>
       </FadeIn>
 
-      {/* Comments */}
-      {music && (
-        <FadeIn delay={0.2}>
-          <section style={{ marginBottom: 32 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({music.comment_count})</h3>
-            <CommentSection targetType="music" targetId={music.id} />
-          </section>
-        </FadeIn>
-      )}
-
       {/* Related Songs */}
       {related.length > 0 && (
         <FadeIn delay={0.15}>
@@ -297,6 +287,16 @@ export const MusicDetailPage = () => {
               </StaggerItem>
             ))}
           </StaggerContainer>
+        </FadeIn>
+      )}
+
+      {/* Comments */}
+      {music && (
+        <FadeIn delay={0.2}>
+          <section style={{ marginTop: related.length > 0 ? 32 : 0 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({music.comment_count})</h3>
+            <CommentSection targetType="music" targetId={music.id} />
+          </section>
         </FadeIn>
       )}
     </div>

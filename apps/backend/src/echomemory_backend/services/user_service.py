@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.models.user import User, UserFollow
 from echomemory_backend.schemas.user import UserCreate, UserUpdate
+from echomemory_backend.services.playlist_service import create_default_like_playlist
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
@@ -100,6 +101,8 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str,
     )
     db.add(user)
     try:
+        await db.flush()
+        await create_default_like_playlist(db, user.id, commit=False)
         await db.commit()
     except IntegrityError:
         await db.rollback()

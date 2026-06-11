@@ -1,10 +1,13 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core import redis_client as rc
 from echomemory_backend.core.security import decode_access_token
 from echomemory_backend.models.enums import UserRole, UserStatus
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User
+from echomemory_backend.services.playlist_service import DEFAULT_LIKE_PLAYLIST_TITLE
 
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
@@ -54,6 +57,28 @@ class TestRegister:
         assert me_data["nickname"] == "Alice"
         assert "id" in me_data
         assert me_data["role"] == UserRole.USER.value
+
+    async def test_register_creates_default_like_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试注册成功后自动创建「我喜欢的音乐」私密系统歌单。"""
+        resp = client.post(
+            REGISTER_URL,
+            data={"username": "like_pl_user", "password": "secret123", "nickname": "Like"},
+        )
+        assert resp.status_code == 201
+        me_data = client.get(
+            ME_URL,
+            headers={"Authorization": f"Bearer {resp.json()['access_token']}"},
+        ).json()
+
+        stmt = select(Playlist).where(
+            Playlist.user_id == me_data["id"],
+            Playlist.is_like.is_(True),
+        )
+        playlist = (await db_session.execute(stmt)).scalar_one()
+        assert playlist.title == DEFAULT_LIKE_PLAYLIST_TITLE
+        assert playlist.is_private is True
 
     async def test_register_duplicate_username(self, client: TestClient):
         """测试注册时用户名已存在，返回 409。"""

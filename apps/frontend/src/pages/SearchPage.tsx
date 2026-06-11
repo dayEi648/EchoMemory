@@ -31,6 +31,7 @@ import {
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { toPlayerTrackFromListItem } from "../shared/utils";
 
 const tabs = [
@@ -195,30 +196,43 @@ export const SearchPage = () => {
     );
   }
 
+  const paginationFooter =
+    activeTab === "songs" && (songTotalPages > 1 || songTotal > 0) ? (
+      <PaginationBar page={songPage} totalPages={songTotalPages} onPageChange={setSongPage} loading={loading} total={songTotal} />
+    ) : activeTab === "albums" && (albumTotalPages > 1 || albumTotal > 0) ? (
+      <PaginationBar page={albumPage} totalPages={albumTotalPages} onPageChange={setAlbumPage} loading={loading} total={albumTotal} />
+    ) : activeTab === "users" && (userTotalPages > 1 || userTotal > 0) ? (
+      <PaginationBar page={userPage} totalPages={userTotalPages} onPageChange={setUserPage} loading={loading} total={userTotal} />
+    ) : undefined;
+
   return (
-    <div>
-      <FadeIn>
-        <h1 className="page-title">「{query}」的搜索结果</h1>
-      </FadeIn>
-
-      <FadeIn delay={0.06}>
-        <div className="search-tabs">
-          {tabs.map((tab) => (
-            <motion.button
-              key={tab.key}
-              className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              type="button"
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </motion.button>
-          ))}
-        </div>
-      </FadeIn>
-
+    <PaginatedPageLayout
+      header={(
+        <>
+          <FadeIn>
+            <h1 className="page-title">「{query}」的搜索结果</h1>
+          </FadeIn>
+          <FadeIn delay={0.06}>
+            <div className="search-tabs">
+              {tabs.map((tab) => (
+                <motion.button
+                  key={tab.key}
+                  className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.key)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </motion.button>
+              ))}
+            </div>
+          </FadeIn>
+        </>
+      )}
+      footer={paginationFooter}
+    >
       {loading ? (
         <FadeIn delay={0.12}>
           <div className="empty-state">
@@ -284,18 +298,6 @@ export const SearchPage = () => {
                       </StaggerItem>
                     ))}
                   </StaggerContainer>
-                  {/* 单曲分页（仅分类页） */}
-                  {activeTab === "songs" && (songTotalPages > 1 || songTotal > 0) && (
-                    <FadeIn delay={0.1}>
-                      <PaginationBar
-                        page={songPage}
-                        totalPages={songTotalPages}
-                        onPageChange={setSongPage}
-                        loading={loading}
-                        total={songTotal}
-                      />
-                    </FadeIn>
-                  )}
                 </>
               )}
             </section>
@@ -375,18 +377,6 @@ export const SearchPage = () => {
                       </StaggerItem>
                     ))}
                   </StaggerContainer>
-                  {/* 专辑分页（仅分类页） */}
-                  {activeTab === "albums" && (albumTotalPages > 1 || albumTotal > 0) && (
-                    <FadeIn delay={0.1}>
-                      <PaginationBar
-                        page={albumPage}
-                        totalPages={albumTotalPages}
-                        onPageChange={setAlbumPage}
-                        loading={loading}
-                        total={albumTotal}
-                      />
-                    </FadeIn>
-                  )}
                 </>
               )}
             </section>
@@ -491,24 +481,12 @@ export const SearchPage = () => {
                       </StaggerItem>
                     ))}
                   </StaggerContainer>
-                  {/* 用户分页（仅分类页） */}
-                  {activeTab === "users" && (userTotalPages > 1 || userTotal > 0) && (
-                    <FadeIn delay={0.1}>
-                      <PaginationBar
-                        page={userPage}
-                        totalPages={userTotalPages}
-                        onPageChange={setUserPage}
-                        loading={loading}
-                        total={userTotal}
-                      />
-                    </FadeIn>
-                  )}
                 </>
               )}
             </section>
           )}
         </>
       )}
-    </div>
+    </PaginatedPageLayout>
   );
 };

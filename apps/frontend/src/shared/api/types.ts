@@ -353,6 +353,7 @@ export type PlaylistListItem = {
   id: number;
   title: string;
   is_private: boolean;
+  is_like: boolean;
   cover_icon_url: string | null;
   user: PlaylistUser;
   created_at: string;

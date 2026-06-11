@@ -17,6 +17,7 @@ import type { AdminAlbumListItem, AlbumDetail, MusicListItem } from "../../share
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { PaginationBar } from "../../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../../components/layout/PaginatedPageLayout";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import {
@@ -412,7 +413,10 @@ export const AdminAlbumPage = () => {
   );
 
   return (
-    <div>
+    <>
+      <PaginatedPageLayout
+        header={(
+          <>
       {/* ========== 页面标题 + 新建按钮 ========== */}
       <FadeIn>
         <div
@@ -474,7 +478,25 @@ export const AdminAlbumPage = () => {
           </motion.button>
         </div>
       </FadeIn>
-
+          </>
+        )}
+        footer={
+          albums.length > 0 && (totalPages > 1 || total > 0) ? (
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(0);
+              }}
+              loading={loading}
+              total={total}
+            />
+          ) : undefined
+        }
+      >
       {/* ========== 表格 ========== */}
       {albums.length > 0 ? (
         <FadeIn delay={0.15}>
@@ -626,21 +648,6 @@ export const AdminAlbumPage = () => {
               ))}
             </StaggerContainer>
           </div>
-
-          {(totalPages > 1 || total > 0) && (
-            <PaginationBar
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              pageSize={pageSize}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(0);
-              }}
-              loading={loading}
-              total={total}
-            />
-          )}
         </FadeIn>
       ) : (
         <FadeIn delay={0.15}>
@@ -651,6 +658,7 @@ export const AdminAlbumPage = () => {
           />
         </FadeIn>
       )}
+      </PaginatedPageLayout>
 
       {/* ========== 新建弹窗 ========== */}
       <Modal
@@ -1044,6 +1052,6 @@ export const AdminAlbumPage = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 };

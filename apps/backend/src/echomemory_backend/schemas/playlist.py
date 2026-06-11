@@ -121,6 +121,7 @@ class PlaylistListOut(BaseModel):
     id: int
     title: str
     is_private: bool
+    is_like: bool
     cover_icon_url: str | None = None
     user: PlaylistUserOut
     created_at: datetime

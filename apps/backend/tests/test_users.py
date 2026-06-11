@@ -2,11 +2,12 @@ import io
 
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.security import create_access_token, get_password_hash
 from echomemory_backend.models.enums import UserRole, UserStatus
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User, UserFollow
 
 BASE = "/api/v1/users"
@@ -422,6 +423,14 @@ class TestAdmin:
         assert data["nickname"] == "New User"
         assert data["role"] == UserRole.USER.value
         assert data["email"] == "new@example.com"
+
+        stmt = select(Playlist).where(
+            Playlist.user_id == data["id"],
+            Playlist.is_like.is_(True),
+        )
+        playlist = (await db_session.execute(stmt)).scalar_one()
+        assert playlist.title == "我喜欢的音乐"
+        assert playlist.is_private is True
 
     async def test_admin_create_user_with_full_fields(self, client: TestClient, db_session: AsyncSession):
         """测试超级管理员创建用户并指定所有可选字段。"""

@@ -19,6 +19,7 @@ import { StaggerContainer, StaggerItem } from "../components/motion/StaggerConta
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 
 const PAGE_SIZE = 12;
 
@@ -149,29 +150,47 @@ export const LibraryPage = () => {
     }
   };
 
-  return (
-    <div>
-      <FadeIn>
-        <h1 className="page-title">我的收藏</h1>
-      </FadeIn>
+  const songsTotalPages = Math.ceil(songsTotal / PAGE_SIZE);
+  const albumsTotalPages = Math.ceil(albumsTotal / PAGE_SIZE);
+  const playlistsTotalPages = Math.ceil(playlistsTotal / PAGE_SIZE);
 
-      <FadeIn delay={0.08}>
-        <div className="search-tabs" style={{ marginBottom: 20 }}>
-          {tabs.map((tab) => (
-            <motion.button
-              key={tab.key}
-              className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              type="button"
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </motion.button>
-          ))}
-        </div>
-      </FadeIn>
+  const paginationFooter =
+    activeTab === "songs" && (songsTotalPages > 1 || songsTotal > 0) ? (
+      <PaginationBar page={songsPage} totalPages={songsTotalPages} onPageChange={setSongsPage} loading={songsLoading} total={songsTotal} />
+    ) : activeTab === "albums" && (albumsTotalPages > 1 || albumsTotal > 0) ? (
+      <PaginationBar page={albumsPage} totalPages={albumsTotalPages} onPageChange={setAlbumsPage} loading={albumsLoading} total={albumsTotal} />
+    ) : activeTab === "playlists" && (playlistsTotalPages > 1 || playlistsTotal > 0) ? (
+      <PaginationBar page={playlistsPage} totalPages={playlistsTotalPages} onPageChange={setPlaylistsPage} loading={playlistsLoading} total={playlistsTotal} />
+    ) : undefined;
+
+  return (
+    <PaginatedPageLayout
+      header={(
+        <>
+          <FadeIn>
+            <h1 className="page-title">我的收藏</h1>
+          </FadeIn>
+          <FadeIn delay={0.08}>
+            <div className="search-tabs" style={{ marginBottom: 20 }}>
+              {tabs.map((tab) => (
+                <motion.button
+                  key={tab.key}
+                  className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.key)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </motion.button>
+              ))}
+            </div>
+          </FadeIn>
+        </>
+      )}
+      footer={paginationFooter}
+    >
 
       {/* ===== 收藏歌曲 ===== */}
       {activeTab === "songs" && (
@@ -213,9 +232,6 @@ export const LibraryPage = () => {
                   </StaggerItem>
                 ))}
               </StaggerContainer>
-              {(Math.ceil(songsTotal / PAGE_SIZE) > 1 || songsTotal > 0) && (
-                <PaginationBar page={songsPage} totalPages={Math.ceil(songsTotal / PAGE_SIZE)} onPageChange={setSongsPage} loading={songsLoading} total={songsTotal} />
-              )}
             </FadeIn>
           )}
         </>
@@ -271,9 +287,6 @@ export const LibraryPage = () => {
                   </StaggerItem>
                 ))}
               </StaggerContainer>
-              {(Math.ceil(albumsTotal / PAGE_SIZE) > 1 || albumsTotal > 0) && (
-                <PaginationBar page={albumsPage} totalPages={Math.ceil(albumsTotal / PAGE_SIZE)} onPageChange={setAlbumsPage} loading={albumsLoading} total={albumsTotal} />
-              )}
             </FadeIn>
           )}
         </>
@@ -329,13 +342,10 @@ export const LibraryPage = () => {
                   </StaggerItem>
                 ))}
               </StaggerContainer>
-              {(Math.ceil(playlistsTotal / PAGE_SIZE) > 1 || playlistsTotal > 0) && (
-                <PaginationBar page={playlistsPage} totalPages={Math.ceil(playlistsTotal / PAGE_SIZE)} onPageChange={setPlaylistsPage} loading={playlistsLoading} total={playlistsTotal} />
-              )}
             </FadeIn>
           )}
         </>
       )}
-    </div>
+    </PaginatedPageLayout>
   );
 };

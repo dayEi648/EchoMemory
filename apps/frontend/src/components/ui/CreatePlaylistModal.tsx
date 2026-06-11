@@ -46,6 +46,7 @@ export const CreatePlaylistModal = ({ open, onClose, onCreated }: CreatePlaylist
         id: created.id,
         title: created.title,
         is_private: created.is_private,
+        is_like: created.is_like,
         cover_icon_url: created.cover_icon_url,
         user: created.user,
         created_at: created.created_at,

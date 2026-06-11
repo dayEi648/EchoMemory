@@ -18,6 +18,7 @@ import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shar
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { PaginationBar } from "../../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../../components/layout/PaginatedPageLayout";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import {
@@ -243,7 +244,10 @@ export const AdminMusicPage = () => {
   };
 
   return (
-    <div>
+    <>
+      <PaginatedPageLayout
+        header={(
+          <>
       <FadeIn>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <h1 className="page-title">音乐管理</h1>
@@ -394,7 +398,22 @@ export const AdminMusicPage = () => {
           </div>
         </div>
       </FadeIn>
-
+          </>
+        )}
+        footer={
+          musics.length > 0 && (totalPages > 1 || total > 0) ? (
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+              loading={loading}
+              total={total}
+            />
+          ) : undefined
+        }
+      >
       {musics.length > 0 ? (
         <FadeIn delay={0.15}>
           <div className="admin-table-container" style={{ overflowX: "auto" }}>
@@ -496,18 +515,6 @@ export const AdminMusicPage = () => {
               ))}
             </StaggerContainer>
           </div>
-
-          {(totalPages > 1 || total > 0) && (
-            <PaginationBar
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              pageSize={pageSize}
-              onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
-              loading={loading}
-              total={total}
-            />
-          )}
         </FadeIn>
       ) : (
         <FadeIn delay={0.15}>
@@ -518,6 +525,7 @@ export const AdminMusicPage = () => {
           />
         </FadeIn>
       )}
+      </PaginatedPageLayout>
 
       {/* ========== 编辑弹窗 ========== */}
       <Modal
@@ -746,6 +754,6 @@ export const AdminMusicPage = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 };

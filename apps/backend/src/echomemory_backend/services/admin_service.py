@@ -11,6 +11,7 @@ from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import UserAdminCreate, UserAdminUpdate, UserBanAction
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.playlist_service import create_default_like_playlist
 from echomemory_backend.services.user_service import (
     create_user,
     get_user_by_email,
@@ -148,6 +149,8 @@ async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdmin
     )
     db.add(user)
     try:
+        await db.flush()
+        await create_default_like_playlist(db, user.id, commit=False)
         await db.commit()
     except IntegrityError:
         await db.rollback()

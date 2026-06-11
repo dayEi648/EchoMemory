@@ -11,6 +11,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
 import { PaginationBar } from "../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 
 export const HistoryPage = () => {
@@ -81,26 +82,41 @@ export const HistoryPage = () => {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div>
-      <FadeIn>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <PageTitle>播放历史</PageTitle>
-          {history.length > 0 && (
-            <motion.button
-              className="ghost-button"
-              onClick={handleClear}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              type="button"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--color-danger)" }}
-            >
-              <Trash2 size={14} />
-              清空全部
-            </motion.button>
-          )}
-        </div>
-      </FadeIn>
-
+    <PaginatedPageLayout
+      header={(
+        <FadeIn>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <PageTitle>播放历史</PageTitle>
+            {history.length > 0 && (
+              <motion.button
+                className="ghost-button"
+                onClick={handleClear}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                type="button"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--color-danger)" }}
+              >
+                <Trash2 size={14} />
+                清空全部
+              </motion.button>
+            )}
+          </div>
+        </FadeIn>
+      )}
+      footer={
+        (totalPages > 1 || total > 0) ? (
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+            loading={loading}
+            total={total}
+          />
+        ) : undefined
+      }
+    >
       {loading ? (
         <div className="loading-screen" style={{ height: "40vh" }}>
           <div style={{ fontSize: 14, fontWeight: 500 }}>加载中...</div>
@@ -164,20 +180,6 @@ export const HistoryPage = () => {
           ))}
         </StaggerContainer>
       )}
-
-      {(totalPages > 1 || total > 0) && (
-        <div style={{ marginTop: 24 }}>
-          <PaginationBar
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
-            loading={loading}
-            total={total}
-          />
-        </div>
-      )}
-    </div>
+    </PaginatedPageLayout>
   );
 };

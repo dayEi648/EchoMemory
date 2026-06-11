@@ -11,6 +11,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
 import { PaginationBar } from "../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { CreatePostForm } from "../components/ui/CreatePostForm";
 import { SpacePostCard } from "../components/ui/SpacePostCard";
 import type { PostAuthor } from "../components/ui/SpacePostCard";
@@ -82,22 +83,29 @@ export const SpacePage = () => {
   const imagePostCount = posts.filter((p) => p.images.length > 0).length;
 
   return (
-    <div>
-      <FadeIn>
-        {targetUserId && !isOwnSpace && (
-          <motion.button
-            className="section-link" onClick={() => navigate(-1)}
-            whileHover={{ x: -4 }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8 }}
-          >
-            <ArrowLeft size={16} /> 返回
-          </motion.button>
-        )}
-        <PageTitle icon={MessageCircle} iconSize={22}>
-          {isOwnSpace ? "个人空间" : `${author.nickname} 的空间`}
-        </PageTitle>
-      </FadeIn>
-
+    <PaginatedPageLayout
+      header={(
+        <FadeIn>
+          {targetUserId && !isOwnSpace && (
+            <motion.button
+              className="section-link" onClick={() => navigate(-1)}
+              whileHover={{ x: -4 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8 }}
+            >
+              <ArrowLeft size={16} /> 返回
+            </motion.button>
+          )}
+          <PageTitle icon={MessageCircle} iconSize={22}>
+            {isOwnSpace ? "个人空间" : `${author.nickname} 的空间`}
+          </PageTitle>
+        </FadeIn>
+      )}
+      footer={
+        (totalPages > 1 || total > 0) ? (
+          <PaginationBar page={page} totalPages={totalPages} onPageChange={setPage} loading={loading} total={total} />
+        ) : undefined
+      }
+    >
       {/* Stats Bar */}
       <FadeIn delay={0.06}>
         <div
@@ -152,11 +160,8 @@ export const SpacePage = () => {
               <SpacePostCard key={post.id} post={post} author={author} currentUserId={currentUser?.id ?? 0} onDelete={handleDelete} onLike={handleLike} onUnlike={handleUnlike} />
             ))}
           </div>
-          {(totalPages > 1 || total > 0) && (
-            <div style={{ marginTop: 24 }}><PaginationBar page={page} totalPages={totalPages} onPageChange={setPage} loading={loading} total={total} /></div>
-          )}
         </FadeIn>
       )}
-    </div>
+    </PaginatedPageLayout>
   );
 };

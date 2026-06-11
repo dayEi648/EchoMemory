@@ -10,6 +10,7 @@ import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerCo
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { PaginationBar } from "../../components/ui/PaginationBar";
+import { PaginatedPageLayout } from "../../components/layout/PaginatedPageLayout";
 
 const DICT_TYPES: { key: DictionaryType; label: string }[] = [
   { key: "styles", label: "风格" },
@@ -149,7 +150,10 @@ export const DictionaryPage = () => {
   const activeLabel = DICT_TYPES.find((d) => d.key === activeType)?.label ?? "";
 
   return (
-    <div>
+    <>
+      <PaginatedPageLayout
+        header={(
+          <>
       <FadeIn>
         <h1 className="page-title">字典维护</h1>
       </FadeIn>
@@ -221,7 +225,23 @@ export const DictionaryPage = () => {
           </motion.button>
         </div>
       </FadeIn>
-
+          </>
+        )}
+        footer={
+          items.length > 0 && (totalPages > 1 || total > 0) ? (
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              onPageChange={(p) => {
+                setPage(p);
+                loadItems(activeType, p);
+              }}
+              loading={loading}
+              total={total}
+            />
+          ) : undefined
+        }
+      >
       {/* 表格 */}
       {items.length > 0 ? (
         <FadeIn delay={0.14}>
@@ -279,19 +299,6 @@ export const DictionaryPage = () => {
               ))}
             </StaggerContainer>
           </div>
-          {/* 分页栏 */}
-          {(totalPages > 1 || total > 0) && (
-            <PaginationBar
-              page={page}
-              totalPages={totalPages}
-              onPageChange={(p) => {
-                setPage(p);
-                loadItems(activeType, p);
-              }}
-              loading={loading}
-              total={total}
-            />
-          )}
         </FadeIn>
       ) : loading ? (
         <div className="loading-screen" style={{ height: "30vh" }}>
@@ -306,6 +313,7 @@ export const DictionaryPage = () => {
           />
         </FadeIn>
       )}
+      </PaginatedPageLayout>
 
       {/* 新增弹窗 */}
       <Modal
@@ -461,6 +469,6 @@ export const DictionaryPage = () => {
           </p>
         </div>
       </Modal>
-    </div>
+    </>
   );
 };

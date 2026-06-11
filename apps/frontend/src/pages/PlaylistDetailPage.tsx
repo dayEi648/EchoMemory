@@ -242,30 +242,32 @@ export const PlaylistDetailPage = () => {
                 <Play size={18} fill="white" />
                 播放全部
               </motion.button>
-              <motion.button
-                onClick={handleToggleCollect}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.92 }}
-                type="button"
-                title={collected ? "取消收藏" : "收藏"}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginLeft: 10,
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  border: "1px solid var(--color-border)",
-                  background: collected ? "var(--color-accent)" : "transparent",
-                  color: collected ? "white" : "var(--color-muted)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                <Heart size={16} fill={collected ? "white" : "none"} />
-                {collected ? "已收藏" : "收藏"}
-              </motion.button>
+              {!playlist.is_like && (
+                <motion.button
+                  onClick={handleToggleCollect}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  type="button"
+                  title={collected ? "取消收藏" : "收藏"}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginLeft: 10,
+                    padding: "10px 16px",
+                    borderRadius: 10,
+                    border: "1px solid var(--color-border)",
+                    background: collected ? "var(--color-accent)" : "transparent",
+                    color: collected ? "white" : "var(--color-muted)",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  <Heart size={16} fill={collected ? "white" : "none"} />
+                  {collected ? "已收藏" : "收藏"}
+                </motion.button>
+              )}
 
               {!isOwner && (
                 <span style={{ fontSize: 12, color: "var(--color-muted)", marginLeft: 12 }}>
@@ -276,16 +278,6 @@ export const PlaylistDetailPage = () => {
           </div>
         </div>
       </FadeIn>
-
-      {/* Comments */}
-      {playlist && (
-        <FadeIn delay={0.2}>
-          <section style={{ marginBottom: 32 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({playlist.comment_count})</h3>
-            <CommentSection targetType="playlist" targetId={playlist.id} />
-          </section>
-        </FadeIn>
-      )}
 
       {/* Songs */}
       <FadeIn delay={0.15}>
@@ -309,6 +301,16 @@ export const PlaylistDetailPage = () => {
           </StaggerContainer>
         )}
       </FadeIn>
+
+      {/* Comments */}
+      {playlist && (
+        <FadeIn delay={0.2}>
+          <section style={{ marginTop: 32 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({playlist.comment_count})</h3>
+            <CommentSection targetType="playlist" targetId={playlist.id} />
+          </section>
+        </FadeIn>
+      )}
     </div>
   );
 };
