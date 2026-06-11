@@ -504,7 +504,7 @@ export const AdminMusicPage = () => {
             </StaggerContainer>
           </div>
 
-          {totalPages > 1 && (
+          {(totalPages > 1 || total > 0) && (
             <PaginationBar
               page={page}
               totalPages={totalPages}
