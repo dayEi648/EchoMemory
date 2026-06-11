@@ -6,6 +6,8 @@ import {
   Disc,
   User,
   Search,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -51,7 +53,7 @@ export const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
   const [activeTab, setActiveTab] = useState("all");
-  const { api } = useAuthStore();
+  const { api, user: currentUser } = useAuthStore();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
   const playStandalone = usePlayerStore((s) => s.playStandalone);
@@ -63,6 +65,7 @@ export const SearchPage = () => {
   const [songTotal, setSongTotal] = useState(0);
   const [albumTotal, setAlbumTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [followedIds, setFollowedIds] = useState<Set<number>>(new Set());
 
   // 各 Tab 独立分页
   const [songPage, setSongPage] = useState(0);
@@ -148,6 +151,20 @@ export const SearchPage = () => {
       setLoading(false);
     }
   }, [query, activeTab, songPage, albumPage, userPage, api]);
+
+  const handleToggleFollow = async (userId: number) => {
+    try {
+      if (followedIds.has(userId)) {
+        await api.unfollow(userId);
+        setFollowedIds((prev) => { const next = new Set(prev); next.delete(userId); return next; });
+      } else {
+        await api.follow(userId);
+        setFollowedIds((prev) => { const next = new Set(prev); next.add(userId); return next; });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  };
 
   const handlePlayMusic = async (music: MusicListItem) => {
     try {
@@ -434,8 +451,33 @@ export const SearchPage = () => {
                           onClick={() => navigate(`/profile/${item.id}`)}
                         >
                           <Avatar user={item} size="xl" />
-                          <div className="user-search-card-nickname">
-                            {item.nickname}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <div className="user-search-card-nickname">{item.nickname}</div>
+                            {currentUser && currentUser.id !== item.id && (
+                              <motion.button
+                                onClick={(e) => { e.stopPropagation(); handleToggleFollow(item.id); }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.92 }}
+                                type="button"
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
+                                  border: followedIds.has(item.id) ? "1px solid var(--color-border)" : "none",
+                                  background: followedIds.has(item.id) ? "var(--color-surface-soft)" : "var(--color-ink)",
+                                  color: followedIds.has(item.id) ? "var(--color-ink)" : "white",
+                                  cursor: "pointer",
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  flexShrink: 0,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                }}
+                              >
+                                {followedIds.has(item.id) ? <UserMinus size={11} /> : <UserPlus size={11} />}
+                                {followedIds.has(item.id) ? "已关注" : "关注"}
+                              </motion.button>
+                            )}
                           </div>
                           {item.bio && (
                             <div

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Music2, UserCheck } from "lucide-react";
+import { Music2, UserCheck, UserPlus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -15,6 +15,7 @@ export const ProfilePage = () => {
   const { api, user: currentUser } = useAuthStore();
   const [profile, setProfile] = useState<UserPublic | null>(null);
   const [loading, setLoading] = useState(true);
+  const [following, setFollowing] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -38,6 +39,23 @@ export const ProfilePage = () => {
       })
       .finally(() => setLoading(false));
   }, [userId, api, currentUser]);
+
+  const handleToggleFollow = async () => {
+    if (!profile) return;
+    try {
+      if (following) {
+        await api.unfollow(profile.id);
+        setFollowing(false);
+        toast.success("已取消关注");
+      } else {
+        await api.follow(profile.id);
+        setFollowing(true);
+        toast.success("已关注");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  };
 
   if (loading) {
     return (
@@ -81,7 +99,33 @@ export const ProfilePage = () => {
             </div>
           )}
           <div className="profile-meta" style={{ flex: 1 }}>
-            <h2>{profile.nickname}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h2 style={{ margin: 0 }}>{profile.nickname}</h2>
+              {currentUser && currentUser.id !== profile.id && (
+                <motion.button
+                  onClick={handleToggleFollow}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "6px 14px",
+                    borderRadius: 8,
+                    border: following ? "1px solid var(--color-border)" : "none",
+                    background: following ? "var(--color-surface-soft)" : "var(--color-ink)",
+                    color: following ? "var(--color-ink)" : "white",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                >
+                  {following ? <UserMinus size={14} /> : <UserPlus size={14} />}
+                  {following ? "已关注" : "关注"}
+                </motion.button>
+              )}
+            </div>
             <div className="profile-handle">@{profile.username}</div>
             <div className="profile-stats">
               <motion.div className="stat" whileHover={{ scale: 1.05 }}>
