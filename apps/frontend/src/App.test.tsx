@@ -51,13 +51,13 @@ const mockDiscoverApis = (user: UserMe, history: unknown[] = []) => {
       return jsonResponse(user);
     }
     if (url.includes("/music/")) {
-      return jsonResponse([]);
+      return jsonResponse({ items: [], total: 0 });
     }
     if (url.includes("/albums/")) {
-      return jsonResponse([]);
+      return jsonResponse({ items: [], total: 0 });
     }
     if (url.includes("/play-history/")) {
-      return jsonResponse(history);
+      return jsonResponse({ items: history, total: history.length });
     }
     return jsonResponse({});
   });
@@ -231,14 +231,26 @@ describe("App", () => {
     expect((request.body as FormData).has("city_id")).toBe(false);
   });
 
-  it("keeps non-user modules as placeholders without calling their APIs", async () => {
+  it("renders playlists page with API data", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(adminUser));
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes("/auth/me")) {
+          return jsonResponse(adminUser);
+        }
+        if (url.includes("/playlists/")) {
+          return jsonResponse({ items: [], total: 0 });
+        }
+        return jsonResponse({});
+      });
 
     renderApp({ tokenStore, initialEntries: ["/playlists"] });
 
     expect(await screen.findByText("播放列表广场")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/music"), expect.anything());
+    expect(await screen.findByText("暂无歌单")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/playlists/"), expect.anything());
   });
 });

@@ -23,6 +23,7 @@ export const AlbumDetailPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playInContext = usePlayerStore((s) => s.playInContext);
   const playQueue = usePlayerStore((s) => s.playQueue);
 
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
@@ -68,7 +69,7 @@ export const AlbumDetailPage = () => {
         cover_icon_url: m.cover_icon_url,
         authors: album.authors,
         created_at: album.created_at,
-        file_url: m.file_url,
+        file_url: m.file_url ?? null,
         emotion_tags: [],
         interest_tags: [],
         albums: [],
@@ -85,20 +86,29 @@ export const AlbumDetailPage = () => {
       toast.error("该歌曲暂不可播放");
       return;
     }
-    playTrack({
-      id: music.id,
-      title: music.title,
-      is_vip: music.is_vip,
-      hot: music.hot,
-      play_count: music.play_count,
-      cover_icon_url: music.cover_icon_url,
-      authors: album?.authors ?? [],
-      created_at: album?.created_at ?? "",
-      file_url: music.file_url,
+    if (!album) return;
+
+    // 以整个专辑为上下文构建队列
+    const contextTracks = album.musics.map((m) => ({
+      id: m.id,
+      title: m.title,
+      is_vip: m.is_vip,
+      hot: m.hot,
+      play_count: m.play_count,
+      cover_icon_url: m.cover_icon_url,
+      authors: album.authors,
       emotion_tags: [],
       interest_tags: [],
       albums: [],
-    });
+      created_at: album.created_at,
+      file_url: m.file_url ?? null,
+    }));
+
+    playInContext(
+      contextTracks.find((t) => t.id === music.id)!,
+      contextTracks,
+      { type: "album", id: album.id, name: album.title },
+    );
   };
 
   if (loading) {

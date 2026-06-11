@@ -29,6 +29,7 @@ export const DiscoverPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playStandalone = usePlayerStore((s) => s.playStandalone);
   const playQueue = usePlayerStore((s) => s.playQueue);
 
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
@@ -60,7 +61,7 @@ export const DiscoverPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       if (detail.file_url) {
-        playTrack({
+        await playStandalone({
           ...music,
           file_url: detail.file_url,
         });
@@ -76,7 +77,7 @@ export const DiscoverPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(musicId);
       if (detail.file_url) {
-        playTrack(toPlayerTrack(detail));
+        await playStandalone(toPlayerTrack(detail));
       } else {
         toast.error("该歌曲暂不可播放");
       }

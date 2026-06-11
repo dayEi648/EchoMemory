@@ -54,6 +54,7 @@ export const SearchPage = () => {
   const { api } = useAuthStore();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playStandalone = usePlayerStore((s) => s.playStandalone);
 
   const [userResults, setUserResults] = useState<UserSearchItem[]>([]);
   const [songResults, setSongResults] = useState<MusicListItem[]>([]);
@@ -152,7 +153,7 @@ export const SearchPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       if (detail.file_url) {
-        playTrack({
+        await playStandalone({
           ...music,
           file_url: detail.file_url,
         });

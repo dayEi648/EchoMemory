@@ -27,6 +27,7 @@ export const MusicDetailPage = () => {
   const { musicId } = useParams<{ musicId: string }>();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playStandalone = usePlayerStore((s) => s.playStandalone);
 
   const [music, setMusic] = useState<MusicDetail | null>(null);
   const [related, setRelated] = useState<MusicListItem[]>([]);
@@ -60,7 +61,7 @@ export const MusicDetailPage = () => {
       toast.error("该歌曲暂不可播放");
       return;
     }
-    playTrack({
+    playStandalone({
       id: music.id,
       title: music.title,
       is_vip: music.is_vip,
@@ -248,7 +249,7 @@ export const MusicDetailPage = () => {
                     try {
                       const detail = await musicApi.getMusicDetail(song.id);
                       if (detail.file_url) {
-                        playTrack({
+                        await playStandalone({
                           id: song.id,
                           title: song.title,
                           is_vip: song.is_vip,

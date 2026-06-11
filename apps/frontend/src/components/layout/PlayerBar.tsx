@@ -9,12 +9,26 @@ import {
   ListMusic,
   VolumeX,
   X,
+  Disc,
+  Clock,
 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { usePlayerStore } from "../../shared/stores/playerStore";
+import { usePlayerStore, type QueueContext } from "../../shared/stores/playerStore";
 import { formatAuthors, formatTime } from "../../shared/utils";
+
+const queueContextLabel = (ctx: QueueContext): { icon: typeof Disc; label: string } | null => {
+  if (!ctx) return null;
+  switch (ctx.type) {
+    case "playlist":
+      return { icon: ListMusic, label: ctx.name };
+    case "album":
+      return { icon: Disc, label: ctx.name };
+    case "history":
+      return { icon: Clock, label: "播放历史" };
+  }
+};
 
 export const PlayerBar = () => {
   const {
@@ -28,6 +42,7 @@ export const PlayerBar = () => {
     isRepeat,
     queue,
     queueIndex,
+    queueContext,
     togglePlay,
     next,
     prev,
@@ -363,7 +378,21 @@ export const PlayerBar = () => {
                 borderBottom: "1px solid var(--color-border)",
               }}
             >
-              <span style={{ fontWeight: 600, fontSize: 14 }}>播放队列</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>播放队列</span>
+                {(() => {
+                  const ctx = queueContextLabel(queueContext);
+                  if (ctx) {
+                    return (
+                      <span style={{ fontSize: 11, color: "var(--color-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                        <ctx.icon size={11} />
+                        {ctx.label}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
               <button
                 onClick={() => setShowQueue(false)}
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}

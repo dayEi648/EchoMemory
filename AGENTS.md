@@ -1,4 +1,4 @@
-# AGENT - 指南
+# AGENTS.md - project
 
 ## 1. 项目章程
 
@@ -23,37 +23,26 @@
 ## 2. 工作规则
 
 <workrules>
-1. 思考与沟通
-	- 禁止臆测。
-	- 明确陈述假设，而非默默揣测。
-	- 遇到疑惑、不确定、信息缺失等情况时必须提问。
-	- 若存在多种理解，要全部呈现——禁止默默选择其一。
-	- 遭遇模糊之处：立刻暂停，标记问题并提问。
 
-2. 范围与设计决策
-	- 修改代码前，权衡修复是否更优、是否会引入回归。
-	- 不超出需求范围构建。
-	- 禁止臆测性的设计或抽象。
-	- 不确定怎么开发时，研究资深工程师或官方文档如何解决该问题。
-	- 避免重复造轮子。若有可靠的依赖能将 200 行代码缩减至寥寥数行，优先采用。
-	- 若发现无关的孤立代码，应向用户提出；切勿自行删除。
-
-3. 目标驱动规划
-	- 定义严格、可验证的成功标准。"能跑起来"远远不够。
-	- 将任务转化为可测试的目标：
-		- "实现接口" → "编写测试，断言预期输出。"
-		- "添加校验" → "传入无效数据，断言拒绝行为。"
-		- "修复 bug" → "用测试复现，修复根因，验证。"
-		- "重构 X" → "重构前后测试全部通过。"
-	- 多步骤工作须列出计划：步骤 → 验证：[check]。
-
-4. 良好的工作习惯
-	- **必须使用对当前任务有用的 SKILL —— 即使与当前任务只有1%的联系**。
-	- **必须使用对当前工作有用的 Tool**。
-	- 所有不按规范编写的代码、不按要求进行的操作都不会被认可，因此你必须严格遵守各种开发规范和工作要求。
-	- @planning/需求.md 中记录了项目需求分析与重点决策，你在开发过程中不能违反其中描述的决策；开发过程中，一旦用户明确了新的设计方向、架构决策、规范约定等，你都必须将其主动记录到`需求.md`中，用精简的语言记录，记录前要征求用户的同意。
-
-</workrules>
+1. Thinking and Communication
+	- Clearly state your assumptions, rather than making silent guesses.
+	- When encountering doubts, uncertainties, or information gaps, you must ask questions.
+	- If there are multiple interpretations, present all of them - do not silently choose one.
+	- When encountering ambiguity: immediately pause, mark the problem and ask questions. 
+2. Scope and Design Decisions
+	- Before proposing a repair solution, assess whether this solution is the best option, whether it can truly solve the problem, and ensure that it does not introduce regression issues.
+	- Do not build beyond the requirements scope.
+	- Prohibit speculative design or abstraction.
+	- When unsure how to proceed with development, consider how senior engineers or official documentation would solve the problem. You can search online to confirm.
+	- Avoid reinventing the wheel. If there is a reliable dependency that can reduce 200 lines of code to just a few lines, use it first.
+	- If you find isolated code that already exists, inform the user; do not delete it on your own. 
+3. Good Work Habits
+	- It is necessary to use the SKILL that is useful for the current task, even if it has only 1% relevance to the current task.
+	- It is necessary to use the Tool that is useful for the current work.
+	- All code that is not written according to the specifications and operations that are not carried out as required will not be recognized. Therefore, you must strictly abide by various development specifications and work requirements.
+	- The project requirement analysis and key decisions are recorded in @planning/决策.md. During the development process, you must not violate the decisions described therein. During the development process, once the user clarifies new design directions, architecture decisions, specification conventions, etc., you must actively record them in `决策.md` using concise language. Before recording, you must obtain the user's consent.
+	- 
+	</workrules>
 
 ---
 
@@ -65,7 +54,7 @@
 
 | Resource            | Path                           | Purpose                              | When to Use                                                  |
 | ------------------- | ------------------------------ | ------------------------------------ | ------------------------------------------------------------ |
-| Project Charter     | `planning/需求.md`             | 项目旨在达成的目标、已经明确的决策。 | 始终，在启动任何开发之前。                                   |
+| Project Charter     | `planning/决策.md`             | 项目旨在达成的目标、已经明确的决策。 | 始终，在启动任何开发之前。                                   |
 | Task Plans          | `planning/plans/`              | 任务列表、计划与排期。               | 将复杂的、长期的或者暂时不执行的计划存放在该目录下。         |
 | Directory Structure | `planning/directory.md`        | 项目目录结构。                       | 需要了解项目目录结构时，查看此文档。如果项目结构发生变更，需要更新此文档。 |
 | Frontend References | `planning/for-frontend/`       | 前端设计指导。                       | 当你需要了解前端设计、样式或其他前端相关决策时，查看此文件夹下有无文档。 |

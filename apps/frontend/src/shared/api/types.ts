@@ -292,6 +292,60 @@ export type PaginatedPlayHistoryList = {
   total: number;
 };
 
+/* ==================== Playlist ==================== */
+
+export type PlaylistUser = {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string | null;
+};
+
+export type PlaylistMusic = {
+  music: MusicListItem;
+  ordinal: number;
+};
+
+export type PlaylistDetail = {
+  id: number;
+  title: string;
+  description: string | null;
+  is_private: boolean;
+  cover_icon_url: string | null;
+  collect_count: number;
+  play_count: number;
+  hot: number;
+  comment_count: number;
+  is_like: boolean;
+  is_recommended: boolean;
+  user: PlaylistUser;
+  musics: PlaylistMusic[];
+  emotion_tags: Tag[];
+  interest_tags: Tag[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlaylistListItem = {
+  id: number;
+  title: string;
+  is_private: boolean;
+  cover_icon_url: string | null;
+  user: PlaylistUser;
+  created_at: string;
+};
+
+export type PaginatedPlaylistList = {
+  items: PlaylistListItem[];
+  total: number;
+};
+
+export type PlaylistUpdateInput = {
+  title?: string;
+  description?: string;
+  is_private?: boolean;
+};
+
 /* ==================== Dictionary ==================== */
 
 export type DictionaryType =

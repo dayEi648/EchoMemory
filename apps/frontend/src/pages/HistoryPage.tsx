@@ -37,6 +37,7 @@ function formatDate(dateStr: string): string {
 
 export const HistoryPage = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playStandalone = usePlayerStore((s) => s.playStandalone);
   const [history, setHistory] = useState<PlayHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -67,7 +68,7 @@ export const HistoryPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(item.music.id);
       if (detail.file_url) {
-        playTrack(toPlayerTrack(detail));
+        await playStandalone(toPlayerTrack(detail));
       } else {
         toast.error("该歌曲暂不可播放");
       }
