@@ -14,12 +14,12 @@ import { motion } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { musicApi } from "../shared/api/instances";
-import { albumApi } from "../shared/api/instances";
+import { musicApi, albumApi, playlistApi } from "../shared/api/instances";
 import type {
   UserSearchItem,
   MusicListItem,
   AlbumListItem,
+  PlaylistListItem,
 } from "../shared/api/types";
 import { Avatar } from "../components/ui/Avatar";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -44,10 +44,13 @@ const tabs = [
 
 const PAGE_SIZE = 10;
 
+const VALID_TABS = new Set(tabs.map((t) => t.key));
+
 export const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
-  const [activeTab, setActiveTab] = useState("all");
+  const tabFromUrl = searchParams.get("tab") ?? "all";
+  const [activeTab, setActiveTab] = useState(() => (VALID_TABS.has(tabFromUrl) ? tabFromUrl : "all"));
   const { api, user: currentUser } = useAuthStore();
   const navigate = useNavigate();
   const playTrack = usePlayerStore((s) => s.playTrack);
@@ -56,21 +59,31 @@ export const SearchPage = () => {
   const [userResults, setUserResults] = useState<UserSearchItem[]>([]);
   const [songResults, setSongResults] = useState<MusicListItem[]>([]);
   const [albumResults, setAlbumResults] = useState<AlbumListItem[]>([]);
+  const [playlistResults, setPlaylistResults] = useState<PlaylistListItem[]>([]);
   const [userTotal, setUserTotal] = useState(0);
   const [songTotal, setSongTotal] = useState(0);
   const [albumTotal, setAlbumTotal] = useState(0);
+  const [playlistTotal, setPlaylistTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [followedIds, setFollowedIds] = useState<Set<number>>(new Set());
 
   // 各 Tab 独立分页
   const [songPage, setSongPage] = useState(0);
   const [albumPage, setAlbumPage] = useState(0);
+  const [playlistPage, setPlaylistPage] = useState(0);
   const [userPage, setUserPage] = useState(0);
+
+  useEffect(() => {
+    if (VALID_TABS.has(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   // 切换关键词时重置分页
   useEffect(() => {
     setSongPage(0);
     setAlbumPage(0);
+    setPlaylistPage(0);
     setUserPage(0);
   }, [query]);
 
@@ -88,17 +101,24 @@ export const SearchPage = () => {
           limit: PAGE_SIZE,
           offset: 0,
         }),
+        playlistApi.searchPlaylists({
+          q: query.trim(),
+          limit: PAGE_SIZE,
+          offset: 0,
+        }),
       ])
-        .then(([users, songs, albums]) => {
+        .then(([users, songs, albums, playlists]) => {
           setUserResults(users.items);
           setFollowedIds(
             new Set(users.items.filter((u) => u.is_followed_by_me).map((u) => u.id)),
           );
           setSongResults(songs.items);
           setAlbumResults(albums.items);
+          setPlaylistResults(playlists.items);
           setUserTotal(users.total);
           setSongTotal(songs.total);
           setAlbumTotal(albums.total);
+          setPlaylistTotal(playlists.total);
         })
         .catch((err) => {
           toast.error(err instanceof Error ? err.message : "搜索失败");
@@ -134,6 +154,21 @@ export const SearchPage = () => {
           toast.error(err instanceof Error ? err.message : "搜索失败");
         })
         .finally(() => setLoading(false));
+    } else if (activeTab === "playlists") {
+      playlistApi
+        .searchPlaylists({
+          q: query.trim(),
+          limit: PAGE_SIZE,
+          offset: playlistPage * PAGE_SIZE,
+        })
+        .then((playlists) => {
+          setPlaylistResults(playlists.items);
+          setPlaylistTotal(playlists.total);
+        })
+        .catch((err) => {
+          toast.error(err instanceof Error ? err.message : "搜索失败");
+        })
+        .finally(() => setLoading(false));
     } else if (activeTab === "users") {
       api
         .searchUsers(query.trim(), PAGE_SIZE, userPage * PAGE_SIZE)
@@ -151,7 +186,7 @@ export const SearchPage = () => {
     } else {
       setLoading(false);
     }
-  }, [query, activeTab, songPage, albumPage, userPage, api]);
+  }, [query, activeTab, songPage, albumPage, playlistPage, userPage, api]);
 
   const handleToggleFollow = async (userId: number) => {
     try {
@@ -182,6 +217,7 @@ export const SearchPage = () => {
 
   const songTotalPages = Math.ceil(songTotal / PAGE_SIZE);
   const albumTotalPages = Math.ceil(albumTotal / PAGE_SIZE);
+  const playlistTotalPages = Math.ceil(playlistTotal / PAGE_SIZE);
   const userTotalPages = Math.ceil(userTotal / PAGE_SIZE);
 
   if (!query.trim()) {
@@ -201,6 +237,8 @@ export const SearchPage = () => {
       <PaginationBar page={songPage} totalPages={songTotalPages} onPageChange={setSongPage} loading={loading} total={songTotal} />
     ) : activeTab === "albums" && (albumTotalPages > 1 || albumTotal > 0) ? (
       <PaginationBar page={albumPage} totalPages={albumTotalPages} onPageChange={setAlbumPage} loading={loading} total={albumTotal} />
+    ) : activeTab === "playlists" && (playlistTotalPages > 1 || playlistTotal > 0) ? (
+      <PaginationBar page={playlistPage} totalPages={playlistTotalPages} onPageChange={setPlaylistPage} loading={loading} total={playlistTotal} />
     ) : activeTab === "users" && (userTotalPages > 1 || userTotal > 0) ? (
       <PaginationBar page={userPage} totalPages={userTotalPages} onPageChange={setUserPage} loading={loading} total={userTotal} />
     ) : undefined;
@@ -303,21 +341,59 @@ export const SearchPage = () => {
             </section>
           )}
 
-          {/* Playlists - placeholder */}
+          {/* Playlists */}
           {(activeTab === "all" || activeTab === "playlists") && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
                 <div className="section-header">
-                  <h3 className="page-section-title">歌单</h3>
+                  <h3 className="page-section-title">
+                    歌单
+                    {playlistTotal > 0 && (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: "var(--color-muted)",
+                          fontWeight: 400,
+                          marginLeft: 8,
+                        }}
+                      >
+                        共 {playlistTotal} 个
+                      </span>
+                    )}
+                  </h3>
+                  {activeTab === "all" && playlistResults.length > 0 && (
+                    <button
+                      className="ghost-button"
+                      onClick={() => setActiveTab("playlists")}
+                      style={{ fontSize: 13 }}
+                    >
+                      查看更多
+                    </button>
+                  )}
                 </div>
               </FadeIn>
-              <FadeIn delay={0.15}>
-                <EmptyState
-                  icon={ListMusic}
-                  title="歌单搜索功能即将上线"
-                  compact
-                />
-              </FadeIn>
+              {playlistResults.length === 0 ? (
+                <FadeIn delay={0.15}>
+                  <EmptyState icon={ListMusic} title="未找到相关歌单" compact />
+                </FadeIn>
+              ) : (
+                <StaggerContainer className="playlist-rail" staggerDelay={0.04}>
+                  {(activeTab === "all"
+                    ? playlistResults.slice(0, 5)
+                    : playlistResults
+                  ).map((playlist) => (
+                    <StaggerItem key={playlist.id}>
+                      <CoverCard
+                        id={playlist.id}
+                        title={playlist.title}
+                        subtitle={playlist.user.nickname}
+                        coverUrl={playlist.cover_icon_url ?? undefined}
+                        onClick={() => navigate(`/playlist/${playlist.id}`)}
+                      />
+                    </StaggerItem>
+                  ))}
+                </StaggerContainer>
+              )}
             </section>
           )}
 

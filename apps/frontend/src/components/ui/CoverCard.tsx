@@ -27,9 +27,10 @@ interface CoverCardProps {
   subtitle: string;
   coverUrl?: string;
   onClick?: () => void;
+  onPlay?: () => void;
 }
 
-export const CoverCard = ({ id, title, subtitle, coverUrl, onClick }: CoverCardProps) => {
+export const CoverCard = ({ id, title, subtitle, coverUrl, onClick, onPlay }: CoverCardProps) => {
   const [c1, c2] = getGradient(id);
 
   return (
@@ -99,15 +100,23 @@ export const CoverCard = ({ id, title, subtitle, coverUrl, onClick }: CoverCardP
             />
           </div>
         )}
-        <div className="cover-overlay">
-          <motion.div
-            className="play-icon"
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.15 }}
+        {onPlay && (
+          <div
+            className="cover-overlay"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
           >
-            <Play size={18} fill="white" />
-          </motion.div>
-        </div>
+            <motion.div
+              className="play-icon"
+              whileHover={{ scale: 1.1 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Play size={18} fill="white" />
+            </motion.div>
+          </div>
+        )}
       </div>
       <div className="cover-title">{title}</div>
       <div className="cover-subtitle">{subtitle}</div>

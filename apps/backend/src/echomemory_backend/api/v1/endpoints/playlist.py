@@ -85,6 +85,33 @@ async def list_playlists(
     )
 
 
+# 注意：/search、/public 必须排在 /{playlist_id} 之前。
+@router.get("/search", response_model=PaginatedPlaylistListOut)
+async def search_playlists(
+    db: SessionDep,
+    q: str | None = Query(None, description="按标题模糊搜索"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """按标题模糊搜索公开歌单。"""
+    return await playlist_service.search_playlists(
+        db, q=q, limit=limit, offset=offset
+    )
+
+
+@router.get("/public", response_model=PaginatedPlaylistListOut)
+async def list_public_playlists(
+    db: SessionDep,
+    user_id: int = Query(..., ge=1, description="目标用户 ID"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """查询指定用户的公开歌单列表。"""
+    return await playlist_service.list_user_public_playlists(
+        db, user_id=user_id, limit=limit, offset=offset
+    )
+
+
 @router.get("/{playlist_id}", response_model=PlaylistOut)
 async def get_playlist(
     db: SessionDep,

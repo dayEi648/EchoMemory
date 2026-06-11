@@ -71,13 +71,33 @@ export const SpacePage = () => {
   };
 
   const handleDelete = async (postId: number) => {
-    await spacePostApi.deletePost(postId);
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
-    setTotal((prev) => Math.max(0, prev - 1));
+    try {
+      await spacePostApi.deletePost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setTotal((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+      throw err;
+    }
   };
 
-  const handleLike = async (postId: number) => { await spacePostApi.likePost(postId); };
-  const handleUnlike = async (postId: number) => { await spacePostApi.unlikePost(postId); };
+  const handleLike = async (postId: number) => {
+    try {
+      await spacePostApi.likePost(postId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+      throw err;
+    }
+  };
+
+  const handleUnlike = async (postId: number) => {
+    try {
+      await spacePostApi.unlikePost(postId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+      throw err;
+    }
+  };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const imagePostCount = posts.filter((p) => p.images.length > 0).length;

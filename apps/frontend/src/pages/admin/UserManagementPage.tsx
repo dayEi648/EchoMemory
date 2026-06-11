@@ -174,7 +174,6 @@ export const UserManagementPage = () => {
       city: user.city ?? undefined,
       bio: user.bio ?? undefined,
       role: user.role,
-      status: user.status,
       is_verified: user.is_verified,
     });
   };
@@ -495,10 +494,19 @@ export const UserManagementPage = () => {
                       </motion.button>
                       <motion.button
                         className="ghost-button"
-                        onClick={() => canManage(currentUser, item) && !item.is_deleted && item.status === 0 && (() => { setBanUser(item); setBanStatus(3); setBanDays(""); })()}
-                        disabled={!canManage(currentUser, item) || item.is_deleted || item.status !== 0}
-                        whileHover={canManage(currentUser, item) && !item.is_deleted && item.status === 0 ? { scale: 1.1 } : {}}
-                        whileTap={canManage(currentUser, item) && !item.is_deleted && item.status === 0 ? { scale: 0.9 } : {}}
+                        onClick={() => {
+                          if (!canManage(currentUser, item) || item.is_deleted) return;
+                          if (item.status === 0) {
+                            setBanUser(item);
+                            setBanStatus(3);
+                            setBanDays("");
+                          } else {
+                            void handleUnban(item.id);
+                          }
+                        }}
+                        disabled={!canManage(currentUser, item) || item.is_deleted}
+                        whileHover={canManage(currentUser, item) && !item.is_deleted ? { scale: 1.1 } : {}}
+                        whileTap={canManage(currentUser, item) && !item.is_deleted ? { scale: 0.9 } : {}}
                         type="button"
                         title={item.status === 0 ? "封禁" : "解封"}
                         style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-danger)", opacity: canManage(currentUser, item) && !item.is_deleted ? 1 : 0.2 }}
@@ -677,18 +685,6 @@ export const UserManagementPage = () => {
                     <option value="1">VIP</option>
                     <option value="2">管理员</option>
                     <option value="3">超级管理员</option>
-                  </select>
-                </label>
-                <label>
-                  状态
-                  <select
-                    value={String(editForm.status ?? 0)}
-                    onChange={(e) => setEditForm((f) => ({ ...f, status: Number(e.target.value) as UserMe["status"] }))}
-                  >
-                    <option value="0">正常</option>
-                    <option value="1">临时封禁</option>
-                    <option value="2">限制中</option>
-                    <option value="3">已封禁</option>
                   </select>
                 </label>
               </>

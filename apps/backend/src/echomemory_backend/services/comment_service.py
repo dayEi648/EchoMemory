@@ -16,6 +16,21 @@ from echomemory_backend.services.space_post_service import can_view_space_post
 _VALID_TARGET_TYPES = ("music", "playlist", "space_post")
 
 
+def _can_view_playlist(viewer_id: int | None, playlist: Playlist) -> bool:
+    """判断查看者是否有权访问歌单（与歌单详情接口规则一致）。
+
+    Args:
+        viewer_id: 查看者用户主键，未登录时为 None。
+        playlist: 歌单 ORM 实例。
+
+    Returns:
+        公开歌单或所有者查看自己的私密歌单时返回 True。
+    """
+    if not playlist.is_private:
+        return True
+    return viewer_id is not None and playlist.user_id == viewer_id
+
+
 async def _validate_target_exists(
     db: AsyncSession, target_type: str, target_id: int, viewer_id: int | None = None
 ) -> None:
@@ -39,7 +54,7 @@ async def _validate_target_exists(
             raise BusinessError("Target not found", 404)
     elif target_type == "playlist":
         target = await db.get(Playlist, target_id)
-        if target is None or target.is_private:
+        if target is None or not _can_view_playlist(viewer_id, target):
             raise BusinessError("Target not found", 404)
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
@@ -200,7 +215,11 @@ async def list_comments(
     if target_type not in _VALID_TARGET_TYPES:
         raise BusinessError("Invalid target_type", 400)
 
-    if target_type == "space_post":
+    if target_type == "playlist":
+        target = await db.get(Playlist, target_id)
+        if target is None or not _can_view_playlist(viewer_user_id, target):
+            raise BusinessError("Target not found", 404)
+    elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
         if target is None or not can_view_space_post(viewer_user_id, target):
             raise BusinessError("Target not found", 404)

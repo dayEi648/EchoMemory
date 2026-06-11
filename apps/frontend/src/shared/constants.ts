@@ -1,4 +1,9 @@
 /** 城市选项列表 */
+/** 各等级所需最低经验值，与后端 level_config 种子数据一致。 */
+export const LEVEL_MIN_EXP = [
+  0, 100, 300, 700, 1500, 3000, 5500, 9500, 16000, 28000, 50000,
+] as const;
+
 export const CITY_OPTIONS = [
   "北京",
   "上海",

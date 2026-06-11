@@ -10,7 +10,7 @@ import { musicApi } from "../shared/api/instances";
 import { albumApi } from "../shared/api/instances";
 import { playHistoryApi } from "../shared/api/instances";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
-import { formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
+import { calcLevelProgress, formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -258,7 +258,7 @@ export const DiscoverPage = () => {
                       >
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: "35%" }}
+                          animate={{ width: `${calcLevelProgress(user.exp, user.level)}%` }}
                           transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
                           style={{
                             height: "100%",
@@ -282,7 +282,7 @@ export const DiscoverPage = () => {
         <SectionHeader
           title="为你推荐的专辑"
           action={
-            <button className="section-link" onClick={() => navigate("/playlists")} type="button">
+            <button className="section-link" onClick={() => navigate("/search?tab=albums")} type="button">
               查看全部 →
             </button>
           }
@@ -323,12 +323,12 @@ export const DiscoverPage = () => {
         </StaggerContainer>
       </section>
 
-      {/* Chart */}
+      {/* Hot new songs */}
       <section style={{ marginBottom: 32 }}>
         <SectionHeader
           title={
             <>
-              <TrendingUp size={16} style={{ display: "inline", verticalAlign: "-2px" }} /> 排行榜
+              <TrendingUp size={16} style={{ display: "inline", verticalAlign: "-2px" }} /> 热门新歌
             </>
           }
         />
@@ -342,7 +342,6 @@ export const DiscoverPage = () => {
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
                 onPlay={() => handlePlayMusic(song)}
-                showHeart
               />
             </StaggerItem>
           ))}

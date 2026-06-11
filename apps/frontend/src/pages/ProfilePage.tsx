@@ -35,6 +35,8 @@ export const ProfilePage = () => {
   const [myHistory, setMyHistory] = useState<PlayHistoryItem[]>([]);
   const [postTotal, setPostTotal] = useState(0);
   const [dashLoading, setDashLoading] = useState(false);
+  const [publicPlaylists, setPublicPlaylists] = useState<PlaylistListItem[]>([]);
+  const [publicPlaylistsLoading, setPublicPlaylistsLoading] = useState(false);
 
   const isOwnProfile = currentUser && userId && Number(userId) === currentUser.id;
 
@@ -72,6 +74,19 @@ export const ProfilePage = () => {
       setPostTotal(sp.total);
     }).catch(() => {}).finally(() => setDashLoading(false));
   }, [isOwnProfile]);
+
+  useEffect(() => {
+    if (!userId || isOwnProfile) return;
+    const id = Number(userId);
+    if (Number.isNaN(id)) return;
+
+    setPublicPlaylistsLoading(true);
+    playlistApi
+      .listPublicPlaylists(id, { limit: 12 })
+      .then((res) => setPublicPlaylists(res.items))
+      .catch(() => toast.error("加载公开歌单失败"))
+      .finally(() => setPublicPlaylistsLoading(false));
+  }, [userId, isOwnProfile]);
 
   const handleToggleFollow = async () => {
     if (!profile) return;
@@ -231,8 +246,33 @@ export const ProfilePage = () => {
       {!isOwnProfile && (
         <FadeIn delay={0.15}>
           <section>
-            <div className="section-header"><h3><Music2 size={16} style={{ display: "inline", verticalAlign: "-2px" }} /> 公开歌单</h3></div>
-            <EmptyState icon={Music2} title="该用户暂无公开歌单" compact />
+            <div className="section-header" style={{ marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>
+                <ListMusic size={16} style={{ display: "inline", verticalAlign: "-2px", marginRight: 6 }} />
+                公开歌单
+              </h3>
+            </div>
+            {publicPlaylistsLoading ? (
+              <div style={{ textAlign: "center", padding: 32, color: "var(--color-muted)", fontSize: 13 }}>
+                加载中...
+              </div>
+            ) : publicPlaylists.length === 0 ? (
+              <EmptyState icon={ListMusic} title="该用户暂无公开歌单" compact />
+            ) : (
+              <StaggerContainer className="playlist-rail">
+                {publicPlaylists.map((p) => (
+                  <StaggerItem key={p.id}>
+                    <CoverCard
+                      id={p.id}
+                      title={p.title}
+                      subtitle={p.user.nickname}
+                      coverUrl={p.cover_icon_url ?? undefined}
+                      onClick={() => navigate(`/playlist/${p.id}`)}
+                    />
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            )}
           </section>
         </FadeIn>
       )}

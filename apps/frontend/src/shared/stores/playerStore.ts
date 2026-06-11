@@ -261,22 +261,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     playQueue: (queue, startIndex = 0, context = null) => {
-      const track = queue[startIndex];
-      if (!track || !track.file_url) return;
-      audio.src = track.file_url;
-      audio.load();
-      audio.play().catch(() => {});
-      set({
-        queue,
-        queueIndex: startIndex,
-        queueContext: context,
-        currentTrack: track,
-        isPlaying: true,
-        progress: 0,
-        currentTime: 0,
-        duration: 0,
-        recorded: false,
-      });
+      void (async () => {
+        if (queue.length === 0) return;
+        set({ queue, queueContext: context });
+
+        let index = Math.max(0, Math.min(startIndex, queue.length - 1));
+        for (let attempt = 0; attempt < queue.length; attempt++) {
+          let track = get().queue[index];
+          if (!track) return;
+          if (!track.file_url) {
+            track = (await _ensureFileUrl(track)) ?? track;
+          }
+          if (track.file_url && _switchToTrack(get().queue, index)) {
+            set({ queueContext: context });
+            return;
+          }
+          index = (index + 1) % queue.length;
+        }
+      })();
     },
 
     togglePlay: () => {

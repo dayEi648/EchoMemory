@@ -276,8 +276,10 @@ class TestCreateComment:
         )
         assert resp.status_code == 404
 
-    async def test_create_comment_on_private_playlist(self, client: TestClient, db_session: AsyncSession):
-        """测试对私密歌单发表评论时返回 404。"""
+    async def test_create_comment_on_private_playlist_by_non_owner(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试非所有者对私密歌单发表评论时返回 404。"""
         user = await _create_user(db_session, "comment_private_pl")
         owner = await _create_user(db_session, "comment_private_pl_owner")
         playlist = await _create_playlist_directly(db_session, owner.id, title="PrivatePL", is_private=True)
@@ -292,6 +294,27 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 404
+
+    async def test_create_comment_on_own_private_playlist(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试歌单所有者在私密歌单下发表评论成功。"""
+        owner = await _create_user(db_session, "comment_own_private_pl")
+        playlist = await _create_playlist_directly(
+            db_session, owner.id, title="MyPrivatePL", is_private=True
+        )
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(owner),
+            json={
+                "target_type": "playlist",
+                "target_id": playlist.id,
+                "content": "My private comment",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["content"] == "My private comment"
 
     async def test_create_comment_empty_content(self, client: TestClient, db_session: AsyncSession):
         """测试发表空内容评论时返回 422。"""

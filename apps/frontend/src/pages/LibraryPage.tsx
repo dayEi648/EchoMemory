@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
+import { useAuthStore } from "../shared/stores/authStore";
 import { collectionApi, musicApi } from "../shared/api/instances";
 import type {
   MusicCollectionItem,
@@ -34,6 +35,7 @@ type TabKey = (typeof tabs)[number]["key"];
 export const LibraryPage = () => {
   const navigate = useNavigate();
   const playStandalone = usePlayerStore((s) => s.playStandalone);
+  const { user: currentUser } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>("songs");
 
@@ -134,6 +136,17 @@ export const LibraryPage = () => {
     } catch {
       toast.error("操作失败");
     }
+  };
+
+  /** 进入歌单详情；他人已设为私密的歌单不可查看。 */
+  const handleOpenCollectedPlaylist = (item: PlaylistCollectionItem) => {
+    const { playlist } = item;
+    const isOwner = currentUser?.id === playlist.user.id;
+    if (playlist.is_private && !isOwner) {
+      toast.error("该歌单已设为私密，无法查看");
+      return;
+    }
+    navigate(`/playlist/${playlist.id}`);
   };
 
   /** 播放收藏的歌曲 */
@@ -312,7 +325,7 @@ export const LibraryPage = () => {
                         title={item.playlist.title}
                         subtitle={`${item.playlist.user.nickname}${item.playlist.is_private ? " · 私密" : ""}`}
                         coverUrl={item.playlist.cover_icon_url ?? undefined}
-                        onClick={() => navigate(`/playlist/${item.playlist.id}`)}
+                        onClick={() => handleOpenCollectedPlaylist(item)}
                       />
                       <motion.button
                         onClick={() => handleUncollectPlaylist(item)}

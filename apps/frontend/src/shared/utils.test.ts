@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { toPlayerTrack, toPlayerTrackFromAlbumMusic, toPlayerTrackFromListItem } from "./utils";
+import { calcLevelProgress, toPlayerTrack, toPlayerTrackFromAlbumMusic, toPlayerTrackFromListItem } from "./utils";
+
+describe("calcLevelProgress", () => {
+  it("returns 0 at level start", () => {
+    expect(calcLevelProgress(100, 1)).toBe(0);
+  });
+
+  it("returns 100 at max level", () => {
+    expect(calcLevelProgress(99999, 10)).toBe(100);
+  });
+
+  it("returns midpoint within a level span", () => {
+    expect(calcLevelProgress(200, 1)).toBe(50);
+  });
+});
 
 describe("player track converters", () => {
   it("converts list items with null file_url", () => {

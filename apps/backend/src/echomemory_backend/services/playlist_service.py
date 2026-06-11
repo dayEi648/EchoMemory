@@ -221,6 +221,82 @@ async def get_playlist_by_id(db: AsyncSession, playlist_id: int) -> Playlist | N
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
+def _public_playlist_where() -> list:
+    """公开歌单筛选条件：非私密且非系统喜欢歌单。"""
+    return [Playlist.is_private.is_(False), Playlist.is_like.is_(False)]
+
+
+async def search_playlists(
+    db: AsyncSession,
+    *,
+    q: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, object]:
+    """按标题模糊搜索公开歌单。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        q: 搜索关键词，可选。
+        limit: 返回数量上限，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        {"items": 匹配的歌单实例列表, "total": 总记录数}。
+    """
+    where_clause = _public_playlist_where()
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Playlist.title.ilike(f"%{escaped_q}%", escape="\\"))
+
+    stmt = (
+        select(Playlist)
+        .where(*where_clause)
+        .order_by(desc(Playlist.hot), desc(Playlist.created_at))
+        .limit(limit)
+        .offset(offset)
+        .options(selectinload(Playlist.user))
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
+
+
+async def list_user_public_playlists(
+    db: AsyncSession,
+    user_id: int,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, object]:
+    """查询指定用户的公开歌单列表，按创建时间倒序。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键 ID。
+        limit: 返回数量上限，默认 20。
+        offset: 分页偏移量，默认 0。
+
+    Returns:
+        {"items": 公开歌单实例列表, "total": 总记录数}。
+    """
+    where_clause = [Playlist.user_id == user_id, *_public_playlist_where()]
+    stmt = (
+        select(Playlist)
+        .where(*where_clause)
+        .order_by(desc(Playlist.created_at))
+        .limit(limit)
+        .offset(offset)
+        .options(selectinload(Playlist.user))
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
+
+
 async def list_user_playlists(
     db: AsyncSession,
     user_id: int,

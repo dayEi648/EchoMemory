@@ -1,5 +1,6 @@
 /** 共享工具函数。 */
 
+import { LEVEL_MIN_EXP } from "./constants";
 import type { AlbumMusicItem, Author, MusicDetail, MusicListItem } from "./api/types";
 import type { PlayerTrack } from "./stores/playerStore";
 
@@ -45,6 +46,22 @@ export function formatTime(seconds: number): string {
  * @param authors 后端返回的作者列表；缺失或为空时使用 fallback。
  * @param fallback 没有作者信息时展示的文本。
  */
+/**
+ * 根据当前经验值与等级计算升级进度百分比。
+ *
+ * @param exp 用户当前经验值。
+ * @param level 用户当前等级（0~10）。
+ * @returns 0~100 的进度百分比；已满级时返回 100。
+ */
+export function calcLevelProgress(exp: number, level: number): number {
+  const currentMin = LEVEL_MIN_EXP[level] ?? 0;
+  const nextMin = LEVEL_MIN_EXP[level + 1];
+  if (nextMin === undefined) return 100;
+  const span = nextMin - currentMin;
+  if (span <= 0) return 100;
+  return Math.min(100, Math.max(0, ((exp - currentMin) / span) * 100));
+}
+
 export function formatAuthors(authors: Author[] | null | undefined, fallback = "未知艺人"): string {
   if (!Array.isArray(authors)) {
     return fallback;

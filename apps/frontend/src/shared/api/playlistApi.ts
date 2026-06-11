@@ -14,6 +14,27 @@ export const createPlaylistApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) 
       return request<PaginatedPlaylistList>(`/playlists/?${query.toString()}`);
     },
 
+    /** 按标题搜索公开歌单（公开接口）。 */
+    searchPlaylists: (params: { q?: string; limit?: number; offset?: number } = {}) => {
+      const query = new URLSearchParams();
+      query.set("limit", String(params.limit ?? 20));
+      query.set("offset", String(params.offset ?? 0));
+      if (params.q) query.set("q", params.q);
+      return request<PaginatedPlaylistList>(`/playlists/search?${query.toString()}`, {}, false);
+    },
+
+    /** 获取指定用户的公开歌单列表（公开接口）。 */
+    listPublicPlaylists: (
+      userId: number,
+      params: { limit?: number; offset?: number } = {},
+    ) => {
+      const query = new URLSearchParams();
+      query.set("user_id", String(userId));
+      query.set("limit", String(params.limit ?? 20));
+      query.set("offset", String(params.offset ?? 0));
+      return request<PaginatedPlaylistList>(`/playlists/public?${query.toString()}`, {}, false);
+    },
+
     /** 获取歌单详情（含歌曲列表）。 */
     getPlaylistDetail: (playlistId: number) =>
       request<PlaylistDetail>(`/playlists/${playlistId}`),

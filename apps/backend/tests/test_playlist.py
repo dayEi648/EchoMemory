@@ -710,3 +710,77 @@ class TestCollectCountOnAddRemove:
         await db_session.refresh(music)
         # collect_count 只增不减，从歌单移除后不递减
         assert music.collect_count == 2
+
+
+class TestSearchPlaylists:
+    """测试公开歌单搜索接口。"""
+
+    async def test_search_by_title(self, client: TestClient, db_session: AsyncSession):
+        """测试按标题关键词搜索公开歌单。"""
+        owner = await _create_user(db_session, "search_pl_owner")
+        await _create_playlist_directly(
+            db_session, owner.id, title="Summer Vibes", is_private=False
+        )
+        await _create_playlist_directly(
+            db_session, owner.id, title="Winter Chill", is_private=False
+        )
+
+        resp = client.get(f"{BASE_URL}/search", params={"q": "Summer"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "Summer Vibes"
+
+    async def test_search_excludes_private_playlists(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试搜索结果不包含私密歌单。"""
+        owner = await _create_user(db_session, "search_private_owner")
+        await _create_playlist_directly(
+            db_session, owner.id, title="Hidden Mix", is_private=True
+        )
+        await _create_playlist_directly(
+            db_session, owner.id, title="Hidden Public", is_private=False
+        )
+
+        resp = client.get(f"{BASE_URL}/search", params={"q": "Hidden"})
+        assert resp.status_code == 200
+        data = resp.json()
+        titles = {item["title"] for item in data["items"]}
+        assert "Hidden Public" in titles
+        assert "Hidden Mix" not in titles
+
+
+class TestListPublicPlaylists:
+    """测试用户公开歌单列表接口。"""
+
+    async def test_list_public_playlists(self, client: TestClient, db_session: AsyncSession):
+        """测试返回指定用户的公开歌单。"""
+        owner = await _create_user(db_session, "public_pl_owner")
+        await _create_playlist_directly(
+            db_session, owner.id, title="Public One", is_private=False
+        )
+        await _create_playlist_directly(
+            db_session, owner.id, title="Private One", is_private=True
+        )
+
+        resp = client.get(f"{BASE_URL}/public", params={"user_id": owner.id})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["title"] == "Public One"
+
+    async def test_list_public_playlists_empty_for_no_public(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试用户仅有私密歌单时返回空列表。"""
+        owner = await _create_user(db_session, "only_private_owner")
+        await _create_playlist_directly(
+            db_session, owner.id, title="Secret List", is_private=True
+        )
+
+        resp = client.get(f"{BASE_URL}/public", params={"user_id": owner.id})
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+        assert resp.json()["items"] == []
