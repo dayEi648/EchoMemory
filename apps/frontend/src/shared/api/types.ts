@@ -346,6 +346,39 @@ export type PlaylistUpdateInput = {
   is_private?: boolean;
 };
 
+/* ==================== Space Post ==================== */
+
+export type SpacePostImage = {
+  image_url: string;
+  ordinal: number;
+};
+
+export type SpacePostDetail = {
+  id: number;
+  user_id: number;
+  content: string | null;
+  is_private: boolean;
+  comment_count: number;
+  images: SpacePostImage[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type SpacePostListItem = {
+  id: number;
+  user_id: number;
+  content: string | null;
+  is_private: boolean;
+  comment_count: number;
+  images: SpacePostImage[];
+  created_at: string;
+};
+
+export type PaginatedSpacePostList = {
+  items: SpacePostListItem[];
+  total: number;
+};
+
 /* ==================== Dictionary ==================== */
 
 export type DictionaryType =

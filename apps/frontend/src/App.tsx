@@ -22,6 +22,7 @@ import { AdminAlbumPage } from "./pages/admin/AdminAlbumPage";
 import { MusicDetailPage } from "./pages/MusicDetailPage";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
+import { SpacePage } from "./pages/SpacePage";
 
 /** 未登录时重定向到登录页 */
 const RequireAuth = () => {
@@ -94,6 +95,8 @@ export default function App() {
           <Route path="/music/:musicId" element={<MusicDetailPage />} />
           <Route path="/album/:albumId" element={<AlbumDetailPage />} />
           <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
+          <Route path="/space" element={<SpacePage />} />
+          <Route path="/space/:userId" element={<SpacePage />} />
         </Route>
 
         {/* 管理后台路由 */}

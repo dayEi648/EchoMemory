@@ -253,4 +253,26 @@ describe("App", () => {
     expect(await screen.findByText("暂无歌单")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/playlists/"), expect.anything());
   });
+
+  it("renders space page with empty state", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes("/auth/me")) {
+          return jsonResponse(adminUser);
+        }
+        if (url.includes("/space-posts/")) {
+          return jsonResponse({ items: [], total: 0 });
+        }
+        return jsonResponse({});
+      });
+
+    renderApp({ tokenStore, initialEntries: ["/space"] });
+
+    expect(await screen.findByRole("heading", { name: "个人空间" })).toBeInTheDocument();
+    expect(await screen.findByText("还没有发表过说说")).toBeInTheDocument();
+  });
 });

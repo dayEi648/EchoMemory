@@ -1,145 +1,132 @@
-# 计划：歌单模块 + 播放列表智能队列
+# 计划：个人空间模块（说说）
 
 ## 背景
 
-当前前端缺少歌单模块的功能页面（PlaylistsPage 是 mock 数据，无歌单详情页），且播放器的队列管理不完整：从搜索/首页点击单曲时队列为空，从专辑点击单曲时应该把整个专辑作为队列但没有做。这导致播放器的"上一首/下一首"行为不一致。
+后端 SpacePost 模块已完整（CRUD + 点赞 + 图片上传），管理员硬删除接口也已就绪。前端目前零实现。需要开发完整的个人空间页面，支持发布、查看、点赞、删除说说。
 
-## 需要改动的文件
+## 后端 API 摘要
 
-### 1. 新增：`apps/frontend/src/shared/api/playlistApi.ts`
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/space-posts/` | POST | 创建说说（multipart: content + files[] + is_private） |
+| `/space-posts/` | GET | 分页列表（?user_id= 可查看他人，不传看自己） |
+| `/space-posts/{id}` | GET | 查看详情 |
+| `/space-posts/{id}` | DELETE | 软删除自己的说说 |
+| `/space-posts/{id}/like` | POST | 点赞（幂等） |
+| `/space-posts/{id}/like` | DELETE | 取消点赞 |
 
-创建歌单 API 客户端，遵循与 `albumApi.ts` / `musicApi.ts` 相同的模式（使用 `createBaseApi`）。
+**Schema 限制：**
+- `SpacePostOut` / `SpacePostListOut` 只含 `user_id`，不含用户昵称/头像 — 需前端另行获取
+- 无 `like_count` 字段 — 前端本地维护点赞状态
+- 无 `is_liked` 字段 — 前端本地追踪
 
-暴露方法：
-- `listPlaylists(params)` → `GET /playlists/`
-- `getPlaylistDetail(id)` → `GET /playlists/{id}`
-- `createPlaylist(input)` → `POST /playlists/` (multipart form)
-- `updatePlaylist(id, input)` → `PATCH /playlists/{id}`
-- `deletePlaylist(id)` → `DELETE /playlists/{id}`
-- `addMusicToPlaylist(playlistId, musicId)` → `POST /playlists/{id}/musics/{musicId}`
-- `removeMusicFromPlaylist(playlistId, musicId)` → `DELETE /playlists/{id}/musics/{musicId}`
+## 实施计划
 
-### 2. 修改：`apps/frontend/src/shared/api/types.ts`
+### 1. 添加类型定义 — `shared/api/types.ts`
 
-新增歌单相关 TypeScript 类型：
-- `PlaylistUser` — 歌单中的用户精简信息
-- `PlaylistMusic` — 歌单中的歌曲项（含 `music: MusicListItem`, `ordinal`）
-- `PlaylistDetail` — 歌单详情（对应 `PlaylistOut`）
-- `PlaylistListItem` — 歌单列表项（对应 `PlaylistListOut`）
-- `PaginatedPlaylistList` — 分页歌单列表
-- `PlaylistUpdateInput` — 更新歌单请求体
-
-### 3. 修改：`apps/frontend/src/shared/stores/playerStore.ts`
-
-这是本次的核心改动：
-
-**新增状态：**
-- `queueContext: QueueContext | null` — 描述当前队列的来源
-
-**新增类型：**
+新增：
 ```ts
-type QueueContext = 
-  | { type: 'playlist'; id: number; name: string }
-  | { type: 'album'; id: number; name: string }
-  | { type: 'history' }
-  | null
+type SpacePostImage = { image_url: string; ordinal: number }
+type SpacePost = { id, user_id, content, is_private, comment_count, images[], created_at, updated_at }
+type SpacePostListItem = { id, user_id, content, is_private, comment_count, images[], created_at }
+type PaginatedSpacePostList = { items: SpacePostListItem[]; total: number }
 ```
 
-**新增方法：`playInContext(track, contextTracks, contextInfo)`**
-- 接受一首歌 + 上下文歌曲列表 + 上下文信息
-- 将队列设为上下文歌曲列表，定位到当前歌曲的索引，开始播放
-- 设置 `queueContext`
+### 2. 创建 API 层 — `shared/api/spacePostApi.ts`
 
-**修改方法：`next()` 和 `prev()`**
-- 当下一首/上一首歌曲的 `file_url` 为 null 时，通过 `musicApi.getMusicDetail()` 懒加载获取 file_url
-- 获取到后更新队列中该歌曲的 file_url，然后播放
-- 如果获取失败，跳过该歌曲继续找下一首
+遵循 `playlistApi.ts` 模式，暴露：
+- `listPosts(params)` → GET `/space-posts/`
+- `getPost(id)` → GET `/space-posts/{id}`
+- `createPost(input)` → POST `/space-posts/` (multipart)
+- `deletePost(id)` → DELETE `/space-posts/{id}`
+- `likePost(id)` → POST `/space-posts/{id}/like`
+- `unlikePost(id)` → DELETE `/space-posts/{id}/like`
 
-**新增方法：`playStandalone(track)`**
-- 用于搜索/首页等单独播放场景
-- 内部逻辑：获取播放历史（最近 50 条），构建队列 = [当前歌曲, ...历史歌曲（去重）]
-- 调用 `_playQueueInternal()` 设定队列并开始播放
+### 3. 创建 SpacePostCard 组件 — `components/ui/SpacePostCard.tsx`
 
-### 4. 新增：`apps/frontend/src/pages/PlaylistDetailPage.tsx`
+可复用的说说卡片组件：
 
-新页面，路由 `/playlist/:playlistId`。
+**Props：**
+- `post: SpacePostListItem`
+- `author: { nickname, avatar_url, username }` — 作者信息（由页面层传入）
+- `currentUserId: number`
+- `onDelete(postId)` — 删除回调
+- `onLike(postId)` — 点赞回调
+- `onUnlike(postId)` — 取消点赞回调
+
+**显示：**
+- 顶部：头像 + 昵称 + 时间
+- 正文：content 文本
+- 图片网格：最多 9 张，自适应布局（1 张大图，2-4 张 2 列，5+ 张 3 列）
+- 底部操作栏：点赞按钮（带计数提示）+ 评论数 + 删除按钮（仅自己的）
+
+**点赞状态**：组件内部维护 `liked` 状态，初始 false，点击切换。
+
+### 4. 创建 CreatePostForm 组件 — `components/ui/CreatePostForm.tsx`
+
+发布说说表单：
+
+**Props：**
+- `onCreated(post)` — 创建成功回调
+
+**功能：**
+- 文本输入区（textarea，最多 2000 字）
+- 图片上传按钮（多选，最多 9 张）
+- 图片预览区（可删除已选图片）
+- 隐私开关
+- 发布按钮（带 loading 状态）
+
+### 5. 创建 SpacePage — `pages/SpacePage.tsx`
+
+路由设计：
+- `/space` → 当前登录用户的个人空间（显示创建表单 + 自己的所有说说，含私密）
+- `/space/:userId` → 查看他人空间（只读，仅公开说说）
 
 **页面结构：**
-- 返回按钮
-- 歌单封面 + 标题 + 描述 + 创建者信息
-- "播放全部" 按钮
-- 歌曲列表（使用 `SongRow` 组件），按 `ordinal` 排序
-- 点击单曲 → 使用 `playInContext` 以整个歌单为队列上下文播放
-- 空状态：无歌曲时显示提示
+- 若是自己的空间：顶部显示 `CreatePostForm`
+- 说说列表（按时间倒序，分页）
+- 空状态：无说说时显示引导提示
+- 加载状态：骨架屏或 spinner
 
-### 5. 修改：`apps/frontend/src/pages/PlaylistsPage.tsx`
+**作者信息处理：**
+- 自己的空间：直接使用 `useAuthStore().user`
+- 他人空间：调用 `api.getPublicUser(userId)` 获取作者信息
 
-将 mock 数据替换为真实 API：
+### 6. 更新导航 — `components/layout/SideNav.tsx`
 
-- 调用 `playlistApi.listPlaylists()` 获取当前用户的歌单列表
-- 保留分类标签作为装饰（后端暂不支持按分类筛选）
-- 每个歌单卡片点击 → 导航到 `/playlist/:id`
-- 添加分页（`PaginationBar`）
-- 空状态：无歌单时显示引导提示
-- 移除 mock 数据数组
-
-### 6. 修改：`apps/frontend/src/App.tsx`
-
-新增路由：
-```tsx
-<Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
+在现有导航项末尾新增"个人空间"入口：
+```ts
+{ to: "/space", icon: MessageCircle, label: "个人空间" }
 ```
 
-### 7. 修改：播放上下文相关的现有页面
+放在"社区"分组下（与 AI 回声分开）。
 
-**AlbumDetailPage.tsx** — 点击单曲时：
-- 当前：`playTrack(singleTrack)` → 队列不更新
-- 改为：`playInContext(singleTrack, allAlbumTracksWithUrl, { type: 'album', id: album.id, name: album.title })`
+### 7. 注册路由 — `App.tsx`
 
-**DiscoverPage.tsx** — 新歌/排行榜区域点击单曲时：
-- 当前：`playTrack(singleTrack)` → 队列不更新
-- 改为：`playStandalone(singleTrack)` → 自动拼接历史歌曲队列
+```tsx
+<Route path="/space" element={<SpacePage />} />
+<Route path="/space/:userId" element={<SpacePage />} />
+```
 
-**SearchPage.tsx** — 搜索结果的歌曲点击：
-- 当前：`playTrack(singleTrack)` → 队列不更新
-- 改为：`playStandalone(singleTrack)`
+### 8. 测试更新 — `App.test.tsx`
 
-**HistoryPage.tsx** — 播放历史中的歌曲点击：
-- 当前：`playTrack(singleTrack)` → 队列不更新
-- 改为：`playStandalone(singleTrack)`
-
-**MusicDetailPage.tsx** — 歌曲详情页和相关推荐点击：
-- 当前：`playTrack(singleTrack)`
-- 改为：`playStandalone(singleTrack)`
-
-### 8. 修改：`apps/frontend/src/components/layout/PlayerBar.tsx`
-
-队列面板（Queue Panel）增强：
-- 顶部显示队列来源：歌单名 / 专辑名 / "播放历史"
-- 显示当前队列上下文信息
-
-## 依赖关系
-
-- 所有改动依赖 `playerStore` 的增强 → 先改 playerStore
-- `PlaylistDetailPage` 依赖 `playlistApi` → 先创建 API 层
-- 页面改动依赖 `playInContext` / `playStandalone` 方法 → 最后改页面
+适配新增的 `/space-posts/` API mock。
 
 ## 实施顺序
 
-1. 类型定义（`types.ts`）
-2. API 层（`playlistApi.ts`）
-3. playerStore 增强（`playerStore.ts`）
-4. PlayerBar 队列面板增强（`PlayerBar.tsx`）
-5. PlaylistDetailPage（新建）
-6. PlaylistsPage（替换 mock）
-7. App.tsx（添加路由）
-8. 更新所有页面的播放逻辑（AlbumDetailPage, DiscoverPage, SearchPage, HistoryPage, MusicDetailPage）
+1. `types.ts` — 新增类型
+2. `spacePostApi.ts` — API 层
+3. `SpacePostCard.tsx` — 说说卡片组件
+4. `CreatePostForm.tsx` — 发布表单组件
+5. `SpacePage.tsx` — 主页面
+6. `SideNav.tsx` — 导航入口
+7. `App.tsx` — 路由注册
+8. `App.test.tsx` — 测试适配
 
 ## 验证
 
-1. `npm run build` / `npm run dev` — 前端编译无错误
-2. 播放列表广场页面：加载真实歌单数据，分页工作正常，空状态显示正确
-3. 歌单详情页：显示歌单歌曲列表，点击歌曲在歌单上下文播放，上下首切换在歌单内
-4. 专辑详情页：点击单曲在专辑上下文播放
-5. 首页/搜索/历史：点击单曲自动拼接历史队列播放
-6. PlayerBar 队列面板：显示当前队列来源标签，队列列表内容正确
+1. TypeScript 编译通过，Vite 构建成功
+2. 所有现有测试通过，新增测试覆盖基本渲染
+3. 在 `/space` 页面：可创建说说（文字 + 图片）、查看列表、删除、点赞/取消点赞
+4. 在 `/space/:userId` 页面：可查看他人公开说说，无创建/删除按钮
+5. 侧边栏"个人空间"入口正常高亮
