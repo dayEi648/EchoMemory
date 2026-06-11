@@ -473,6 +473,39 @@ class TestGetMusic:
         resp = client.get(f"{BASE_URL}/999")
         assert resp.status_code == 404
 
+    async def test_get_music_collection_status_unauthenticated(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试未登录时详情中 is_collected_by_me 为 false。"""
+        music = await _create_music_directly(db_session, title="PublicSong")
+        resp = client.get(f"{BASE_URL}/{music.id}")
+        assert resp.status_code == 200
+        assert resp.json()["is_collected_by_me"] is False
+
+    async def test_get_music_collection_status_collected(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试已收藏用户获取详情时 is_collected_by_me 为 true。"""
+        user = await _create_user(db_session, "music_collector")
+        music = await _create_music_directly(db_session, title="CollectedSong")
+        client.post(
+            f"/api/v1/collections/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        resp = client.get(f"{BASE_URL}/{music.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert resp.json()["is_collected_by_me"] is True
+
+    async def test_get_music_collection_status_not_collected(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试未收藏用户获取详情时 is_collected_by_me 为 false。"""
+        user = await _create_user(db_session, "music_not_collector")
+        music = await _create_music_directly(db_session, title="UncollectedSong")
+        resp = client.get(f"{BASE_URL}/{music.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert resp.json()["is_collected_by_me"] is False
+
 
 class TestListMusics:
     """测试公开查询音乐列表功能。"""

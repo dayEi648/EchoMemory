@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
 
 
 async def create_space_post(
@@ -211,3 +212,121 @@ async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> Non
     if like is not None:
         await db.delete(like)
         await db.commit()
+
+
+async def _get_post_like_counts(
+    db: AsyncSession, post_ids: list[int]
+) -> dict[int, int]:
+    """批量查询动态的点赞数。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        post_ids: 动态主键列表。
+
+    Returns:
+        post_id 到点赞数的映射。
+    """
+    if not post_ids:
+        return {}
+    result = await db.execute(
+        select(SpacePostLike.post_id, func.count())
+        .where(SpacePostLike.post_id.in_(post_ids))
+        .group_by(SpacePostLike.post_id)
+    )
+    return {row[0]: row[1] for row in result.all()}
+
+
+async def _get_user_liked_post_ids(
+    db: AsyncSession, user_id: int, post_ids: list[int]
+) -> set[int]:
+    """批量查询用户已点赞的动态 ID 集合。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        post_ids: 动态主键列表。
+
+    Returns:
+        用户已点赞的 post_id 集合。
+    """
+    if not post_ids:
+        return set()
+    result = await db.execute(
+        select(SpacePostLike.post_id).where(
+            SpacePostLike.user_id == user_id,
+            SpacePostLike.post_id.in_(post_ids),
+        )
+    )
+    return set(result.scalars().all())
+
+
+def build_space_post_out(
+    post: SpacePost,
+    like_count: int,
+    liked_by_me: bool,
+) -> SpacePostOut:
+    """将动态 ORM 实例转换为带点赞状态的 SpacePostOut。
+
+    Args:
+        post: 动态 ORM 实例。
+        like_count: 点赞数。
+        liked_by_me: 当前用户是否已点赞。
+
+    Returns:
+        SpacePostOut 实例。
+    """
+    return SpacePostOut.model_validate(post).model_copy(
+        update={"like_count": like_count, "liked_by_me": liked_by_me}
+    )
+
+
+def build_space_post_list_out(
+    post: SpacePost,
+    like_count: int,
+    liked_by_me: bool,
+) -> SpacePostListOut:
+    """将动态 ORM 实例转换为带点赞状态的 SpacePostListOut。
+
+    Args:
+        post: 动态 ORM 实例。
+        like_count: 点赞数。
+        liked_by_me: 当前用户是否已点赞。
+
+    Returns:
+        SpacePostListOut 实例。
+    """
+    return SpacePostListOut.model_validate(post).model_copy(
+        update={"like_count": like_count, "liked_by_me": liked_by_me}
+    )
+
+
+async def build_space_post_outs(
+    db: AsyncSession,
+    posts: list[SpacePost],
+    viewer_user_id: int,
+    *,
+    as_list_item: bool = False,
+) -> list[SpacePostOut | SpacePostListOut]:
+    """批量构建带点赞状态的动态输出列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        posts: 动态 ORM 列表。
+        viewer_user_id: 查看者主键。
+        as_list_item: 为 True 时返回 SpacePostListOut，否则返回 SpacePostOut。
+
+    Returns:
+        动态输出列表。
+    """
+    post_ids = [p.id for p in posts]
+    like_counts = await _get_post_like_counts(db, post_ids)
+    liked_ids = await _get_user_liked_post_ids(db, viewer_user_id, post_ids)
+    builder = build_space_post_list_out if as_list_item else build_space_post_out
+    return [
+        builder(
+            post,
+            like_counts.get(post.id, 0),
+            post.id in liked_ids,
+        )
+        for post in posts
+    ]

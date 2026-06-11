@@ -6,6 +6,8 @@ export class ApiError extends Error {
     public readonly status: number,
   ) {
     super(message);
+    this.name = "ApiError";
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
@@ -15,6 +17,22 @@ export type ApiOptions = {
   tokenStore: TokenStore;
 };
 
+function extractErrorDetail(data: unknown): string | undefined {
+  if (data === null || data === undefined) {
+    return undefined;
+  }
+  if (typeof data === "string") {
+    return data;
+  }
+  if (typeof data === "object" && "detail" in data) {
+    const detail = (data as { detail?: unknown }).detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+  }
+  return undefined;
+}
+
 export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
   const requestFetcher = () => fetcher ?? globalThis.fetch;
 
@@ -22,9 +40,14 @@ export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     if (response.status === 204) {
       return undefined as T;
     }
-    const data = (await response.json().catch(() => ({}))) as { detail?: string };
+    let data: unknown = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
     if (!response.ok) {
-      throw new ApiError(data.detail ?? "请求失败", response.status);
+      throw new ApiError(extractErrorDetail(data) ?? "请求失败", response.status);
     }
     return data as T;
   };

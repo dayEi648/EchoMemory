@@ -21,8 +21,10 @@ interface CommentItemProps {
 }
 
 export const CommentItem = ({ comment, currentUserId, targetType, targetId, onReply, onDeleted }: CommentItemProps) => {
-  const [liked, setLiked] = useState(false);
-  const [disliked, setDisliked] = useState(false);
+  const [liked, setLiked] = useState(comment.liked_by_me ?? false);
+  const [disliked, setDisliked] = useState(comment.disliked_by_me ?? false);
+  const [likeCount, setLikeCount] = useState(comment.like_count);
+  const [dislikeCount, setDislikeCount] = useState(comment.dislike_count);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState<CommentItemType[]>([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
@@ -35,10 +37,15 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
       if (liked) {
         await commentApi.unlikeComment(comment.id);
         setLiked(false);
+        setLikeCount((count) => Math.max(0, count - 1));
       } else {
         await commentApi.likeComment(comment.id);
         setLiked(true);
-        if (disliked) setDisliked(false);
+        setLikeCount((count) => count + 1);
+        if (disliked) {
+          setDisliked(false);
+          setDislikeCount((count) => Math.max(0, count - 1));
+        }
       }
     } catch { toast.error("操作失败"); }
   };
@@ -48,10 +55,15 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
       if (disliked) {
         await commentApi.undislikeComment(comment.id);
         setDisliked(false);
+        setDislikeCount((count) => Math.max(0, count - 1));
       } else {
         await commentApi.dislikeComment(comment.id);
         setDisliked(true);
-        if (liked) setLiked(false);
+        setDislikeCount((count) => count + 1);
+        if (liked) {
+          setLiked(false);
+          setLikeCount((count) => Math.max(0, count - 1));
+        }
       }
     } catch { toast.error("操作失败"); }
   };
@@ -94,7 +106,7 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <button onClick={handleLike} style={{ ...actionBtnStyle, color: liked ? "var(--color-accent)" : "var(--color-muted)" }}>
-              <ThumbsUp size={13} fill={liked ? "var(--color-accent)" : "none"} /> {comment.like_count || ""}
+              <ThumbsUp size={13} fill={liked ? "var(--color-accent)" : "none"} /> {likeCount || ""}
             </button>
             <button onClick={handleDislike} style={{ ...actionBtnStyle, color: disliked ? "var(--color-ink)" : "var(--color-muted)" }}>
               <ThumbsDown size={13} fill={disliked ? "var(--color-ink)" : "none"} />

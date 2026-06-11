@@ -463,3 +463,45 @@ async def list_releases(
         await db.execute(select(func.count()).where(*where_clause))
     ).scalar_one()
     return {"items": items, "total": total}
+
+
+async def is_music_collected(db: AsyncSession, user_id: int, music_id: int) -> bool:
+    """判断用户是否已收藏指定音乐。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        music_id: 音乐主键。
+
+    Returns:
+        已收藏返回 True，否则返回 False。
+    """
+    return await db.get(UserMusicCollection, (user_id, music_id)) is not None
+
+
+async def is_album_collected(db: AsyncSession, user_id: int, album_id: int) -> bool:
+    """判断用户是否已收藏指定专辑。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        album_id: 专辑主键。
+
+    Returns:
+        已收藏返回 True，否则返回 False。
+    """
+    return await db.get(UserAlbumCollection, (user_id, album_id)) is not None
+
+
+async def is_playlist_collected(db: AsyncSession, user_id: int, playlist_id: int) -> bool:
+    """判断用户是否已收藏指定歌单。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        playlist_id: 歌单主键。
+
+    Returns:
+        已收藏返回 True，否则返回 False。
+    """
+    return await db.get(UserPlaylistCollection, (user_id, playlist_id)) is not None

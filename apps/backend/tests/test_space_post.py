@@ -203,6 +203,24 @@ class TestListSpacePosts:
         data = resp.json()
         assert data["total"] == 2
         assert len(data["items"]) == 2
+        for item in data["items"]:
+            assert item["like_count"] == 0
+            assert item["liked_by_me"] is False
+
+    async def test_list_posts_includes_like_status(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试动态列表返回点赞数与当前用户点赞状态。"""
+        user = await _create_user(db_session, "post_like_user")
+        post = await _create_post(db_session, user.id, "Liked post")
+        db_session.add(SpacePostLike(post_id=post.id, user_id=user.id))
+        await db_session.commit()
+
+        resp = client.get(BASE, headers=_auth_header(user))
+        assert resp.status_code == 200
+        item = next(i for i in resp.json()["items"] if i["id"] == post.id)
+        assert item["like_count"] == 1
+        assert item["liked_by_me"] is True
 
     async def test_list_others_exclude_private(self, client: TestClient, db_session: AsyncSession):
         """测试查询他人动态时不包含私有动态。"""

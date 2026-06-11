@@ -1,14 +1,8 @@
 import { create } from "zustand";
 
 import type { MusicListItem } from "../api/types";
-import { createPlayHistoryApi } from "../api/playHistoryApi";
-import { createMusicApi } from "../api/musicApi";
-import { createLocalStorageTokenStore } from "../auth/tokenStore";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const playHistoryApi = createPlayHistoryApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
+import { getApis } from "../api/instances";
+import { defaultPlayerController } from "./playerController";
 
 /** 播放器中使用的可播放曲目，在 MusicListItem 基础上扩展 file_url */
 export interface PlayerTrack extends MusicListItem {
@@ -66,34 +60,25 @@ const shouldRecordPlay = (currentTime: number, duration: number, recorded: boole
   return false;
 };
 
-/** 模块级单例 Audio 实例，避免 Zustand store 重新初始化时创建多个实例。 */
-const audio = new Audio();
-audio.volume = 0.8;
-
-/** 确保事件监听器只绑定一次，防止 Strict Mode / Fast Refresh 导致重复监听。 */
-let _listenersBound = false;
+const playerController = defaultPlayerController;
+const audio = playerController.audio;
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
-  if (!_listenersBound) {
-    _listenersBound = true;
-
-    audio.addEventListener("timeupdate", () => {
+  playerController.bind({
+    onTimeUpdate: (currentTime, duration) => {
       const state = get();
-      const currentTime = audio.currentTime;
-      const duration = audio.duration || 0;
       const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
       if (shouldRecordPlay(currentTime, duration, state.recorded) && state.currentTrack) {
         set({ recorded: true });
-        playHistoryApi.recordPlay(state.currentTrack.id).catch(() => {
+        getApis().playHistoryApi.recordPlay(state.currentTrack.id).catch(() => {
           // silently fail
         });
       }
 
       set({ currentTime, duration, progress });
-    });
-
-    audio.addEventListener("ended", () => {
+    },
+    onEnded: () => {
       const state = get();
       if (state.isRepeat && state.currentTrack) {
         audio.currentTime = 0;
@@ -101,24 +86,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       } else {
         state.next();
       }
-    });
-
-    audio.addEventListener("error", () => {
+    },
+    onError: () => {
       set({ isPlaying: false });
-    });
-
-    audio.addEventListener("play", () => {
+    },
+    onPlay: () => {
       set({ isPlaying: true });
-    });
-
-    audio.addEventListener("pause", () => {
+    },
+    onPause: () => {
       set({ isPlaying: false });
-    });
-
-    audio.addEventListener("loadedmetadata", () => {
-      set({ duration: audio.duration || 0 });
-    });
-  }
+    },
+    onLoadedMetadata: (duration) => {
+      set({ duration });
+    },
+  });
 
   /** 底层：切换到指定队列中的指定索引并播放 */
   const _switchToTrack = (queue: PlayerTrack[], index: number) => {
@@ -144,10 +125,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   const _ensureFileUrl = async (track: PlayerTrack): Promise<PlayerTrack | null> => {
     if (track.file_url) return track;
     try {
-      const detail = await musicApi.getMusicDetail(track.id);
+      const detail = await getApis().musicApi.getMusicDetail(track.id);
       if (detail.file_url) {
         const updated: PlayerTrack = { ...track, file_url: detail.file_url };
-        // 更新队列中的引用
         const { queue } = get();
         const idx = queue.findIndex((t) => t.id === track.id);
         if (idx >= 0) {
@@ -210,7 +190,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (nextIndex < 0) nextIndex = queue.length - 1;
     }
 
-    // 尝试播放，最多尝试队列长度次（防止死循环）
     for (let attempt = 0; attempt < queue.length; attempt++) {
       let track = queue[nextIndex];
       if (!track.file_url) {
@@ -220,7 +199,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         _switchToTrack(get().queue, nextIndex);
         return;
       }
-      // 跳过无 file_url 的歌曲，继续找下一首
       if (isShuffle) {
         nextIndex = Math.floor(Math.random() * queue.length);
       } else {
@@ -230,7 +208,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
     }
 
-    // 所有歌曲都无法播放
     set({ isPlaying: false });
   };
 
@@ -260,7 +237,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playInContext: (track, contextTracks, context) => {
       if (!track.file_url) return;
 
-      // 找到 track 在上下文中的索引
       const idx = contextTracks.findIndex((t) => t.id === track.id);
       const startIndex = idx >= 0 ? idx : 0;
 

@@ -7,7 +7,7 @@ from datetime import date
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from echomemory_backend.api.deps import AdminUser, SessionDep
+from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
@@ -17,7 +17,7 @@ from echomemory_backend.schemas.music import (
     PaginatedMusicListOut,
 )
 from echomemory_backend.core.redis_client import check_rate_limit
-from echomemory_backend.services import music_service
+from echomemory_backend.services import collection_service, music_service
 
 router = APIRouter(prefix="/music", tags=["music"])
 
@@ -437,6 +437,7 @@ async def list_musics(
 async def get_music(
     db: SessionDep,
     music_id: int,
+    current_user: OptionalUser = None,
 ):
     """获取已上架音乐的详情。"""
     music = await music_service.get_music_by_id(db, music_id)
@@ -444,4 +445,11 @@ async def get_music(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
         )
-    return music
+    collected = False
+    if current_user is not None:
+        collected = await collection_service.is_music_collected(
+            db, current_user.id, music_id
+        )
+    return MusicOut.model_validate(music).model_copy(
+        update={"is_collected_by_me": collected}
+    )

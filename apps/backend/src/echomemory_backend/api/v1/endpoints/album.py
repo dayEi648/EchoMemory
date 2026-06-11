@@ -3,7 +3,7 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from echomemory_backend.api.deps import AdminUser, SessionDep
+from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
@@ -12,7 +12,7 @@ from echomemory_backend.schemas.album import (
     PaginatedAdminAlbumListOut,
     PaginatedAlbumListOut,
 )
-from echomemory_backend.services import album_service
+from echomemory_backend.services import album_service, collection_service
 from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/albums", tags=["albums"])
@@ -340,6 +340,7 @@ async def list_albums(
 async def get_album(
     db: SessionDep,
     album_id: int,
+    current_user: OptionalUser = None,
 ):
     """获取未删除专辑的详情。"""
     album = await album_service.get_album_by_id(db, album_id)
@@ -347,4 +348,11 @@ async def get_album(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
         )
-    return album
+    collected = False
+    if current_user is not None:
+        collected = await collection_service.is_album_collected(
+            db, current_user.id, album_id
+        )
+    return AlbumOut.model_validate(album).model_copy(
+        update={"is_collected_by_me": collected}
+    )

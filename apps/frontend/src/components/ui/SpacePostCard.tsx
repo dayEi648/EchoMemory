@@ -46,7 +46,8 @@ export const SpacePostCard = ({
   onLike,
   onUnlike,
 }: SpacePostCardProps) => {
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(post.liked_by_me ?? false);
+  const [likeCount, setLikeCount] = useState(post.like_count ?? 0);
   const [deleting, setDeleting] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
@@ -58,9 +59,11 @@ export const SpacePostCard = ({
       if (liked) {
         await onUnlike(post.id);
         setLiked(false);
+        setLikeCount((count) => Math.max(0, count - 1));
       } else {
         await onLike(post.id);
         setLiked(true);
+        setLikeCount((count) => count + 1);
       }
     } catch {
       toast.error("操作失败");
@@ -178,7 +181,7 @@ export const SpacePostCard = ({
           }}
         >
           <Heart size={15} fill={liked ? "var(--color-accent)" : "none"} />
-          赞
+          赞{likeCount > 0 ? ` ${likeCount}` : ""}
         </motion.button>
 
         <motion.button

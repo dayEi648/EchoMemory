@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core.oss_client import delete_object_by_url
-from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostOut
+from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
 from echomemory_backend.services.space_post_service import can_view_space_post
 
@@ -60,7 +60,9 @@ async def create_space_post(
         raise
 
     post = await space_post_service.get_space_post_by_id(db, post.id)
-    return post
+    return (
+        await space_post_service.build_space_post_outs(db, [post], current_user.id)
+    )[0]
 
 
 @router.get("/{post_id}", response_model=SpacePostOut)
@@ -81,7 +83,9 @@ async def get_space_post(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this post",
         )
-    return post
+    return (
+        await space_post_service.build_space_post_outs(db, [post], current_user.id)
+    )[0]
 
 
 @router.get("/", response_model=PaginatedSpacePostListOut)
@@ -94,13 +98,20 @@ async def list_space_posts(
 ):
     """分页列出用户动态。"""
     target_user_id = user_id if user_id is not None else current_user.id
-    return await space_post_service.list_space_posts(
+    result = await space_post_service.list_space_posts(
         db,
         target_user_id=target_user_id,
         viewer_user_id=current_user.id,
         limit=limit,
         offset=offset,
     )
+    items = await space_post_service.build_space_post_outs(
+        db,
+        result["items"],
+        current_user.id,
+        as_list_item=True,
+    )
+    return PaginatedSpacePostListOut(items=items, total=result["total"])
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)

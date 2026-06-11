@@ -385,6 +385,30 @@ class TestListComments:
         contents = {c["content"] for c in data["items"]}
         assert "Comment A" in contents
         assert "Comment B" in contents
+        for item in data["items"]:
+            assert item["liked_by_me"] is False
+            assert item["disliked_by_me"] is False
+
+    async def test_list_comments_includes_like_status(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试评论列表返回当前用户的点赞/点踩状态。"""
+        user = await _create_user(db_session, "comment_like_user")
+        music = await _create_music_directly(db_session, title="SongForLikeStatus")
+        comment = await _create_comment_directly(
+            db_session, user.id, "Liked comment", music_id=music.id
+        )
+        db_session.add(CommentLike(comment_id=comment.id, user_id=user.id))
+        await db_session.commit()
+
+        resp = client.get(
+            f"{BASE_URL}/music/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        item = resp.json()["items"][0]
+        assert item["liked_by_me"] is True
+        assert item["disliked_by_me"] is False
 
     async def test_list_comments_only_roots(self, client: TestClient, db_session: AsyncSession):
         """测试列表仅返回根评论，不含回复。"""

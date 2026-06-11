@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Play, Heart } from "lucide-react";
+import { Play, Heart, Music } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -27,6 +27,7 @@ export const SongRow = ({
   onPlay,
 }: SongRowProps) => {
   const [hovered, setHovered] = useState(false);
+  const [coverError, setCoverError] = useState(false);
   const navigate = useNavigate();
 
   const isTop3 = index <= 2;
@@ -70,10 +71,11 @@ export const SongRow = ({
           index + 1
         )}
       </span>
-      {coverUrl && (
+      {coverUrl && !coverError ? (
         <img
           src={coverUrl}
           alt={name}
+          onError={() => setCoverError(true)}
           style={{
             width: 40,
             height: 40,
@@ -82,7 +84,25 @@ export const SongRow = ({
             flexShrink: 0,
           }}
         />
-      )}
+      ) : coverUrl ? (
+        <div
+          aria-hidden
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 4,
+            flexShrink: 0,
+            background: "var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--color-muted)",
+            fontSize: 16,
+          }}
+        >
+          <Music size={16} />
+        </div>
+      ) : null}
       <div className="song-info">
         <div className="song-name">{name}</div>
         <div className="song-artist">{artist}</div>

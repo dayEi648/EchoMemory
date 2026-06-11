@@ -13,9 +13,12 @@ router = APIRouter(prefix="/comments", tags=["comments"])
 async def list_replies(
     db: SessionDep,
     root_id: int,
+    current_user: OptionalUser = None,
 ):
     """获取指定根评论的所有非删除回复（按时间正序）。公开接口，无需登录。"""
-    return await comment_service.list_replies(db, root_id=root_id)
+    replies = await comment_service.list_replies(db, root_id=root_id)
+    viewer_id = current_user.id if current_user is not None else None
+    return await comment_service.build_comment_outs(db, replies, viewer_id)
 
 
 @router.post("/", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
@@ -25,7 +28,7 @@ async def create_comment(
     data: CommentCreate,
 ):
     """发表评论。支持回复（parent_id）。"""
-    return await comment_service.create_comment(
+    comment = await comment_service.create_comment(
         db,
         user_id=current_user.id,
         target_type=data.target_type,
@@ -33,6 +36,7 @@ async def create_comment(
         content=data.content,
         parent_id=data.parent_id,
     )
+    return comment_service.build_comment_out(comment, set(), set())
 
 
 @router.get("/{target_type}/{target_id}", response_model=PaginatedCommentOut)
@@ -46,7 +50,7 @@ async def list_comments(
 ):
     """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。公开接口，无需登录。"""
     viewer_id = current_user.id if current_user is not None else None
-    return await comment_service.list_comments(
+    result = await comment_service.list_comments(
         db,
         target_type=target_type,
         target_id=target_id,
@@ -54,6 +58,8 @@ async def list_comments(
         limit=limit,
         offset=offset,
     )
+    items = await comment_service.build_comment_outs(db, result["items"], viewer_id)
+    return PaginatedCommentOut(items=items, total=result["total"])
 
 
 @router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)

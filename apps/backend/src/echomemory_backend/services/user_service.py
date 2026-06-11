@@ -186,6 +186,46 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
         raise BusinessError("已关注该用户", 409)
 
 
+async def is_following(db: AsyncSession, follower_id: int, followee_id: int) -> bool:
+    """判断 follower 是否已关注 followee。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        follower_id: 关注者主键。
+        followee_id: 被关注者主键。
+
+    Returns:
+        已关注返回 True，否则返回 False。
+    """
+    stmt = select(UserFollow).where(
+        UserFollow.follower_id == follower_id,
+        UserFollow.followee_id == followee_id,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def get_followed_user_ids(
+    db: AsyncSession, follower_id: int, followee_ids: list[int]
+) -> set[int]:
+    """批量查询 follower 已关注的用户 ID 集合。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        follower_id: 关注者主键。
+        followee_ids: 待查询的被关注者主键列表。
+
+    Returns:
+        follower 已关注的 followee_id 集合。
+    """
+    if not followee_ids:
+        return set()
+    stmt = select(UserFollow.followee_id).where(
+        UserFollow.follower_id == follower_id,
+        UserFollow.followee_id.in_(followee_ids),
+    )
+    return set((await db.execute(stmt)).scalars().all())
+
+
 async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) -> None:
     """移除关注关系。
 

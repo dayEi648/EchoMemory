@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { createUserApi, type ApiError } from "../api/userApi";
+import { setApiTokenStoreForTest } from "../api/instances";
 import type { UpdateMeInput, UserMe } from "../api/types";
 import { createLocalStorageTokenStore, type TokenStore } from "../auth/tokenStore";
 
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   _setTokenStore: (ts: TokenStore) => {
     currentTokenStore = ts;
     currentApi = createUserApi({ baseUrl: API_BASE_URL, tokenStore: ts });
+    setApiTokenStoreForTest(ts);
     set({ tokenStore: ts, api: currentApi });
   },
 

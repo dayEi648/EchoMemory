@@ -31,6 +31,7 @@ import {
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
+import { toPlayerTrackFromListItem } from "../shared/utils";
 
 const tabs = [
   { key: "all", label: "综合", icon: Search },
@@ -89,6 +90,9 @@ export const SearchPage = () => {
       ])
         .then(([users, songs, albums]) => {
           setUserResults(users.items);
+          setFollowedIds(
+            new Set(users.items.filter((u) => u.is_followed_by_me).map((u) => u.id)),
+          );
           setSongResults(songs.items);
           setAlbumResults(albums.items);
           setUserTotal(users.total);
@@ -134,6 +138,9 @@ export const SearchPage = () => {
         .searchUsers(query.trim(), PAGE_SIZE, userPage * PAGE_SIZE)
         .then((users) => {
           setUserResults(users.items);
+          setFollowedIds(
+            new Set(users.items.filter((u) => u.is_followed_by_me).map((u) => u.id)),
+          );
           setUserTotal(users.total);
         })
         .catch((err) => {
@@ -163,10 +170,7 @@ export const SearchPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       if (detail.file_url) {
-        await playStandalone({
-          ...music,
-          file_url: detail.file_url,
-        });
+        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
       } else {
         toast.error("该歌曲暂不可播放");
       }

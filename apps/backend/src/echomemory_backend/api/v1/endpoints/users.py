@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, AdminUser, OptionalUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
@@ -22,6 +22,7 @@ from echomemory_backend.schemas.user import (
     UserBanAction,
     UserMeOut,
     UserPublicOut,
+    UserSearchOut,
     UserUpdate,
 )
 from echomemory_backend.schemas.user_tag import UserTagOut
@@ -110,7 +111,9 @@ async def recalculate_my_tags(
 
 
 @router.get("/{user_id}", response_model=UserPublicOut)
-async def get_user(db: SessionDep, user_id: int) -> User:
+async def get_user(
+    db: SessionDep, user_id: int, current_user: OptionalUser = None
+) -> UserPublicOut:
     """根据用户 ID 获取公开的个人资料。"""
     user = await user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
@@ -118,7 +121,12 @@ async def get_user(db: SessionDep, user_id: int) -> User:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
-    return user
+    followed = False
+    if current_user is not None and current_user.id != user_id:
+        followed = await user_service.is_following(db, current_user.id, user_id)
+    return UserPublicOut.model_validate(user).model_copy(
+        update={"is_followed_by_me": followed}
+    )
 
 
 @router.get("/", response_model=PaginatedUserSearchOut)
@@ -127,9 +135,23 @@ async def search_users(
     q: str | None = Query(None, description="按用户名或昵称搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_user: OptionalUser = None,
 ):
     """按可选关键词搜索用户。"""
-    return await user_service.search_users(db, q=q, limit=limit, offset=offset)
+    result = await user_service.search_users(db, q=q, limit=limit, offset=offset)
+    users = result["items"]
+    followed_ids: set[int] = set()
+    if current_user is not None and users:
+        followed_ids = await user_service.get_followed_user_ids(
+            db, current_user.id, [u.id for u in users]
+        )
+    items = [
+        UserSearchOut.model_validate(u).model_copy(
+            update={"is_followed_by_me": u.id in followed_ids}
+        )
+        for u in users
+    ]
+    return PaginatedUserSearchOut(items=items, total=result["total"])
 
 
 @router.post("/follow", status_code=status.HTTP_204_NO_CONTENT)

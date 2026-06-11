@@ -59,42 +59,44 @@ export const PlayerBar = () => {
   const [isDraggingProgress, setIsDraggingProgress] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  const handleProgressClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const seekFromClientX = useCallback(
+    (clientX: number) => {
       if (!progressBarRef.current || duration <= 0) return;
       const rect = progressBarRef.current.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      const percent = ((clientX - rect.left) / rect.width) * 100;
       seek(Math.max(0, Math.min(100, percent)));
     },
     [duration, seek],
   );
 
-  const handleProgressMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleProgressPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
       setIsDraggingProgress(true);
-      handleProgressClick(e);
+      seekFromClientX(e.clientX);
     },
-    [handleProgressClick],
+    [seekFromClientX],
   );
 
   useEffect(() => {
     if (!isDraggingProgress) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!progressBarRef.current || duration <= 0) return;
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
-      seek(Math.max(0, Math.min(100, percent)));
+    const handlePointerMove = (e: PointerEvent) => {
+      if (e.buttons === 0) {
+        setIsDraggingProgress(false);
+        return;
+      }
+      seekFromClientX(e.clientX);
     };
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setIsDraggingProgress(false);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [isDraggingProgress, duration, seek]);
+  }, [isDraggingProgress, seekFromClientX]);
 
   const displayProgress = progress;
 
@@ -247,9 +249,8 @@ export const PlayerBar = () => {
             <div
               className="player-progress-bar"
               ref={progressBarRef}
-              onClick={handleProgressClick}
-              onMouseDown={handleProgressMouseDown}
-              style={{ cursor: "pointer" }}
+              onPointerDown={handleProgressPointerDown}
+              style={{ cursor: "pointer", touchAction: "none" }}
             >
               <motion.div
                 className="fill"
@@ -292,7 +293,7 @@ export const PlayerBar = () => {
               type="button"
               title="音量"
             >
-              {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              {volume < 0.01 ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </motion.button>
             <AnimatePresence>
               {showVolume && (

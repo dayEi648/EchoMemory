@@ -9,9 +9,8 @@ import { usePlayerStore } from "../shared/stores/playerStore";
 import { musicApi } from "../shared/api/instances";
 import { albumApi } from "../shared/api/instances";
 import { playHistoryApi } from "../shared/api/instances";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
-import { formatAuthors, toPlayerTrack } from "../shared/utils";
+import { formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -55,10 +54,7 @@ export const DiscoverPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       if (detail.file_url) {
-        await playStandalone({
-          ...music,
-          file_url: detail.file_url,
-        });
+        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
       } else {
         toast.error("该歌曲暂不可播放");
       }
@@ -87,7 +83,7 @@ export const DiscoverPage = () => {
       try {
         const detail = await musicApi.getMusicDetail(song.id);
         if (detail.file_url) {
-          tracks.push({ ...song, file_url: detail.file_url });
+          tracks.push(toPlayerTrackFromListItem(song, detail.file_url));
         }
       } catch {
         // skip

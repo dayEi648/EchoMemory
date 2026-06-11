@@ -153,6 +153,63 @@ class TestSearchUsers:
         assert data["total"] == 0
         assert data["items"] == []
 
+    async def test_search_includes_follow_status(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试登录用户搜索时返回 is_followed_by_me 状态。"""
+        me = await _create_user(db_session, "search_follower")
+        followed = await _create_user(db_session, "search_followed")
+        await _create_user(db_session, "search_stranger")
+        db_session.add(UserFollow(follower_id=me.id, followee_id=followed.id))
+        await db_session.commit()
+
+        resp = client.get(
+            SEARCH_URL,
+            params={"q": "search_"},
+            headers=_auth_header(me),
+        )
+        assert resp.status_code == 200
+        by_username = {item["username"]: item for item in resp.json()["items"]}
+        assert by_username["search_followed"]["is_followed_by_me"] is True
+        assert by_username["search_stranger"]["is_followed_by_me"] is False
+
+
+class TestGetUserFollowStatus:
+    """测试公开资料中的关注状态字段。"""
+
+    async def test_profile_shows_followed_status(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试已关注用户资料中 is_followed_by_me 为 true。"""
+        me = await _create_user(db_session, "profile_follower")
+        target = await _create_user(db_session, "profile_target")
+        db_session.add(UserFollow(follower_id=me.id, followee_id=target.id))
+        await db_session.commit()
+
+        resp = client.get(f"{BASE}/{target.id}", headers=_auth_header(me))
+        assert resp.status_code == 200
+        assert resp.json()["is_followed_by_me"] is True
+
+    async def test_profile_not_followed_status(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试未关注用户资料中 is_followed_by_me 为 false。"""
+        me = await _create_user(db_session, "profile_not_follower")
+        target = await _create_user(db_session, "profile_not_target")
+
+        resp = client.get(f"{BASE}/{target.id}", headers=_auth_header(me))
+        assert resp.status_code == 200
+        assert resp.json()["is_followed_by_me"] is False
+
+    async def test_own_profile_follow_status_false(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试查看自己资料时 is_followed_by_me 为 false。"""
+        me = await _create_user(db_session, "profile_self")
+        resp = client.get(f"{BASE}/{me.id}", headers=_auth_header(me))
+        assert resp.status_code == 200
+        assert resp.json()["is_followed_by_me"] is False
+
 
 class TestFollow:
     """测试用户关注与取消关注功能。"""

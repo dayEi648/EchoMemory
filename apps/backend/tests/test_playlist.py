@@ -284,6 +284,24 @@ class TestGetPlaylist:
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(viewer))
         assert resp.status_code == 200
         assert resp.json()["title"] == "PublicPlaylist"
+        assert resp.json()["is_collected_by_me"] is False
+
+    async def test_get_playlist_collection_status_collected(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试已收藏用户获取歌单详情时 is_collected_by_me 为 true。"""
+        owner = await _create_user(db_session, "pl_col_owner")
+        viewer = await _create_user(db_session, "pl_col_viewer")
+        playlist = await _create_playlist_directly(
+            db_session, owner.id, title="CollectedPlaylist", is_private=False
+        )
+        client.post(
+            f"/api/v1/collections/playlists/{playlist.id}",
+            headers=_auth_header(viewer),
+        )
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(viewer))
+        assert resp.status_code == 200
+        assert resp.json()["is_collected_by_me"] is True
 
     async def test_get_private_playlist_of_others(self, client: TestClient, db_session: AsyncSession):
         """测试非所有者访问他人私有歌单时返回 403。"""

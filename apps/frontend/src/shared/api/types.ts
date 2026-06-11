@@ -35,7 +35,9 @@ export type UserMe = {
 export type UserPublic = Omit<
   UserMe,
   "email" | "phone" | "status" | "safety_score" | "last_login_at" | "banned_at" | "ban_duration"
->;
+> & {
+  is_followed_by_me?: boolean;
+};
 
 export type UserSearchItem = {
   id: number;
@@ -45,6 +47,7 @@ export type UserSearchItem = {
   level: number;
   is_verified: boolean;
   bio?: string;
+  is_followed_by_me?: boolean;
 };
 
 export type PaginatedUserSearch = {
@@ -194,6 +197,7 @@ export type MusicDetail = {
   interest_tags: Tag[];
   created_at: string;
   updated_at: string;
+  is_collected_by_me?: boolean;
 };
 
 export type MusicUpdateInput = {
@@ -270,6 +274,7 @@ export type AlbumDetail = {
   interest_tags: Tag[];
   created_at: string;
   updated_at: string;
+  is_collected_by_me?: boolean;
 };
 
 export type AlbumCreateInput = {
@@ -341,6 +346,7 @@ export type PlaylistDetail = {
   interest_tags: Tag[];
   created_at: string;
   updated_at: string;
+  is_collected_by_me?: boolean;
 };
 
 export type PlaylistListItem = {
@@ -385,6 +391,8 @@ export type CommentItem = {
   root_id: number | null;
   is_nested_reply: boolean;
   created_at: string;
+  liked_by_me?: boolean;
+  disliked_by_me?: boolean;
 };
 
 export type PaginatedCommentList = {
@@ -444,6 +452,8 @@ export type SpacePostDetail = {
   content: string | null;
   is_private: boolean;
   comment_count: number;
+  like_count?: number;
+  liked_by_me?: boolean;
   images: SpacePostImage[];
   created_at: string;
   updated_at: string;
@@ -455,6 +465,8 @@ export type SpacePostListItem = {
   content: string | null;
   is_private: boolean;
   comment_count: number;
+  like_count?: number;
+  liked_by_me?: boolean;
   images: SpacePostImage[];
   created_at: string;
 };

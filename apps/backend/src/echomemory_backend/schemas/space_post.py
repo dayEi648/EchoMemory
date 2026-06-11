@@ -25,6 +25,8 @@ class SpacePostOut(BaseModel):
     content: str | None = None
     is_private: bool
     comment_count: int
+    like_count: int = 0
+    liked_by_me: bool = False
     images: list[SpacePostImageOut] = []
     created_at: datetime
     updated_at: datetime
@@ -50,6 +52,8 @@ class SpacePostListOut(BaseModel):
     content: str | None = None
     is_private: bool
     comment_count: int
+    like_count: int = 0
+    liked_by_me: bool = False
     images: list[SpacePostImageOut] = []
     created_at: datetime
 

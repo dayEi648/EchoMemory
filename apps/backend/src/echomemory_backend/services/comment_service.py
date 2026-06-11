@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from echomemory_backend.models.comment import Comment, CommentDislike, CommentLike
+from echomemory_backend.schemas.comment import CommentOut
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
@@ -415,3 +416,82 @@ async def undislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> 
             .values(dislike_count=Comment.dislike_count - 1)
         )
         await db.commit()
+
+
+async def _get_user_comment_reactions(
+    db: AsyncSession,
+    viewer_user_id: int | None,
+    comment_ids: list[int],
+) -> tuple[set[int], set[int]]:
+    """批量查询当前用户对评论的点赞/点踩状态。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        viewer_user_id: 查看者主键，未登录时为 None。
+        comment_ids: 评论主键列表。
+
+    Returns:
+        (已点赞评论 ID 集合, 已点踩评论 ID 集合)。
+    """
+    if viewer_user_id is None or not comment_ids:
+        return set(), set()
+    liked_result = await db.execute(
+        select(CommentLike.comment_id).where(
+            CommentLike.user_id == viewer_user_id,
+            CommentLike.comment_id.in_(comment_ids),
+        )
+    )
+    disliked_result = await db.execute(
+        select(CommentDislike.comment_id).where(
+            CommentDislike.user_id == viewer_user_id,
+            CommentDislike.comment_id.in_(comment_ids),
+        )
+    )
+    return set(liked_result.scalars().all()), set(disliked_result.scalars().all())
+
+
+def build_comment_out(
+    comment: Comment,
+    liked_ids: set[int],
+    disliked_ids: set[int],
+) -> CommentOut:
+    """将评论 ORM 实例转换为带互动状态的 CommentOut。
+
+    Args:
+        comment: 评论 ORM 实例。
+        liked_ids: 当前用户已点赞的评论 ID 集合。
+        disliked_ids: 当前用户已点踩的评论 ID 集合。
+
+    Returns:
+        包含 liked_by_me / disliked_by_me 的 CommentOut。
+    """
+    return CommentOut.model_validate(comment).model_copy(
+        update={
+            "liked_by_me": comment.id in liked_ids,
+            "disliked_by_me": comment.id in disliked_ids,
+        }
+    )
+
+
+async def build_comment_outs(
+    db: AsyncSession,
+    comments: list[Comment],
+    viewer_user_id: int | None,
+) -> list[CommentOut]:
+    """批量构建带互动状态的评论输出列表。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        comments: 评论 ORM 列表。
+        viewer_user_id: 查看者主键，未登录时为 None。
+
+    Returns:
+        CommentOut 列表。
+    """
+    comment_ids = [c.id for c in comments]
+    liked_ids, disliked_ids = await _get_user_comment_reactions(
+        db, viewer_user_id, comment_ids
+    )
+    return [
+        build_comment_out(comment, liked_ids, disliked_ids) for comment in comments
+    ]

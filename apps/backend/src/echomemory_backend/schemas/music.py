@@ -80,6 +80,7 @@ class MusicOut(BaseModel):
     interest_tags: list[TagOut] = []
     created_at: datetime
     updated_at: datetime
+    is_collected_by_me: bool = False
 
     @field_validator("authors", mode="before")
     @classmethod

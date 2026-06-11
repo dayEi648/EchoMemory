@@ -12,7 +12,7 @@ import type {
   PlaylistCollectionItem,
   MusicListItem,
 } from "../shared/api/types";
-import { formatAuthors, toPlayerTrack } from "../shared/utils";
+import { formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
@@ -140,7 +140,7 @@ export const LibraryPage = () => {
     try {
       const detail = await musicApi.getMusicDetail(music.id);
       if (detail.file_url) {
-        await playStandalone({ ...music, file_url: detail.file_url });
+        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
       } else {
         toast.error("该歌曲暂不可播放");
       }

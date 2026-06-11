@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Image, X, Send, Lock, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -20,6 +20,17 @@ export const CreatePostForm = ({ onCreated }: CreatePostFormProps) => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
+
+  useEffect(() => {
+    return () => {
+      previewsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -75,6 +86,8 @@ export const CreatePostForm = ({ onCreated }: CreatePostFormProps) => {
         content: created.content,
         is_private: created.is_private,
         comment_count: created.comment_count,
+        like_count: created.like_count ?? 0,
+        liked_by_me: created.liked_by_me ?? false,
         images: created.images,
         created_at: created.created_at,
       });

@@ -48,7 +48,10 @@ export const ProfilePage = () => {
       setLoading(false);
       return;
     }
-    api.getPublicUser(id).then(setProfile).catch((err) => {
+    api.getPublicUser(id).then((data) => {
+      setProfile(data);
+      setFollowing(data.is_followed_by_me ?? false);
+    }).catch((err) => {
       toast.error(err instanceof Error ? err.message : "加载用户资料失败");
     }).finally(() => setLoading(false));
   }, [userId, api, currentUser]);

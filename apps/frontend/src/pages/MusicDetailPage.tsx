@@ -5,6 +5,7 @@ import { Play, Clock, BarChart3, Calendar, ArrowLeft, Music, Heart } from "lucid
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
+import { toPlayerTrack } from "../shared/utils";
 import { musicApi, collectionApi } from "../shared/api/instances";
 import type { MusicDetail, MusicListItem } from "../shared/api/types";
 import { FadeIn } from "../components/motion/FadeIn";
@@ -36,6 +37,7 @@ export const MusicDetailPage = () => {
       try {
         const detail = await musicApi.getMusicDetail(Number(musicId));
         setMusic(detail);
+        setCollected(detail.is_collected_by_me ?? false);
         // Load related: same style or language
         const relatedList = await musicApi.listMusic({
           style_id: detail.style?.id,
@@ -57,20 +59,7 @@ export const MusicDetailPage = () => {
       toast.error("该歌曲暂不可播放");
       return;
     }
-    playStandalone({
-      id: music.id,
-      title: music.title,
-      is_vip: music.is_vip,
-      hot: music.hot,
-      play_count: music.play_count,
-      cover_icon_url: music.cover_icon_url,
-      authors: music.authors,
-      created_at: music.created_at,
-      file_url: music.file_url,
-      emotion_tags: music.emotion_tags,
-      interest_tags: music.interest_tags,
-      albums: [],
-    });
+    playStandalone(toPlayerTrack(music));
   };
 
   const handleToggleCollect = async () => {
@@ -296,20 +285,7 @@ export const MusicDetailPage = () => {
                     try {
                       const detail = await musicApi.getMusicDetail(song.id);
                       if (detail.file_url) {
-                        await playStandalone({
-                          id: song.id,
-                          title: song.title,
-                          is_vip: song.is_vip,
-                          hot: song.hot,
-                          play_count: song.play_count,
-                          cover_icon_url: song.cover_icon_url,
-                          authors: song.authors,
-                          created_at: song.created_at,
-                          file_url: detail.file_url,
-                          emotion_tags: detail.emotion_tags,
-                          interest_tags: detail.interest_tags,
-                          albums: [],
-                        });
+                        await playStandalone(toPlayerTrack(detail));
                       } else {
                         toast.error("该歌曲暂不可播放");
                       }

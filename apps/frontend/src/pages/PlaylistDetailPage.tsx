@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { usePlayerStore } from "../shared/stores/playerStore";
 import { useAuthStore } from "../shared/stores/authStore";
 import { playlistApi, musicApi, collectionApi } from "../shared/api/instances";
-import type { PlaylistDetail as PlaylistDetailType, MusicListItem } from "../shared/api/types";
-import { formatAuthors } from "../shared/utils";
+import type { PlaylistDetail as PlaylistDetailType } from "../shared/api/types";
+import { formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
 import { Avatar } from "../components/ui/Avatar";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
@@ -33,6 +33,7 @@ export const PlaylistDetailPage = () => {
       try {
         const detail = await playlistApi.getPlaylistDetail(Number(playlistId));
         setPlaylist(detail);
+        setCollected(detail.is_collected_by_me ?? false);
       } catch {
         toast.error("加载歌单详情失败");
       } finally {
@@ -68,20 +69,7 @@ export const PlaylistDetailPage = () => {
       sortedMusics.map(async (pm) => {
         try {
           const detail = await musicApi.getMusicDetail(pm.music.id);
-          return {
-            id: pm.music.id,
-            title: pm.music.title,
-            is_vip: pm.music.is_vip,
-            hot: pm.music.hot,
-            play_count: pm.music.play_count,
-            cover_icon_url: pm.music.cover_icon_url,
-            authors: pm.music.authors,
-            emotion_tags: [],
-            interest_tags: [],
-            albums: [],
-            created_at: pm.music.created_at,
-            file_url: detail.file_url,
-          };
+          return toPlayerTrackFromListItem(pm.music, detail.file_url);
         } catch {
           return null;
         }
@@ -113,40 +101,19 @@ export const PlaylistDetailPage = () => {
         toast.error("该歌曲暂不可播放");
         return;
       }
-      currentTrack = {
-        id: pm.music.id,
-        title: pm.music.title,
-        is_vip: pm.music.is_vip,
-        hot: pm.music.hot,
-        play_count: pm.music.play_count,
-        cover_icon_url: pm.music.cover_icon_url,
-        authors: pm.music.authors,
-        emotion_tags: [],
-        interest_tags: [],
-        albums: [],
-        created_at: pm.music.created_at,
-        file_url: detail.file_url,
-      };
+      currentTrack = toPlayerTrackFromListItem(pm.music, detail.file_url);
     } catch {
       toast.error("加载歌曲失败");
       return;
     }
 
     // 构建上下文队列（其他歌曲 lazily loaded）
-    const contextTracks = sortedMusics.map((m): MusicListItem & { file_url: string | null } => ({
-      id: m.music.id,
-      title: m.music.title,
-      is_vip: m.music.is_vip,
-      hot: m.music.hot,
-      play_count: m.music.play_count,
-      cover_icon_url: m.music.cover_icon_url,
-      authors: m.music.authors,
-      emotion_tags: [],
-      interest_tags: [],
-      albums: [],
-      created_at: m.music.created_at,
-      file_url: m.music.id === pm.music.id ? detail.file_url : null,
-    }));
+    const contextTracks = sortedMusics.map((m) =>
+      toPlayerTrackFromListItem(
+        m.music,
+        m.music.id === pm.music.id ? detail.file_url : null,
+      ),
+    );
 
     playInContext(currentTrack, contextTracks, {
       type: "playlist",

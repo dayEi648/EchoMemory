@@ -1,6 +1,6 @@
 /** 共享工具函数。 */
 
-import type { Author, MusicDetail } from "./api/types";
+import type { AlbumMusicItem, Author, MusicDetail, MusicListItem } from "./api/types";
 import type { PlayerTrack } from "./stores/playerStore";
 
 /**
@@ -95,5 +95,42 @@ export function toPlayerTrack(detail: MusicDetail): PlayerTrack {
     albums: [],
     created_at: detail.created_at,
     file_url: detail.file_url,
+  };
+}
+
+/** 将音乐列表项转换为播放器曲目。 */
+export function toPlayerTrackFromListItem(
+  item: MusicListItem,
+  fileUrl: string | null,
+): PlayerTrack {
+  return {
+    ...item,
+    emotion_tags: item.emotion_tags ?? [],
+    interest_tags: item.interest_tags ?? [],
+    albums: item.albums ?? [],
+    file_url: fileUrl,
+  };
+}
+
+/** 将专辑内嵌歌曲转换为播放器曲目。 */
+export function toPlayerTrackFromAlbumMusic(
+  item: AlbumMusicItem,
+  authors: Author[],
+  fileUrl: string | null,
+  createdAt: string,
+): PlayerTrack {
+  return {
+    id: item.id,
+    title: item.title,
+    is_vip: item.is_vip,
+    hot: item.hot,
+    play_count: item.play_count,
+    cover_icon_url: item.cover_icon_url,
+    authors,
+    emotion_tags: [],
+    interest_tags: [],
+    albums: [],
+    created_at: createdAt,
+    file_url: fileUrl,
   };
 }

@@ -10,7 +10,7 @@ from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PlaylistOut, PlaylistUpdate
-from echomemory_backend.services import playlist_service
+from echomemory_backend.services import collection_service, playlist_service
 from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
@@ -107,7 +107,12 @@ async def get_playlist(
             detail="You do not have permission to view this playlist",
         )
 
-    return playlist
+    collected = await collection_service.is_playlist_collected(
+        db, current_user.id, playlist_id
+    )
+    return PlaylistOut.model_validate(playlist).model_copy(
+        update={"is_collected_by_me": collected}
+    )
 
 
 @router.patch("/{playlist_id}", response_model=PlaylistOut)

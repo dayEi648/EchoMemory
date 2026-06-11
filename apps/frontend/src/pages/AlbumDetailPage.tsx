@@ -11,6 +11,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { EmptyState } from "../components/ui/EmptyState";
+import { toPlayerTrackFromAlbumMusic } from "../shared/utils";
 
 export const AlbumDetailPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
@@ -39,6 +40,7 @@ export const AlbumDetailPage = () => {
           }),
         );
         setAlbum({ ...detail, musics: musicsWithUrl });
+        setCollected(detail.is_collected_by_me ?? false);
       } catch {
         toast.error("加载专辑详情失败");
       } finally {
@@ -69,20 +71,9 @@ export const AlbumDetailPage = () => {
     if (!album || album.musics.length === 0) return;
     const tracks = album.musics
       .filter((m): m is typeof m & { file_url: string } => !!m.file_url)
-      .map((m) => ({
-        id: m.id,
-        title: m.title,
-        is_vip: m.is_vip,
-        hot: m.hot,
-        play_count: m.play_count,
-        cover_icon_url: m.cover_icon_url,
-        authors: album.authors,
-        created_at: album.created_at,
-        file_url: m.file_url ?? null,
-        emotion_tags: [],
-        interest_tags: [],
-        albums: [],
-    }));
+      .map((m) =>
+        toPlayerTrackFromAlbumMusic(m, album.authors, m.file_url ?? null, album.created_at),
+      );
     if (tracks.length > 0) {
       playInContext(tracks[0], tracks, { type: "album", id: album.id, name: album.title });
     } else {
@@ -98,20 +89,9 @@ export const AlbumDetailPage = () => {
     if (!album) return;
 
     // 以整个专辑为上下文构建队列
-    const contextTracks = album.musics.map((m) => ({
-      id: m.id,
-      title: m.title,
-      is_vip: m.is_vip,
-      hot: m.hot,
-      play_count: m.play_count,
-      cover_icon_url: m.cover_icon_url,
-      authors: album.authors,
-      emotion_tags: [],
-      interest_tags: [],
-      albums: [],
-      created_at: album.created_at,
-      file_url: m.file_url ?? null,
-    }));
+    const contextTracks = album.musics.map((m) =>
+      toPlayerTrackFromAlbumMusic(m, album.authors, m.file_url ?? null, album.created_at),
+    );
 
     playInContext(
       contextTracks.find((t) => t.id === music.id)!,

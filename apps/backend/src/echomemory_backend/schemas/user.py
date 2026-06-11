@@ -152,7 +152,7 @@ class UserMeOut(UserOut):
 class UserPublicOut(UserOut):
     """其他用户公开信息输出 Schema。"""
 
-    pass
+    is_followed_by_me: bool = False
 
 
 class FollowCreate(BaseModel):
@@ -239,6 +239,7 @@ class UserSearchOut(BaseModel):
     level: int
     is_verified: bool
     bio: str | None = None
+    is_followed_by_me: bool = False
 
 
 class PaginatedUserSearchOut(BaseModel):

@@ -31,6 +31,8 @@ class CommentOut(BaseModel):
     root_id: int | None = None
     is_nested_reply: bool
     created_at: datetime
+    liked_by_me: bool = False
+    disliked_by_me: bool = False
 
     @field_validator("user", mode="before")
     @classmethod

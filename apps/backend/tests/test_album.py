@@ -173,6 +173,21 @@ class TestPublicGetAlbum:
         assert resp.status_code == 200
         data = resp.json()
         assert data["title"] == "PublicAlbum"
+        assert data["is_collected_by_me"] is False
+
+    async def test_get_album_collection_status_collected(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试已收藏用户获取专辑详情时 is_collected_by_me 为 true。"""
+        user = await _create_user(db_session, "album_collector")
+        album = await _create_album_directly(db_session, title="CollectedAlbum")
+        client.post(
+            f"/api/v1/collections/albums/{album.id}",
+            headers=_auth_header(user),
+        )
+        resp = client.get(f"{BASE_URL}/{album.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert resp.json()["is_collected_by_me"] is True
 
 
 class TestAdminSoftDeleteAlbum:
