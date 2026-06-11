@@ -64,7 +64,7 @@ class TestListDictionaryItems:
         resp = client.get(f"{BASE_URL}/styles")
         assert resp.status_code == 200
         data = resp.json()
-        names = {item["name"] for item in data}
+        names = {item["name"] for item in data["items"]}
         assert "Rock" in names
         assert "Jazz" in names
 
@@ -74,7 +74,7 @@ class TestListDictionaryItems:
         resp = client.get(f"{BASE_URL}/languages")
         assert resp.status_code == 200
         data = resp.json()
-        names = {item["name"] for item in data}
+        names = {item["name"] for item in data["items"]}
         assert "English" in names
 
     async def test_list_unknown_type(self, client: TestClient):
@@ -88,7 +88,9 @@ class TestListDictionaryItems:
             await _create_style(db_session, f"Style{i}")
         resp = client.get(f"{BASE_URL}/styles", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["total"] >= 5
 
 
 class TestGetDictionaryItem:
@@ -296,7 +298,7 @@ class TestAllDictionaryTypes:
         resp = client.get(f"{BASE_URL}/{dtype}")
         assert resp.status_code == 200
         data = resp.json()
-        names = {item["name"] for item in data}
+        names = {item["name"] for item in data["items"]}
         assert f"Test{dtype}" in names
 
         # 详情

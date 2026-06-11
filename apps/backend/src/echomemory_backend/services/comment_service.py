@@ -9,13 +9,14 @@ from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.space_post_service import can_view_space_post
 
 
 _VALID_TARGET_TYPES = ("music", "playlist", "space_post")
 
 
 async def _validate_target_exists(
-    db: AsyncSession, target_type: str, target_id: int
+    db: AsyncSession, target_type: str, target_id: int, viewer_id: int | None = None
 ) -> None:
     """校验评论目标是否存在且可见。
 
@@ -23,6 +24,7 @@ async def _validate_target_exists(
         db: SQLAlchemy 异步 Session。
         target_type: 目标类型（music / playlist / space_post）。
         target_id: 目标主键。
+        viewer_id: 查看者用户主键，用于校验 space_post 的私密权限。
 
     Returns:
         None。
@@ -40,7 +42,7 @@ async def _validate_target_exists(
             raise BusinessError("Target not found", 404)
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
-        if target is None or target.is_deleted:
+        if target is None or not can_view_space_post(viewer_id, target):
             raise BusinessError("Target not found", 404)
 
 
@@ -132,7 +134,7 @@ async def create_comment(
     if target_type not in _VALID_TARGET_TYPES:
         raise BusinessError("Invalid target_type", 400)
 
-    await _validate_target_exists(db, target_type, target_id)
+    await _validate_target_exists(db, target_type, target_id, viewer_id=user_id)
     root_id, is_nested_reply = await _resolve_parent(db, parent_id, target_type, target_id)
 
     comment = Comment(
@@ -174,6 +176,7 @@ async def list_comments(
     db: AsyncSession,
     target_type: str,
     target_id: int,
+    viewer_user_id: int | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
@@ -183,6 +186,7 @@ async def list_comments(
         db: SQLAlchemy 异步 Session。
         target_type: 目标类型（music / playlist / space_post）。
         target_id: 目标主键。
+        viewer_user_id: 查看者用户主键，用于校验 space_post 的私密权限。
         limit: 返回数量上限，默认 20。
         offset: 偏移量，默认 0。
 
@@ -190,10 +194,15 @@ async def list_comments(
         {"items": 排除已删除的 Comment 列表, "total": 总记录数}。
 
     Raises:
-        BusinessError: target_type 无效时抛出 400。
+        BusinessError: target_type 无效或目标不可见时抛出 400/404。
     """
     if target_type not in _VALID_TARGET_TYPES:
         raise BusinessError("Invalid target_type", 400)
+
+    if target_type == "space_post":
+        target = await db.get(SpacePost, target_id)
+        if target is None or not can_view_space_post(viewer_user_id, target):
+            raise BusinessError("Target not found", 404)
 
     target_filter = {
         "music": Comment.music_id == target_id,

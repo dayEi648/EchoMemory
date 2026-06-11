@@ -29,7 +29,7 @@ async def record_play(
     histories = await play_history_service.list_play_history(
         db, user_id, limit=1, offset=0
     )
-    return histories[0]
+    return histories["items"][0]
 
 
 @router.get("/", response_model=PaginatedPlayHistoryOut)

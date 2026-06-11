@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, OptionalUser, SessionDep
 from echomemory_backend.schemas.comment import CommentCreate, CommentOut, PaginatedCommentOut
 from echomemory_backend.services import comment_service
 
@@ -42,10 +42,17 @@ async def list_comments(
     target_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_user: OptionalUser = None,
 ):
     """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。公开接口，无需登录。"""
+    viewer_id = current_user.id if current_user is not None else None
     return await comment_service.list_comments(
-        db, target_type=target_type, target_id=target_id, limit=limit, offset=offset
+        db,
+        target_type=target_type,
+        target_id=target_id,
+        viewer_user_id=viewer_id,
+        limit=limit,
+        offset=offset,
     )
 
 

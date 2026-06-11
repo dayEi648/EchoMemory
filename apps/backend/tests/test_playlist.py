@@ -208,7 +208,8 @@ class TestListPlaylists:
         resp = client.get(BASE_URL + "/", headers=_auth_header(user_a))
         assert resp.status_code == 200
         data = resp.json()
-        titles = {p["title"] for p in data}
+        items = data["items"]
+        titles = {p["title"] for p in items}
         assert "PlaylistA1" in titles
         assert "PlaylistA2" in titles
         assert "PlaylistB1" not in titles
@@ -225,7 +226,9 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 5
 
         resp = client.get(
             BASE_URL + "/",
@@ -233,7 +236,9 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 5
 
         resp = client.get(
             BASE_URL + "/",
@@ -241,7 +246,9 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["total"] == 5
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep, TokenDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
@@ -23,6 +23,7 @@ from echomemory_backend.services.auth_service import (
     register_user,
 )
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.redis_client import check_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -84,8 +85,23 @@ async def register(
 
 
 @router.post("/login", response_model=Token)
-async def login(db: SessionDep, user_in: UserLogin) -> Token:
-    """验证用户身份，并返回 access token 与 refresh token 对。"""
+async def login(
+    db: SessionDep,
+    user_in: UserLogin,
+    request: Request,
+) -> Token:
+    """验证用户身份，并返回 access token 与 refresh token 对。
+
+    同一 IP 地址 60 秒内最多允许 5 次登录请求。
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if not await check_rate_limit(
+        f"login:{client_ip}", max_requests=5, window_seconds=60
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts, please try again later",
+        )
     return await authenticate_user(db, user_in.username, user_in.password)
 
 

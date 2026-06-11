@@ -73,10 +73,30 @@ def setup_db():
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         Base.metadata.drop_all(bind=conn)
         Base.metadata.create_all(bind=conn)
+        conn.execute(text(_TRIGGER_SQL))
     yield
     with sync_test_engine.begin() as conn:
         Base.metadata.drop_all(bind=conn)
 
+
+# 触发器 SQL（同步执行，供 setup_db 使用）
+_TRIGGER_SQL = """
+CREATE OR REPLACE FUNCTION fn_update_user_level()
+RETURNS TRIGGER AS $$
+BEGIN
+    SELECT COALESCE(MAX(level), 0) INTO NEW.level
+    FROM level_config
+    WHERE min_exp <= NEW.exp;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_users_level_on_exp_change ON users;
+CREATE TRIGGER trg_users_level_on_exp_change
+BEFORE INSERT OR UPDATE OF exp ON users
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_user_level();
+"""
 
 # 字典表种子数据 SQL（同步执行，供 setup_db 和 clean_tables 复用）
 _DICTIONARY_SEED_SQL = """

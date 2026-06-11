@@ -102,6 +102,29 @@ async def increment_user_token_version(user_id: int) -> int:
     return int(new_version)
 
 
+async def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> bool:
+    """基于 Redis 的固定窗口限流。
+
+    Args:
+        key: 限流标识（如 IP、用户 ID）。
+        max_requests: 窗口内最大请求次数。
+        window_seconds: 窗口时长（秒）。
+
+    Returns:
+        允许请求返回 True，超过限制返回 False。
+    """
+    redis_key = f"rate_limit:{key}"
+    current = await redis_client.get(redis_key)
+    if current is None:
+        await redis_client.set(redis_key, "1", ex=window_seconds)
+        return True
+    count = int(current)
+    if count >= max_requests:
+        return False
+    await redis_client.incr(redis_key)
+    return True
+
+
 def generate_refresh_token() -> str:
     """生成加密安全的随机 refresh token 字符串。"""
     return secrets.token_urlsafe(32)

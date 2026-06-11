@@ -485,7 +485,7 @@ class TestListMusics:
         resp = client.get(f"{BASE_URL}/")
         assert resp.status_code == 200
         data = resp.json()
-        titles = {m["title"] for m in data}
+        titles = {m["title"] for m in data["items"]}
         assert "Pub1" in titles
         assert "Pub2" in titles
         assert "Hidden" not in titles
@@ -498,8 +498,9 @@ class TestListMusics:
         resp = client.get(f"{BASE_URL}/", params={"style_id": style.id})
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["title"] == "PopSong"
+        assert len(data["items"]) == 1
+        assert data["total"] == 1
+        assert data["items"][0]["title"] == "PopSong"
 
     async def test_list_filter_by_vip(self, client: TestClient, db_session: AsyncSession):
         """测试按 VIP 状态筛选音乐列表。"""
@@ -508,7 +509,7 @@ class TestListMusics:
         resp = client.get(f"{BASE_URL}/", params={"is_vip": True})
         assert resp.status_code == 200
         data = resp.json()
-        titles = {m["title"] for m in data}
+        titles = {m["title"] for m in data["items"]}
         assert "VipSong" in titles
         assert "FreeSong" not in titles
 
@@ -518,7 +519,9 @@ class TestListMusics:
             await _create_music_directly(db_session, title=f"Song{i}")
         resp = client.get(f"{BASE_URL}/", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 5
 
 
 class TestSearchMusics:

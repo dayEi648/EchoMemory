@@ -70,23 +70,23 @@ def _assert_can_manage(admin: User, target: User) -> None:
     """验证管理员是否有权限操作目标用户。
 
     权限规则：
-    - 超级管理员可以管理自己以及所有非超级管理员
+    - 任何管理员（含超级管理员）都不能对自己执行管理操作
     - 超级管理员不能管理其他超级管理员
     - 管理员只能管理普通用户(0)和VIP(1)
-    - 管理员不能管理自己、其他管理员(2)和超级管理员(3)
+    - 管理员不能管理其他管理员(2)和超级管理员(3)
 
     Raises:
         BusinessError: 权限不足时抛出 403。
     """
+    # 统一禁止管理员对自己执行任何管理操作
+    if target.id == admin.id:
+        raise BusinessError("无权操作该用户", 403)
+
     if admin.role == UserRole.SUPER_ADMIN:
-        # 超级管理员不能管理其他超级管理员，但可以管理自己
-        if target.role == UserRole.SUPER_ADMIN and target.id != admin.id:
+        if target.role == UserRole.SUPER_ADMIN:
             raise BusinessError("无权操作该用户", 403)
         return
     if admin.role == UserRole.ADMIN:
-        # 管理员不能管理自己，只能管理角色等级严格低于管理员的用户
-        if target.id == admin.id:
-            raise BusinessError("无权操作该用户", 403)
         if target.role >= UserRole.ADMIN:
             raise BusinessError("无权操作该用户", 403)
         return

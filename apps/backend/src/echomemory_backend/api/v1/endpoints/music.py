@@ -12,12 +12,11 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import (
-    MusicListOut,
     MusicOut,
-    MusicUpdate,
     PaginatedAdminMusicListOut,
     PaginatedMusicListOut,
 )
+from echomemory_backend.core.redis_client import check_rate_limit
 from echomemory_backend.services import music_service
 
 router = APIRouter(prefix="/music", tags=["music"])
@@ -41,7 +40,7 @@ def _safe_ext(filename: str | None, default: str) -> str:
 @router.post("/admin/import", response_model=MusicOut, status_code=status.HTTP_201_CREATED)
 async def import_music(
     db: SessionDep,
-    _: AdminUser,
+    admin: AdminUser,
     title: str = Form(..., min_length=1, max_length=128),
     audio_file: UploadFile = File(...),
     cover_icon: UploadFile = File(...),
@@ -60,9 +59,20 @@ async def import_music(
 ):
     """管理员导入音乐。
 
+    同一管理员 1 小时内最多允许 10 次导入请求。
+
     所有文件均通过上传方式提供，服务端自动上传到 OSS 并生成 URL。
     禁止直接填写任何 URL 字符串。
     """
+    # ----- 频率限制 -----
+    if not await check_rate_limit(
+        f"upload_music:{admin.id}", max_requests=10, window_seconds=3600
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many upload requests, please try again later",
+        )
+
     # ----- 文件类型校验 -----
     if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
         raise HTTPException(

@@ -495,7 +495,7 @@ class TestListAlbums:
         resp = client.get(BASE_URL + "/")
         assert resp.status_code == 200
         data = resp.json()
-        titles = {a["title"] for a in data}
+        titles = {a["title"] for a in data["items"]}
         assert "VisibleAlbum1" in titles
         assert "VisibleAlbum2" in titles
         assert "DeletedAlbum" not in titles
@@ -507,7 +507,9 @@ class TestListAlbums:
 
         resp = client.get(BASE_URL + "/", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["total"] == 5
 
 
 class TestSearchAlbums:

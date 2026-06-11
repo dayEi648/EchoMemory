@@ -13,6 +13,44 @@ from echomemory_backend.core.image_utils import compress_image_to_memory
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# 音频文件 magic header 校验
+# ---------------------------------------------------------------------------
+
+_AUDIO_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"ID3", "mp3"),
+    (b"\xff\xfb", "mp3"),
+    (b"\xff\xf3", "mp3"),
+    (b"\xff\xf2", "mp3"),
+    (b"\xff\xf1", "aac"),
+    (b"fLaC", "flac"),
+    (b"OggS", "ogg"),
+]
+
+
+def _detect_audio_format(file: BinaryIO) -> str | None:
+    """读取文件 magic header 检测真实音频格式。
+
+    Args:
+        file: 类文件对象。
+
+    Returns:
+        检测到的扩展名，无法识别时返回 None。
+    """
+    header = file.read(16)
+    file.seek(0)
+
+    for sig, ext in _AUDIO_MAGIC_SIGNATURES:
+        if header.startswith(sig):
+            return ext
+
+    # WAV: RIFF....WAVE
+    if header.startswith(b"RIFF") and len(header) >= 12 and header[8:12] == b"WAVE":
+        return "wav"
+
+    return None
+
+
 def _get_bucket() -> oss2.Bucket:
     """返回一个已初始化的 OSS Bucket 实例。
 
@@ -129,6 +167,14 @@ def _upload_file_to_oss_sync(
             f"File too large: {size} bytes. Maximum allowed: {max_size} bytes"
         )
 
+    # 对音频文件做 magic header 校验，防止客户端伪造 content_type
+    if allowed_types == _ALLOWED_AUDIO_TYPES:
+        detected = _detect_audio_format(file)
+        if detected is None:
+            raise ValueError(
+                "Invalid audio file: format not recognized from file header"
+            )
+
     # 根据 content_type 映射扩展名，优先于客户端传入的 fallback
     resolved_ext = _resolve_ext(file, ext)
     if resolved_ext.lower() in _DANGEROUS_EXTS:
@@ -146,13 +192,45 @@ def _upload_file_to_oss_sync(
 
 
 def _delete_object_by_url_sync(url: str) -> None:
-    """根据 URL 删除 OSS 对象（同步实现）。删除失败时记录日志但不抛异常。"""
+    """根据 URL 删除 OSS 对象（同步实现）。删除失败时记录日志但不抛异常。
+
+    删除前校验 URL 的 host 是否属于本项目 bucket，以及 object_key
+    是否以预期的业务前缀开头，防止误删或处理外部 URL。
+    """
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
+
+    # 校验 host 是否匹配本项目的 bucket.endpoint
+    endpoint = (settings.oss_endpoint or "").removeprefix("https://").removeprefix("http://")
+    expected_host = f"{settings.oss_bucket_name}.{endpoint}"
+    if parsed.netloc != expected_host:
+        logger.warning(
+            "Refusing to delete OSS object from foreign host: %s (expected: %s)",
+            parsed.netloc,
+            expected_host,
+        )
+        return
+
     object_key = parsed.path.lstrip("/")
     if not object_key:
         return
+
+    # 校验 object_key 是否以允许的业务前缀开头
+    _ALLOWED_PREFIXES = (
+        "avatars/",
+        "music_covers/",
+        "musics/",
+        "lyrics/",
+        "space_post_images/",
+    )
+    if not any(object_key.startswith(prefix) for prefix in _ALLOWED_PREFIXES):
+        logger.warning(
+            "Refusing to delete OSS object with disallowed prefix: %s",
+            object_key,
+        )
+        return
+
     try:
         bucket = _get_bucket()
         bucket.delete_object(object_key)

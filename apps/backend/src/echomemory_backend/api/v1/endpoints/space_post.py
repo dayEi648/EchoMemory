@@ -1,28 +1,16 @@
 """空间动态（Space Post）API 路由端点，支持用户发布、查看、点赞、删除动态及管理员硬删除。"""
 
-import os
-
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core.oss_client import delete_object_by_url
-from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostListOut, SpacePostOut
+from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
+from echomemory_backend.services.space_post_service import can_view_space_post
 
 router = APIRouter(prefix="/space-posts", tags=["space-posts"])
-
-
-_ALLOWED_FILE_EXTS = {"mp3", "flac", "wav", "ogg", "aac", "lrc", "jpg", "jpeg", "png"}
-
-
-def _safe_ext(filename: str | None, default: str) -> str:
-    """从上传文件名中安全地提取扩展名，不在白名单时回退到默认值。"""
-    if not filename:
-        return default
-    ext = os.path.splitext(filename)[1].lstrip(".").lower()
-    return ext if ext in _ALLOWED_FILE_EXTS else default
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +76,7 @@ async def get_space_post(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    if post.is_private and post.user_id != current_user.id:
+    if not can_view_space_post(current_user.id, post):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this post",
@@ -145,7 +133,7 @@ async def like_space_post(
 ):
     """点赞动态。"""
     post = await space_post_service.get_space_post_by_id(db, post_id)
-    if post is None or post.is_deleted:
+    if post is None or not can_view_space_post(current_user.id, post):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",

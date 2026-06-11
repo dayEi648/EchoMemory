@@ -201,7 +201,8 @@ class TestListSpacePosts:
         resp = client.get(BASE, headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
 
     async def test_list_others_exclude_private(self, client: TestClient, db_session: AsyncSession):
         """测试查询他人动态时不包含私有动态。"""
@@ -213,8 +214,9 @@ class TestListSpacePosts:
         resp = client.get(BASE, params={"user_id": owner.id}, headers=_auth_header(viewer))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["content"] == "Public"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["content"] == "Public"
 
     async def test_list_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
         """测试列表查询自动排除已删除的动态。"""
@@ -225,8 +227,9 @@ class TestListSpacePosts:
         resp = client.get(BASE, headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["content"] == "Active"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["content"] == "Active"
 
 
 class TestSoftDelete:

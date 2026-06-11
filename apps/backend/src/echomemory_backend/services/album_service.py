@@ -322,7 +322,6 @@ async def search_albums(
         await db.execute(select(func.count()).where(*where_clause))
     ).scalar_one()
     return {"items": items, "total": total}
-    return list((await db.execute(stmt)).scalars().all())
 
 
 async def update_album(

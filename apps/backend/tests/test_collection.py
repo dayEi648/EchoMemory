@@ -236,8 +236,9 @@ class TestListMusicCollections:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        titles = {item["music"]["title"] for item in data}
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        titles = {item["music"]["title"] for item in data["items"]}
         assert "Song1" in titles
         assert "Song2" in titles
 
@@ -250,7 +251,9 @@ class TestListMusicCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
     async def test_list_music_collections_pagination(self, client: TestClient, db_session: AsyncSession):
         """测试音乐收藏列表的分页查询。"""
@@ -265,7 +268,9 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert data["total"] == 5
+        assert len(data["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/musics",
@@ -273,7 +278,9 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert data["total"] == 5
+        assert len(data["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/musics",
@@ -281,7 +288,9 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        data = resp.json()
+        assert data["total"] == 5
+        assert len(data["items"]) == 1
 
     async def test_list_music_collections_other_user(self, client: TestClient, db_session: AsyncSession):
         """测试用户只能查看自己的音乐收藏。"""
@@ -296,7 +305,9 @@ class TestListMusicCollections:
             headers=_auth_header(user_b),
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
 
 # ============================================================================
@@ -413,8 +424,9 @@ class TestListAlbumCollections:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        titles = {item["album"]["title"] for item in data}
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        titles = {item["album"]["title"] for item in data["items"]}
         assert "Album1" in titles
         assert "Album2" in titles
 
@@ -427,7 +439,9 @@ class TestListAlbumCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
 
 # ============================================================================
@@ -552,8 +566,9 @@ class TestListPlaylistCollections:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        titles = {item["playlist"]["title"] for item in data}
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        titles = {item["playlist"]["title"] for item in data["items"]}
         assert "Playlist1" in titles
         assert "Playlist2" in titles
 
@@ -566,7 +581,9 @@ class TestListPlaylistCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
 
 # ============================================================================
@@ -688,8 +705,9 @@ class TestListReleases:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        titles = {item["music"]["title"] for item in data}
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        titles = {item["music"]["title"] for item in data["items"]}
         assert "ReleaseSong1" in titles
         assert "ReleaseSong2" in titles
 
@@ -702,4 +720,6 @@ class TestListReleases:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []

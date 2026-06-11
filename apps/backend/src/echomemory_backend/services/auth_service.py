@@ -8,7 +8,6 @@ from echomemory_backend.core.redis_client import (
     delete_refresh_token,
     generate_refresh_token,
     get_refresh_token_data,
-    get_refresh_token_user_id,
     get_user_token_version,
     increment_user_token_version,
     store_refresh_token,

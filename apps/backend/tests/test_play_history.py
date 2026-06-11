@@ -157,9 +157,10 @@ class TestRecordPlay:
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["id"] == second_id
-        assert data[0]["music"]["id"] == music.id
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == second_id
+        assert data["items"][0]["music"]["id"] == music.id
 
         result = await db_session.execute(
             select(PlayHistory).where(
@@ -367,11 +368,12 @@ class TestListPlayHistory:
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 3
+        assert data["total"] == 3
+        assert len(data["items"]) == 3
         # 验证倒序：最新的在前
-        t0 = datetime.fromisoformat(data[0]["played_at"])
-        t1 = datetime.fromisoformat(data[1]["played_at"])
-        t2 = datetime.fromisoformat(data[2]["played_at"])
+        t0 = datetime.fromisoformat(data["items"][0]["played_at"])
+        t1 = datetime.fromisoformat(data["items"][1]["played_at"])
+        t2 = datetime.fromisoformat(data["items"][2]["played_at"])
         assert t0 >= t1 >= t2
 
     async def test_list_play_history_pagination(
@@ -390,7 +392,8 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        assert resp.json()["total"] == 5
+        assert len(resp.json()["items"]) == 2
 
         resp = client.get(
             BASE_URL + "/",
@@ -398,7 +401,7 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        assert len(resp.json()["items"]) == 2
 
         resp = client.get(
             BASE_URL + "/",
@@ -406,7 +409,7 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        assert len(resp.json()["items"]) == 1
 
     async def test_list_play_history_only_own(
         self, client: TestClient, db_session: AsyncSession
@@ -422,7 +425,8 @@ class TestListPlayHistory:
         resp = client.get(BASE_URL + "/", headers=_auth_header(user_a))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
 
     async def test_list_play_history_unauthorized(self, client: TestClient):
         """测试未登录用户查询播放历史时返回 401。"""
@@ -454,7 +458,9 @@ class TestDeletePlayHistory:
         # 再次查询应为空
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
     async def test_delete_others_history(
         self, client: TestClient, db_session: AsyncSession
@@ -504,7 +510,9 @@ class TestClearPlayHistory:
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
     async def test_clear_history_unauthorized(self, client: TestClient):
         """测试未登录用户清空播放历史时返回 401。"""

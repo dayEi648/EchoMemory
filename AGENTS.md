@@ -36,6 +36,7 @@
 	- When unsure how to proceed with development, consider how senior engineers or official documentation would solve the problem. You can search online to confirm.
 	- Avoid reinventing the wheel. If there is a reliable dependency that can reduce 200 lines of code to just a few lines, use it first.
 	- If you find isolated code that already exists, inform the user; do not delete it on your own. 
+	- Always TDD.
 3. Good Work Habits
 	- It is necessary to use the SKILL that is useful for the current task, even if it has only 1% relevance to the current task.
 	- It is necessary to use the Tool that is useful for the current work.

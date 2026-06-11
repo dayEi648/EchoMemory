@@ -181,7 +181,6 @@ class PaginatedFollowerOut(BaseModel):
 
     items: list[FollowerOut]
     total: int
-    is_verified: bool
 
 
 class UserLogin(BaseModel):

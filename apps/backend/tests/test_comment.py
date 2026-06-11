@@ -380,8 +380,9 @@ class TestListComments:
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        contents = {c["content"] for c in data}
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        contents = {c["content"] for c in data["items"]}
         assert "Comment A" in contents
         assert "Comment B" in contents
 
@@ -397,8 +398,9 @@ class TestListComments:
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["content"] == "Root"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["content"] == "Root"
 
     async def test_list_comments_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
         """测试评论列表排除已删除的评论。"""
@@ -412,8 +414,9 @@ class TestListComments:
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["content"] == "Visible"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["content"] == "Visible"
 
     async def test_list_comments_empty(self, client: TestClient, db_session: AsyncSession):
         """测试无评论时返回空列表。"""
@@ -422,7 +425,9 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
     async def test_list_comments_pagination(self, client: TestClient, db_session: AsyncSession):
         """测试评论列表分页功能。"""
@@ -436,21 +441,22 @@ class TestListComments:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        assert resp.json()["total"] == 5
+        assert len(resp.json()["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        assert len(resp.json()["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()) == 1
+        assert len(resp.json()["items"]) == 1
 
     async def test_list_comments_unauthorized(self, client: TestClient, db_session: AsyncSession):
         """测试未登录用户可正常获取评论列表（公开访问）。"""
@@ -458,7 +464,9 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
 
 # ============================================================================

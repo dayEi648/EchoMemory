@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
-from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PlaylistListOut, PlaylistOut, PlaylistUpdate
+from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import playlist_service
 from echomemory_backend.core.exceptions import BusinessError
 

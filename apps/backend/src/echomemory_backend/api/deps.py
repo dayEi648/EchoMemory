@@ -125,3 +125,25 @@ async def require_admin(current_user: ActiveUser) -> User:
 
 AdminUser = Annotated[User, Depends(require_admin)]
 """管理员用户依赖类型，要求用户具有 admin 或 super-admin 权限。"""
+
+
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login", auto_error=False
+)
+
+
+async def get_current_user_optional(
+    db: SessionDep,
+    token: str | None = Depends(oauth2_scheme_optional),
+) -> User | None:
+    """可选地解析当前用户。未提供 token 或 token 无效时返回 None。"""
+    if token is None:
+        return None
+    try:
+        return await get_current_user(db, token)
+    except HTTPException:
+        return None
+
+
+OptionalUser = Annotated[User | None, Depends(get_current_user_optional)]
+"""可选用户依赖类型，未登录时返回 None 而非抛出 401。"""

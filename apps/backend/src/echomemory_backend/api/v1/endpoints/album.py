@@ -7,9 +7,6 @@ from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
-    AdminAlbumListItem,
-    AlbumCreate,
-    AlbumListOut,
     AlbumOut,
     AlbumUpdate,
     PaginatedAdminAlbumListOut,

@@ -21,7 +21,6 @@ from echomemory_backend.schemas.user import (
     UserBanAction,
     UserMeOut,
     UserPublicOut,
-    UserSearchOut,
     UserUpdate,
 )
 from echomemory_backend.schemas.user_tag import UserTagOut

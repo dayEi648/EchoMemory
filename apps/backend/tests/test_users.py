@@ -141,14 +141,16 @@ class TestSearchUsers:
         resp = client.get(SEARCH_URL, params={"q": "search"})
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) >= 1
-        assert data[0]["username"] == "searchable"
+        assert len(data["items"]) >= 1
+        assert data["items"][0]["username"] == "searchable"
 
     async def test_search_no_match(self, client: TestClient):
         """测试搜索无匹配结果时返回空列表。"""
         resp = client.get(SEARCH_URL, params={"q": "zzzzzzzzz"})
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
 
 
 class TestFollow:
@@ -210,8 +212,9 @@ class TestFollow:
         resp = client.get(f"{BASE}/{me.id}/followees")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["username"] == "list_followee"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["username"] == "list_followee"
 
     async def test_get_followers(self, client: TestClient, db_session: AsyncSession):
         """测试获取当前用户的粉丝列表。"""
@@ -222,8 +225,9 @@ class TestFollow:
         resp = client.get(f"{BASE}/{me.id}/followers")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["username"] == "fan"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["username"] == "fan"
 
 
 class TestAdmin:
@@ -319,16 +323,15 @@ class TestAdmin:
         )
         assert resp.status_code == 403
 
-    async def test_super_admin_can_ban_self(self, client: TestClient, db_session: AsyncSession):
-        """测试超级管理员可以封禁自己。"""
+    async def test_super_admin_cannot_ban_self(self, client: TestClient, db_session: AsyncSession):
+        """测试超级管理员不能封禁自己。"""
         super_admin = await _create_user(db_session, "sa_self_ban", role=UserRole.SUPER_ADMIN.value)
         resp = client.post(
             f"{BASE}/{super_admin.id}/ban",
             headers=_auth_header(super_admin),
             json={"status": UserStatus.BANNED.value},
         )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == UserStatus.BANNED.value
+        assert resp.status_code == 403
 
     async def test_super_admin_cannot_ban_other_super_admin(self, client: TestClient, db_session: AsyncSession):
         """测试超级管理员无法封禁其他超级管理员。"""

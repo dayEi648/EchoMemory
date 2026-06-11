@@ -60,6 +60,27 @@ async def get_space_post_by_id(db: AsyncSession, post_id: int) -> SpacePost | No
     return result.scalar_one_or_none()
 
 
+def can_view_space_post(viewer_id: int | None, post: SpacePost) -> bool:
+    """判断 viewer 是否有权查看该空间动态。
+
+    已删除动态对任何人都不可见。
+    私密动态仅作者本人可见。
+    公开动态对所有人可见。
+
+    Args:
+        viewer_id: 查看者用户主键，未登录时为 None。
+        post: 空间动态实例。
+
+    Returns:
+        有权查看返回 True，否则返回 False。
+    """
+    if post.is_deleted:
+        return False
+    if post.is_private and post.user_id != viewer_id:
+        return False
+    return True
+
+
 async def list_space_posts(
     db: AsyncSession,
     target_user_id: int,
