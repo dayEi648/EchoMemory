@@ -11,7 +11,7 @@ Image.MAX_IMAGE_PIXELS = 89_478_485
 warnings.simplefilter("error", Image.DecompressionBombWarning)
 
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB 限制
-MAX_IMAGE_INPUT_SIZE_BYTES = 10 * 1024 * 1024  # 输入文件最大 10 MB
+MAX_IMAGE_INPUT_SIZE_BYTES = 20 * 1024 * 1024  # 输入文件最大 20 MB
 
 
 def compress_image_to_memory(
