@@ -270,7 +270,7 @@ export const SearchPage = () => {
                     ))}
                   </StaggerContainer>
                   {/* 单曲分页（仅分类页） */}
-                  {activeTab === "songs" && songTotalPages > 1 && (
+                  {activeTab === "songs" && (songTotalPages > 1 || songTotal > 0) && (
                     <FadeIn delay={0.1}>
                       <PaginationBar
                         page={songPage}
@@ -361,7 +361,7 @@ export const SearchPage = () => {
                     ))}
                   </StaggerContainer>
                   {/* 专辑分页（仅分类页） */}
-                  {activeTab === "albums" && albumTotalPages > 1 && (
+                  {activeTab === "albums" && (albumTotalPages > 1 || albumTotal > 0) && (
                     <FadeIn delay={0.1}>
                       <PaginationBar
                         page={albumPage}
@@ -452,7 +452,7 @@ export const SearchPage = () => {
                     ))}
                   </StaggerContainer>
                   {/* 用户分页（仅分类页） */}
-                  {activeTab === "users" && userTotalPages > 1 && (
+                  {activeTab === "users" && (userTotalPages > 1 || userTotal > 0) && (
                     <FadeIn delay={0.1}>
                       <PaginationBar
                         page={userPage}

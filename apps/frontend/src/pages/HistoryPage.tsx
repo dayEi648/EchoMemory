@@ -187,7 +187,7 @@ export const HistoryPage = () => {
         </StaggerContainer>
       )}
 
-      {totalPages > 1 && (
+      {(totalPages > 1 || total > 0) && (
         <div style={{ marginTop: 24 }}>
           <PaginationBar
             page={page}

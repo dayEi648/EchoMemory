@@ -285,7 +285,7 @@ export const DictionaryPage = () => {
             </StaggerContainer>
           </div>
           {/* 分页栏 */}
-          {totalPages > 1 && (
+          {(totalPages > 1 || total > 0) && (
             <PaginationBar
               page={page}
               totalPages={totalPages}
