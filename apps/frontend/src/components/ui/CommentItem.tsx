@@ -3,14 +3,10 @@ import { ThumbsUp, ThumbsDown, MessageCircle, Trash2, ChevronDown, ChevronUp } f
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
-import { createCommentApi } from "../../shared/api/commentApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { commentApi } from "../../shared/api/instances";
 import type { CommentItem as CommentItemType } from "../../shared/api/types";
+import { formatRelativeTime } from "../../shared/utils";
 import { Avatar } from "./Avatar";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const commentApi = createCommentApi({ baseUrl: API_BASE_URL, tokenStore });
 
 interface CommentItemProps {
   comment: CommentItemType;
@@ -22,20 +18,6 @@ interface CommentItemProps {
   onReply: (parentId: number, rootId: number) => void;
   /** 被删除回调 */
   onDeleted: (commentId: number) => void;
-}
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export const CommentItem = ({ comment, currentUserId, targetType, targetId, onReply, onDeleted }: CommentItemProps) => {
@@ -105,7 +87,7 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>{comment.user.nickname}</span>
-            <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{formatTime(comment.created_at)}</span>
+            <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{formatRelativeTime(comment.created_at)}</span>
           </div>
           <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 8px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
             {comment.content}

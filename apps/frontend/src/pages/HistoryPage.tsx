@@ -4,39 +4,16 @@ import { Play, Trash2, Clock, Music } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createPlayHistoryApi } from "../shared/api/playHistoryApi";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { playHistoryApi, musicApi } from "../shared/api/instances";
 import type { PlayHistoryItem } from "../shared/api/types";
-import { toPlayerTrack } from "../shared/utils";
+import { toPlayerTrack, formatRelativeTime } from "../shared/utils";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const playHistoryApi = createPlayHistoryApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export const HistoryPage = () => {
-  const playTrack = usePlayerStore((s) => s.playTrack);
   const playStandalone = usePlayerStore((s) => s.playStandalone);
   const [history, setHistory] = useState<PlayHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -156,7 +133,7 @@ export const HistoryPage = () => {
                     <span>未知艺人</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <Clock size={12} />
-                      {formatDate(item.played_at)}
+                      {formatRelativeTime(item.played_at)}
                     </span>
                   </div>
                 </div>

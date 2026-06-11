@@ -5,26 +5,16 @@ import { Play, BarChart3, ArrowLeft, Music, Disc3, Heart } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createAlbumApi } from "../shared/api/albumApi";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createCollectionApi } from "../shared/api/collectionApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { albumApi, musicApi, collectionApi } from "../shared/api/instances";
 import type { AlbumDetail } from "../shared/api/types";
 import { FadeIn } from "../components/motion/FadeIn";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { EmptyState } from "../components/ui/EmptyState";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
-
 export const AlbumDetailPage = () => {
   const { albumId } = useParams<{ albumId: string }>();
   const navigate = useNavigate();
-  const playTrack = usePlayerStore((s) => s.playTrack);
   const playInContext = usePlayerStore((s) => s.playInContext);
   const playQueue = usePlayerStore((s) => s.playQueue);
 

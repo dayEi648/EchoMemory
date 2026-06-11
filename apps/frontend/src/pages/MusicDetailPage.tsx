@@ -5,20 +5,13 @@ import { Play, Clock, BarChart3, Calendar, ArrowLeft, Music, Heart } from "lucid
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createCollectionApi } from "../shared/api/collectionApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { musicApi, collectionApi } from "../shared/api/instances";
 import type { MusicDetail, MusicListItem } from "../shared/api/types";
 import { FadeIn } from "../components/motion/FadeIn";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { CommentSection } from "../components/ui/CommentSection";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "未知";
@@ -29,7 +22,6 @@ function formatDate(dateStr: string | null): string {
 export const MusicDetailPage = () => {
   const { musicId } = useParams<{ musicId: string }>();
   const navigate = useNavigate();
-  const playTrack = usePlayerStore((s) => s.playTrack);
   const playStandalone = usePlayerStore((s) => s.playStandalone);
 
   const [music, setMusic] = useState<MusicDetail | null>(null);

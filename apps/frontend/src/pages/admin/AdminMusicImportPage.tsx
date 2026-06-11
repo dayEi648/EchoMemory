@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowLeft, Music, FileText } from "lucide-react";
 
-import { createMusicApi } from "../../shared/api/musicApi";
-import { createDictionaryApi } from "../../shared/api/dictionaryApi";
+import { musicApi, dictionaryApi } from "../../shared/api/instances";
 import { useAuthStore } from "../../shared/stores/authStore";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
 import type { DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
 import {
@@ -17,11 +15,6 @@ import {
   AuthorSelect,
   type AuthorInfo,
 } from "./_musicFormComponents";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore });
 
 /**
  * 导入音乐页面。

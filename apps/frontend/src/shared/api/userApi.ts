@@ -9,33 +9,16 @@ import type {
   UserMe,
   UserPublic,
   PaginatedUserSearch,
-  UserSearchItem,
   UserStatus,
   UserTag,
 } from "./types";
-
-type ApiOptions = {
-  baseUrl: string;
-  fetcher?: typeof fetch;
-  tokenStore: TokenStore;
-};
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-  ) {
-    super(message);
-  }
-}
+import { createBaseApi, type ApiOptions, ApiError } from "./base";
+import { appendDefined } from "../utils";
 
 const toTokenPair = (token: TokenResponse) => ({
   accessToken: token.access_token,
   refreshToken: token.refresh_token,
 });
-
-import { appendDefined } from "../utils";
-
 
 const toRegisterFormData = (input: RegisterInput) => {
   const formData = new FormData();
@@ -66,63 +49,7 @@ const toUpdateFormData = (input: UpdateMeInput) => {
 };
 
 export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
-  const requestFetcher = () => fetcher ?? globalThis.fetch;
-
-  const parseResponse = async <T>(response: Response): Promise<T> => {
-    if (response.status === 204) {
-      return undefined as T;
-    }
-    const data = (await response.json().catch(() => ({}))) as { detail?: string };
-    if (!response.ok) {
-      throw new ApiError(data.detail ?? "请求失败", response.status);
-    }
-    return data as T;
-  };
-
-  const refresh = async () => {
-    const tokens = tokenStore.get();
-    if (!tokens) {
-      throw new ApiError("未登录", 401);
-    }
-    const response = await requestFetcher()(`${baseUrl}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: tokens.refreshToken }),
-    });
-    const token = await parseResponse<TokenResponse>(response);
-    tokenStore.set(toTokenPair(token));
-    return token;
-  };
-
-  const request = async <T>(path: string, init: RequestInit = {}, retry = true): Promise<T> => {
-    const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
-    const tokens = tokenStore.get();
-    if (tokens) {
-      headers.Authorization = `Bearer ${tokens.accessToken}`;
-    }
-
-    const response = await requestFetcher()(`${baseUrl}${path}`, { ...init, headers });
-    if (response.status === 401 && retry && tokens) {
-      try {
-        const refreshed = await refresh();
-        return request<T>(
-          path,
-          {
-            ...init,
-            headers: {
-              ...(init.headers as Record<string, string> | undefined),
-              Authorization: `Bearer ${refreshed.access_token}`,
-            },
-          },
-          false,
-        );
-      } catch (error) {
-        tokenStore.clear();
-        throw error;
-      }
-    }
-    return parseResponse<T>(response);
-  };
+  const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {
     login: async (input: LoginInput) => {
@@ -209,9 +136,7 @@ export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
       request<void>(`/users/${userId}/admin`, { method: "DELETE" }),
     logout: async () => {
       const tokens = tokenStore.get();
-      if (!tokens) {
-        return;
-      }
+      if (!tokens) return;
       await request<void>(
         "/auth/logout",
         {
@@ -224,3 +149,5 @@ export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     },
   };
 };
+
+export { ApiError };

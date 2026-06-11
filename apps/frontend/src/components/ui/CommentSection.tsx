@@ -4,16 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 import { useAuthStore } from "../../shared/stores/authStore";
-import { createCommentApi } from "../../shared/api/commentApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { commentApi } from "../../shared/api/instances";
 import type { CommentItem as CommentItemType, CommentTargetType } from "../../shared/api/types";
 import { CommentItem } from "./CommentItem";
 import { PaginationBar } from "./PaginationBar";
 import { EmptyState } from "./EmptyState";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const commentApi = createCommentApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const PAGE_SIZE = 10;
 

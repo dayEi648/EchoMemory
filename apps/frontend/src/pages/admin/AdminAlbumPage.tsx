@@ -7,14 +7,11 @@ import {
   ListMusic,
   Disc3,
   Music,
-  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
-import { createAlbumApi } from "../../shared/api/albumApi";
-import { createMusicApi } from "../../shared/api/musicApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { albumApi, musicApi } from "../../shared/api/instances";
 import { useAuthStore } from "../../shared/stores/authStore";
 import type { AdminAlbumListItem, AlbumDetail, MusicListItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -27,11 +24,6 @@ import {
   AuthorSelect,
   type AuthorInfo,
 } from "./_musicFormComponents";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
 
 /* ======================================================================== */
 /** 专辑管理页面。

@@ -6,9 +6,9 @@ import { toast } from "sonner";
 
 import { useAuthStore } from "../shared/stores/authStore";
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createAlbumApi } from "../shared/api/albumApi";
-import { createPlayHistoryApi } from "../shared/api/playHistoryApi";
+import { musicApi } from "../shared/api/instances";
+import { albumApi } from "../shared/api/instances";
+import { playHistoryApi } from "../shared/api/instances";
 import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
 import { formatAuthors, toPlayerTrack } from "../shared/utils";
@@ -18,12 +18,6 @@ import { SectionHeader } from "../components/ui/SectionHeader";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
-const playHistoryApi = createPlayHistoryApi({ baseUrl: API_BASE_URL, tokenStore });
 
 export const DiscoverPage = () => {
   const { user } = useAuthStore();

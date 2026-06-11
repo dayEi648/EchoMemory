@@ -12,9 +12,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-import { createMusicApi } from "../../shared/api/musicApi";
-import { createDictionaryApi } from "../../shared/api/dictionaryApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { musicApi, dictionaryApi } from "../../shared/api/instances";
 import { useAuthStore } from "../../shared/stores/authStore";
 import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -29,11 +27,6 @@ import {
   AuthorSelect,
   type AuthorInfo,
 } from "./_musicFormComponents";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore });
 
 /**
  * 音乐管理页面。

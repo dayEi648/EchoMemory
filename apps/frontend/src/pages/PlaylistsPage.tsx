@@ -4,8 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ListMusic } from "lucide-react";
 
-import { createPlaylistApi } from "../shared/api/playlistApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { playlistApi } from "../shared/api/instances";
 import type { PlaylistListItem } from "../shared/api/types";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -13,10 +12,6 @@ import { StaggerContainer, StaggerItem } from "../components/motion/StaggerConta
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationBar } from "../components/ui/PaginationBar";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const playlistApi = createPlaylistApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const categories = ["全部", "流行", "摇滚", "电子", "轻音乐", "学习", "睡眠", "运动", "派对"];
 

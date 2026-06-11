@@ -186,7 +186,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         track = (await _ensureFileUrl(track)) ?? track;
       }
       if (track.file_url) {
-        _switchToTrack(queue, nextIndex);
+        _switchToTrack(get().queue, nextIndex);
         return;
       }
       // 跳过无 file_url 的歌曲，继续找下一首

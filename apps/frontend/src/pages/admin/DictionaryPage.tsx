@@ -3,18 +3,13 @@ import { motion } from "framer-motion";
 import { Plus, Pencil, Trash2, BookOpen, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-import { createDictionaryApi } from "../../shared/api/dictionaryApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { dictionaryApi } from "../../shared/api/instances";
 import type { DictionaryType, DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { PaginationBar } from "../../components/ui/PaginationBar";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const dictionaryApi = createDictionaryApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const DICT_TYPES: { key: DictionaryType; label: string }[] = [
   { key: "styles", label: "风格" },

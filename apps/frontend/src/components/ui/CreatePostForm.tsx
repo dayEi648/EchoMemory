@@ -3,13 +3,8 @@ import { Image, X, Send, Lock, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
-import { createSpacePostApi } from "../../shared/api/spacePostApi";
-import { createLocalStorageTokenStore } from "../../shared/auth/tokenStore";
+import { spacePostApi } from "../../shared/api/instances";
 import type { SpacePostListItem } from "../../shared/api/types";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const spacePostApi = createSpacePostApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const MAX_FILES = 9;
 const MAX_CONTENT_LENGTH = 2000;

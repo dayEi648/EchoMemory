@@ -214,18 +214,42 @@ describe("App", () => {
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse(adminUser))
-      .mockResolvedValueOnce(jsonResponse({ ...adminUser, city: "成都" }));
+      .mockImplementation(async (input) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes("/auth/me")) return jsonResponse(adminUser);
+        if (url.includes("/playlists/")) return jsonResponse({ items: [], total: 0 });
+        return jsonResponse({});
+      });
 
     renderApp({ tokenStore, initialEntries: ["/account"] });
 
     await screen.findByRole("heading", { name: "账号设置" });
     await screen.findByDisplayValue("上海");
     await userEvent.selectOptions(screen.getByLabelText("居住城市"), "成都");
+
+    // Mock the PATCH response
+    fetchMock.mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes("/users/me") || url.includes("/account")) return jsonResponse({ ...adminUser, city: "成都" });
+      if (url.includes("/auth/me")) return jsonResponse(adminUser);
+      if (url.includes("/playlists/")) return jsonResponse({ items: [], total: 0 });
+      return jsonResponse({});
+    });
+
     await userEvent.click(screen.getByRole("button", { name: "保存资料" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const request = fetchMock.mock.calls[1][1] as RequestInit;
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find(([input]) => {
+        const url = input instanceof Request ? input.url : String(input);
+        return url.includes("/users/me");
+      });
+      expect(patchCall).toBeTruthy();
+    });
+    const patchCall = fetchMock.mock.calls.find(([input]) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return url.includes("/users/me");
+    })!;
+    const request = patchCall[1] as RequestInit;
     expect(request.body).toBeInstanceOf(FormData);
     expect((request.body as FormData).get("city")).toBe("成都");
     expect((request.body as FormData).has("city_id")).toBe(false);
@@ -250,7 +274,7 @@ describe("App", () => {
     renderApp({ tokenStore, initialEntries: ["/playlists"] });
 
     expect(await screen.findByText("播放列表广场")).toBeInTheDocument();
-    expect(await screen.findByText("暂无歌单")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "暂无歌单" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/playlists/"), expect.anything());
   });
 

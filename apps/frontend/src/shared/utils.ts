@@ -61,6 +61,24 @@ export function formatAuthors(authors: Author[] | null | undefined, fallback = "
  * @param detail 音乐详情接口返回值。
  * @returns 播放器可消费的曲目对象。
  */
+/**
+ * 将 ISO 日期字符串格式化为相对时间（如"3 分钟前"、""2 小时前"、""3 天前"），
+ * 超过 7 天则返回 YYYY-MM-DD 格式。
+ */
+export function formatRelativeTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (hours < 24) return `${hours} 小时前`;
+  if (days < 7) return `${days} 天前`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function toPlayerTrack(detail: MusicDetail): PlayerTrack {
   return {
     id: detail.id,

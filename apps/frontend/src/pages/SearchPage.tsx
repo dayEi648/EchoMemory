@@ -14,9 +14,8 @@ import { motion } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createAlbumApi } from "../shared/api/albumApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { musicApi } from "../shared/api/instances";
+import { albumApi } from "../shared/api/instances";
 import type {
   UserSearchItem,
   MusicListItem,
@@ -32,12 +31,6 @@ import {
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
-
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const albumApi = createAlbumApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const tabs = [
   { key: "all", label: "综合", icon: Search },

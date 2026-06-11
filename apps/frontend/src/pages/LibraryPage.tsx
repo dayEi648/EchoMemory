@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Heart, Music2, Disc, ListMusic, X } from "lucide-react";
+import { Music2, Disc, ListMusic, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
-import { createCollectionApi } from "../shared/api/collectionApi";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { collectionApi, musicApi } from "../shared/api/instances";
 import type {
   MusicCollectionItem,
   AlbumCollectionItem,
@@ -21,11 +19,6 @@ import { StaggerContainer, StaggerItem } from "../components/motion/StaggerConta
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
 
 const PAGE_SIZE = 12;
 

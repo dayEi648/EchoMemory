@@ -6,10 +6,7 @@ import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
 import { useAuthStore } from "../shared/stores/authStore";
-import { createPlaylistApi } from "../shared/api/playlistApi";
-import { createMusicApi } from "../shared/api/musicApi";
-import { createCollectionApi } from "../shared/api/collectionApi";
-import { createLocalStorageTokenStore } from "../shared/auth/tokenStore";
+import { playlistApi, musicApi, collectionApi } from "../shared/api/instances";
 import type { PlaylistDetail as PlaylistDetailType, MusicListItem } from "../shared/api/types";
 import { formatAuthors } from "../shared/utils";
 import { Avatar } from "../components/ui/Avatar";
@@ -18,12 +15,6 @@ import { StaggerContainer, StaggerItem } from "../components/motion/StaggerConta
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { CommentSection } from "../components/ui/CommentSection";
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
-const tokenStore = createLocalStorageTokenStore();
-const playlistApi = createPlaylistApi({ baseUrl: API_BASE_URL, tokenStore });
-const musicApi = createMusicApi({ baseUrl: API_BASE_URL, tokenStore });
-const collectionApi = createCollectionApi({ baseUrl: API_BASE_URL, tokenStore });
 
 export const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
