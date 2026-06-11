@@ -13,6 +13,8 @@ from echomemory_backend.schemas.user import (
     FollowCreate,
     FolloweeOut,
     FollowerOut,
+    PaginatedFolloweeOut,
+    PaginatedFollowerOut,
     PaginatedUserAdminOut,
     PaginatedUserSearchOut,
     UserAdminUpdate,
@@ -148,7 +150,7 @@ async def unfollow_user(
     return None
 
 
-@router.get("/{user_id}/followees", response_model=list[FolloweeOut])
+@router.get("/{user_id}/followees", response_model=PaginatedFolloweeOut)
 async def get_followees(
     db: SessionDep,
     user_id: int,
@@ -159,7 +161,7 @@ async def get_followees(
     return await user_service.get_followees(db, user_id, limit=limit, offset=offset)
 
 
-@router.get("/{user_id}/followers", response_model=list[FollowerOut])
+@router.get("/{user_id}/followers", response_model=PaginatedFollowerOut)
 async def get_followers(
     db: SessionDep,
     user_id: int,

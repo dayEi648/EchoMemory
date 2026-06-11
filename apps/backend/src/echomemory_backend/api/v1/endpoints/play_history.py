@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.schemas.play_history import (
+    PaginatedPlayHistoryOut,
     PlayHistoryCreate,
     PlayHistoryOut,
 )
@@ -31,7 +32,7 @@ async def record_play(
     return histories[0]
 
 
-@router.get("/", response_model=list[PlayHistoryOut])
+@router.get("/", response_model=PaginatedPlayHistoryOut)
 async def list_play_history(
     db: SessionDep,
     current_user: ActiveUser,

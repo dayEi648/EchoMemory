@@ -22,7 +22,7 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       if (params.style_id !== undefined) query.set("style_id", String(params.style_id));
       if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
       if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));
-      return request<MusicListItem[]>(`/music/?${query.toString()}`, {}, false);
+      return request<PaginatedMusicList>(`/music/?${query.toString()}`, {}, false);
     },
     getMusicDetail: (musicId: number) => request<MusicDetail>(`/music/${musicId}`, {}, false),
     adminImportMusic: (input: {

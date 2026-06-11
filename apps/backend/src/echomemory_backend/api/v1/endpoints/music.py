@@ -403,7 +403,7 @@ async def search_musics(
     )
 
 
-@router.get("/", response_model=list[MusicListOut])
+@router.get("/", response_model=PaginatedMusicListOut)
 async def list_musics(
     db: SessionDep,
     style_id: int | None = Query(None),

@@ -238,7 +238,7 @@ async def list_musics(
     is_published: bool = True,
     limit: int = 20,
     offset: int = 0,
-) -> list[Music]:
+) -> dict[str, object]:
     """分页列出音乐，支持筛选条件。默认只返回已上架音乐。
 
     Args:
@@ -251,27 +251,31 @@ async def list_musics(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        音乐实例列表（仅加载作者关联关系）。
+        {"items": 音乐实例列表, "total": 总记录数}。
     """
+    where_clause = [Music.is_published == is_published]
+    if style_id is not None:
+        where_clause.append(Music.style_id == style_id)
+    if language_id is not None:
+        where_clause.append(Music.language_id == language_id)
+    if is_vip is not None:
+        where_clause.append(Music.is_vip == is_vip)
+
     stmt = (
         select(Music)
-        .where(Music.is_published == is_published)
+        .where(*where_clause)
         .order_by(desc(Music.created_at))
         .limit(limit)
         .offset(offset)
+        .options(
+            selectinload(Music.authors).selectinload(MusicAuthor.author)
+        )
     )
-    if style_id is not None:
-        stmt = stmt.where(Music.style_id == style_id)
-    if language_id is not None:
-        stmt = stmt.where(Music.language_id == language_id)
-    if is_vip is not None:
-        stmt = stmt.where(Music.is_vip == is_vip)
-
-    # 列表只需加载作者关系
-    stmt = stmt.options(
-        selectinload(Music.authors).selectinload(MusicAuthor.author)
-    )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def search_musics(

@@ -135,7 +135,7 @@ async def list_play_history(
     user_id: int,
     limit: int = 20,
     offset: int = 0,
-) -> list[PlayHistory]:
+) -> dict[str, object]:
     """查询用户的播放历史。
 
     Args:
@@ -145,17 +145,22 @@ async def list_play_history(
         offset: 偏移量，默认 0。
 
     Returns:
-        按播放时间倒序、关联加载音乐信息的 PlayHistory 列表。
+        {"items": 按播放时间倒序的 PlayHistory 列表, "total": 总记录数}。
     """
+    where_clause = [PlayHistory.user_id == user_id]
     stmt = (
         select(PlayHistory)
-        .where(PlayHistory.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(PlayHistory.played_at), desc(PlayHistory.id))
         .limit(limit)
         .offset(offset)
         .options(selectinload(PlayHistory.music))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def delete_play_history(

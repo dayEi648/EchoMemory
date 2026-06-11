@@ -53,6 +53,13 @@ class CommentOut(BaseModel):
         }
 
 
+class PaginatedCommentOut(BaseModel):
+    """评论列表分页响应 Schema。"""
+
+    items: list[CommentOut]
+    total: int
+
+
 class CommentCreate(BaseModel):
     """发表评论的请求体。"""
 

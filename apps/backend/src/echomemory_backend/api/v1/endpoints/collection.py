@@ -6,6 +6,10 @@ from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.schemas.collection import (
     AlbumCollectionOut,
     MusicCollectionOut,
+    PaginatedAlbumCollectionOut,
+    PaginatedMusicCollectionOut,
+    PaginatedPlaylistCollectionOut,
+    PaginatedReleaseOut,
     PlaylistCollectionOut,
     ReleaseOut,
 )
@@ -40,7 +44,7 @@ async def uncollect_music(
     return None
 
 
-@router.get("/musics", response_model=list[MusicCollectionOut])
+@router.get("/musics", response_model=PaginatedMusicCollectionOut)
 async def list_music_collections(
     db: SessionDep,
     current_user: ActiveUser,
@@ -79,7 +83,7 @@ async def uncollect_album(
     return None
 
 
-@router.get("/albums", response_model=list[AlbumCollectionOut])
+@router.get("/albums", response_model=PaginatedAlbumCollectionOut)
 async def list_album_collections(
     db: SessionDep,
     current_user: ActiveUser,
@@ -120,7 +124,7 @@ async def uncollect_playlist(
     return None
 
 
-@router.get("/playlists", response_model=list[PlaylistCollectionOut])
+@router.get("/playlists", response_model=PaginatedPlaylistCollectionOut)
 async def list_playlist_collections(
     db: SessionDep,
     current_user: ActiveUser,
@@ -159,7 +163,7 @@ async def unrelease_music(
     return None
 
 
-@router.get("/releases", response_model=list[ReleaseOut])
+@router.get("/releases", response_model=PaginatedReleaseOut)
 async def list_releases(
     db: SessionDep,
     current_user: ActiveUser,

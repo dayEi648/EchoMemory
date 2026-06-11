@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Play, Trash2, Clock, Music } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { toPlayerTrack } from "../shared/utils";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
+import { PaginationBar } from "../components/ui/PaginationBar";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
@@ -37,23 +38,30 @@ function formatDate(dateStr: string): string {
 export const HistoryPage = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const [history, setHistory] = useState<PlayHistoryItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await playHistoryApi.listPlayHistory({ limit: 50 });
-      setHistory(Array.isArray(data) ? data : []);
+      const data = await playHistoryApi.listPlayHistory({
+        limit: pageSize,
+        offset: page * pageSize,
+      });
+      setHistory(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch {
       toast.error("加载播放历史失败");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [loadHistory]);
 
   const handlePlay = async (item: PlayHistoryItem) => {
     try {
@@ -72,6 +80,7 @@ export const HistoryPage = () => {
     try {
       await playHistoryApi.deletePlayHistory(id);
       setHistory((prev) => prev.filter((h) => h.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
       toast.success("已删除");
     } catch {
       toast.error("删除失败");
@@ -83,11 +92,15 @@ export const HistoryPage = () => {
     try {
       await playHistoryApi.clearPlayHistory();
       setHistory([]);
+      setTotal(0);
+      setPage(0);
       toast.success("播放历史已清空");
     } catch {
       toast.error("清空失败");
     }
   };
+
+  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <div>
@@ -172,6 +185,20 @@ export const HistoryPage = () => {
             </StaggerItem>
           ))}
         </StaggerContainer>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ marginTop: 24 }}>
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+            loading={loading}
+            total={total}
+          />
+        </div>
       )}
     </div>
   );

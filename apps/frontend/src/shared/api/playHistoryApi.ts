@@ -1,4 +1,4 @@
-import type { PlayHistoryItem } from "./types";
+import type { PaginatedPlayHistoryList, PlayHistoryItem } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
 export const createPlayHistoryApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
@@ -15,7 +15,7 @@ export const createPlayHistoryApi = ({ baseUrl, fetcher, tokenStore }: ApiOption
       const query = new URLSearchParams();
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
-      return request<PlayHistoryItem[]>(`/play-history/?${query.toString()}`);
+      return request<PaginatedPlayHistoryList>(`/play-history/?${query.toString()}`);
     },
     deletePlayHistory: (historyId: number) => request<void>(`/play-history/${historyId}`, { method: "DELETE" }),
     clearPlayHistory: () => request<void>("/play-history/", { method: "DELETE" }),

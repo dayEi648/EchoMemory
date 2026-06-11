@@ -176,7 +176,7 @@ async def list_comments(
     target_id: int,
     limit: int = 20,
     offset: int = 0,
-) -> list[Comment]:
+) -> dict[str, object]:
     """查询指定目标的 root 评论列表。
 
     Args:
@@ -187,7 +187,7 @@ async def list_comments(
         offset: 偏移量，默认 0。
 
     Returns:
-        排除已删除、按时间倒序排列的 Comment 列表。
+        {"items": 排除已删除的 Comment 列表, "total": 总记录数}。
 
     Raises:
         BusinessError: target_type 无效时抛出 400。
@@ -201,17 +201,25 @@ async def list_comments(
         "space_post": Comment.space_post_id == target_id,
     }[target_type]
 
+    where_clause = [
+        target_filter,
+        Comment.parent_id.is_(None),
+        Comment.is_deleted.is_(False),
+    ]
+
     stmt = (
         select(Comment)
-        .where(target_filter)
-        .where(Comment.parent_id.is_(None))
-        .where(Comment.is_deleted.is_(False))
+        .where(*where_clause)
         .order_by(desc(Comment.created_at))
         .limit(limit)
         .offset(offset)
         .options(selectinload(Comment.user))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:

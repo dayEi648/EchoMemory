@@ -205,7 +205,7 @@ async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) ->
 
 async def get_followees(
     db: AsyncSession, user_id: int, limit: int, offset: int
-) -> list[User]:
+) -> dict[str, object]:
     """返回 user_id 所关注的用户列表。
 
     Args:
@@ -215,23 +215,35 @@ async def get_followees(
         offset: 分页偏移量。
 
     Returns:
-        符合条件的用户实例列表。
+        {"items": 用户实例列表, "total": 总记录数}。
     """
+    where_clause = [
+        UserFollow.follower_id == user_id,
+        User.is_deleted == False,
+    ]
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.followee_id == User.id)
-        .where(UserFollow.follower_id == user_id)
-        .where(User.is_deleted == False)
+        .where(*where_clause)
         .order_by(desc(UserFollow.created_at))
         .limit(limit)
         .offset(offset)
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserFollow)
+            .join(User, UserFollow.followee_id == User.id)
+            .where(*where_clause)
+        )
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def get_followers(
     db: AsyncSession, user_id: int, limit: int, offset: int
-) -> list[User]:
+) -> dict[str, object]:
     """返回关注 user_id 的用户列表。
 
     Args:
@@ -241,18 +253,30 @@ async def get_followers(
         offset: 分页偏移量。
 
     Returns:
-        符合条件的用户实例列表。
+        {"items": 用户实例列表, "total": 总记录数}。
     """
+    where_clause = [
+        UserFollow.followee_id == user_id,
+        User.is_deleted == False,
+    ]
     stmt = (
         select(User)
         .join(UserFollow, UserFollow.follower_id == User.id)
-        .where(UserFollow.followee_id == user_id)
-        .where(User.is_deleted == False)
+        .where(*where_clause)
         .order_by(desc(UserFollow.created_at))
         .limit(limit)
         .offset(offset)
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserFollow)
+            .join(User, UserFollow.follower_id == User.id)
+            .where(*where_clause)
+        )
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def search_users(

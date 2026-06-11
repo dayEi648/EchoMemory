@@ -66,7 +66,7 @@ async def list_space_posts(
     viewer_user_id: int,
     limit: int,
     offset: int,
-) -> list[SpacePost]:
+) -> dict[str, object]:
     """列出目标用户的动态。
 
     Args:
@@ -77,21 +77,28 @@ async def list_space_posts(
         offset: 偏移量。
 
     Returns:
-        排除已删除、非本人时排除私密、按 created_at 倒序的 SpacePost 列表。
+        {"items": SpacePost 列表, "total": 总记录数}。
     """
+    where_clause = [
+        SpacePost.user_id == target_user_id,
+        SpacePost.is_deleted == False,
+    ]
+    if target_user_id != viewer_user_id:
+        where_clause.append(SpacePost.is_private == False)
+
     stmt = (
         select(SpacePost)
-        .where(SpacePost.user_id == target_user_id)
-        .where(SpacePost.is_deleted == False)
+        .where(*where_clause)
         .options(selectinload(SpacePost.images))
         .order_by(desc(SpacePost.created_at))
         .limit(limit)
         .offset(offset)
     )
-    if target_user_id != viewer_user_id:
-        stmt = stmt.where(SpacePost.is_private == False)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def soft_delete_space_post(db: AsyncSession, post: SpacePost) -> None:

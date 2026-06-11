@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core.oss_client import delete_object_by_url
-from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
+from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
 
 router = APIRouter(prefix="/space-posts", tags=["space-posts"])
@@ -96,7 +96,7 @@ async def get_space_post(
     return post
 
 
-@router.get("/", response_model=list[SpacePostListOut])
+@router.get("/", response_model=PaginatedSpacePostListOut)
 async def list_space_posts(
     db: SessionDep,
     current_user: ActiveUser,

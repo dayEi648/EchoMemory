@@ -183,7 +183,7 @@ async def list_user_playlists(
     user_id: int,
     limit: int = 20,
     offset: int = 0,
-) -> list[Playlist]:
+) -> dict[str, object]:
     """查询指定用户的歌单列表，按创建时间倒序。
 
     Args:
@@ -193,17 +193,22 @@ async def list_user_playlists(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        歌单实例列表。
+        {"items": 歌单实例列表, "total": 总记录数}。
     """
+    where_clause = [Playlist.user_id == user_id]
     stmt = (
         select(Playlist)
-        .where(Playlist.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(Playlist.created_at))
         .limit(limit)
         .offset(offset)
         .options(selectinload(Playlist.user))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def update_playlist(

@@ -44,9 +44,9 @@ export const DiscoverPage = () => {
           albumApi.listAlbums({ limit: 5 }),
           playHistoryApi.listPlayHistory({ limit: 5 }),
         ]);
-        setNewSongs(Array.isArray(songs) ? songs : []);
-        setAlbums(Array.isArray(albumList) ? albumList : []);
-        setRecentPlays(Array.isArray(history) ? history : []);
+        setNewSongs(songs.items ?? []);
+        setAlbums(albumList.items ?? []);
+        setRecentPlays(history.items ?? []);
       } catch {
         toast.error("加载内容失败，请稍后重试");
       } finally {

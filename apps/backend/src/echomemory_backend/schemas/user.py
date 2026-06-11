@@ -167,6 +167,20 @@ class FollowerOut(BaseModel):
     nickname: str
     avatar_url: str | None = None
     level: int
+
+
+class PaginatedFolloweeOut(BaseModel):
+    """关注列表分页响应 Schema。"""
+
+    items: list[FolloweeOut]
+    total: int
+
+
+class PaginatedFollowerOut(BaseModel):
+    """粉丝列表分页响应 Schema。"""
+
+    items: list[FollowerOut]
+    total: int
     is_verified: bool
 
 

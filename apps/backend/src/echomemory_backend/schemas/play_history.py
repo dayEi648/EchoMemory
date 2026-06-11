@@ -25,6 +25,13 @@ class PlayHistoryOut(BaseModel):
     music: PlayHistoryMusicOut
 
 
+class PaginatedPlayHistoryOut(BaseModel):
+    """播放历史列表分页响应 Schema。"""
+
+    items: list[PlayHistoryOut]
+    total: int
+
+
 class PlayHistoryCreate(BaseModel):
     """记录播放历史的请求体。"""
 

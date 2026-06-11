@@ -21,7 +21,7 @@ export const createAlbumApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       query.set("offset", String(params.offset ?? 0));
       if (params.emotion_tag_id !== undefined) query.set("emotion_tag_id", String(params.emotion_tag_id));
       if (params.interest_tag_id !== undefined) query.set("interest_tag_id", String(params.interest_tag_id));
-      return request<AlbumListItem[]>(`/albums/?${query.toString()}`, {}, false);
+      return request<PaginatedAlbumList>(`/albums/?${query.toString()}`, {}, false);
     },
     getAlbumDetail: (albumId: number) => request<AlbumDetail>(`/albums/${albumId}`, {}, false),
     adminCreateAlbum: (input: AlbumCreateInput & { cover_icon: File; cover: File }) => {

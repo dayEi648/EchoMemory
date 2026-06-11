@@ -137,6 +137,13 @@ class PlaylistListOut(BaseModel):
         }
 
 
+class PaginatedPlaylistListOut(BaseModel):
+    """歌单列表分页响应 Schema。"""
+
+    items: list[PlaylistListOut]
+    total: int
+
+
 class PlaylistUpdate(BaseModel):
     """修改歌单信息的请求体（不含封面替换和标签编辑）。"""
 

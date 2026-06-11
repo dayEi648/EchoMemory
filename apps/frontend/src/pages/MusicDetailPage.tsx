@@ -45,7 +45,7 @@ export const MusicDetailPage = () => {
           language_id: detail.language?.id,
           limit: 6,
         });
-        setRelated(relatedList.filter((m) => m.id !== detail.id));
+        setRelated(relatedList.items?.filter((m) => m.id !== detail.id) ?? []);
       } catch {
         toast.error("加载歌曲详情失败");
       } finally {

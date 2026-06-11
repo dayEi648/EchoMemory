@@ -241,7 +241,7 @@ async def list_albums(
     interest_tag_id: int | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> list[Album]:
+) -> dict[str, object]:
     """分页列出未删除专辑，支持标签筛选。
 
     Args:
@@ -252,18 +252,12 @@ async def list_albums(
         offset: 分页偏移量，默认 0。
 
     Returns:
-        专辑实例列表。
+        {"items": 专辑实例列表, "total": 总记录数}。
     """
-    stmt = (
-        select(Album)
-        .where(Album.is_deleted == False)
-        .order_by(desc(Album.created_at))
-        .limit(limit)
-        .offset(offset)
-    )
+    where_clause: list = [Album.is_deleted == False]
 
     if emotion_tag_id is not None:
-        stmt = stmt.where(
+        where_clause.append(
             Album.id.in_(
                 select(AlbumEmotionTag.album_id).where(
                     AlbumEmotionTag.emotion_tag_id == emotion_tag_id
@@ -271,7 +265,7 @@ async def list_albums(
             )
         )
     if interest_tag_id is not None:
-        stmt = stmt.where(
+        where_clause.append(
             Album.id.in_(
                 select(AlbumInterestTag.album_id).where(
                     AlbumInterestTag.interest_tag_id == interest_tag_id
@@ -279,7 +273,18 @@ async def list_albums(
             )
         )
 
-    return list((await db.execute(stmt)).scalars().all())
+    stmt = (
+        select(Album)
+        .where(*where_clause)
+        .order_by(desc(Album.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def search_albums(

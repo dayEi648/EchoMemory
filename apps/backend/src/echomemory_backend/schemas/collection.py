@@ -43,3 +43,31 @@ class ReleaseOut(BaseModel):
 
     music: MusicListOut
     created_at: datetime
+
+
+class PaginatedMusicCollectionOut(BaseModel):
+    """音乐收藏列表分页响应 Schema。"""
+
+    items: list[MusicCollectionOut]
+    total: int
+
+
+class PaginatedAlbumCollectionOut(BaseModel):
+    """专辑收藏列表分页响应 Schema。"""
+
+    items: list[AlbumCollectionOut]
+    total: int
+
+
+class PaginatedPlaylistCollectionOut(BaseModel):
+    """歌单收藏列表分页响应 Schema。"""
+
+    items: list[PlaylistCollectionOut]
+    total: int
+
+
+class PaginatedReleaseOut(BaseModel):
+    """已发布音乐列表分页响应 Schema。"""
+
+    items: list[ReleaseOut]
+    total: int

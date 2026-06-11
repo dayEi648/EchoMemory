@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
-from echomemory_backend.schemas.comment import CommentCreate, CommentOut
+from echomemory_backend.schemas.comment import CommentCreate, CommentOut, PaginatedCommentOut
 from echomemory_backend.services import comment_service
 
 router = APIRouter(prefix="/comments", tags=["comments"])
@@ -26,7 +26,7 @@ async def create_comment(
     )
 
 
-@router.get("/{target_type}/{target_id}", response_model=list[CommentOut])
+@router.get("/{target_type}/{target_id}", response_model=PaginatedCommentOut)
 async def list_comments(
     db: SessionDep,
     target_type: str,

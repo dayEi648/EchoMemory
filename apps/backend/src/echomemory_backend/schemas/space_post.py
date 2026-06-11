@@ -62,3 +62,10 @@ class SpacePostListOut(BaseModel):
             {"image_url": img.image_url, "ordinal": img.ordinal}
             for img in v
         ]
+
+
+class PaginatedSpacePostListOut(BaseModel):
+    """动态列表分页响应 Schema。"""
+
+    items: list[SpacePostListOut]
+    total: int

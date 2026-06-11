@@ -101,7 +101,7 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
 
 async def list_music_collections(
     db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
-) -> list[UserMusicCollection]:
+) -> dict[str, object]:
     """查询用户的收藏音乐列表。
 
     Args:
@@ -111,11 +111,12 @@ async def list_music_collections(
         offset: 偏移量，默认 0。
 
     Returns:
-        按收藏时间倒序排列的 UserMusicCollection 列表。
+        {"items": 按收藏时间倒序的 UserMusicCollection 列表, "total": 总记录数}。
     """
+    where_clause = [UserMusicCollection.user_id == user_id]
     stmt = (
         select(UserMusicCollection)
-        .where(UserMusicCollection.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(UserMusicCollection.created_at))
         .limit(limit)
         .offset(offset)
@@ -125,7 +126,11 @@ async def list_music_collections(
             .selectinload(MusicAuthor.author),
         )
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +214,7 @@ async def uncollect_album(db: AsyncSession, user_id: int, album_id: int) -> None
 
 async def list_album_collections(
     db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
-) -> list[UserAlbumCollection]:
+) -> dict[str, object]:
     """查询用户的收藏专辑列表。
 
     Args:
@@ -219,17 +224,22 @@ async def list_album_collections(
         offset: 偏移量，默认 0。
 
     Returns:
-        按收藏时间倒序排列的 UserAlbumCollection 列表。
+        {"items": 按收藏时间倒序的 UserAlbumCollection 列表, "total": 总记录数}。
     """
+    where_clause = [UserAlbumCollection.user_id == user_id]
     stmt = (
         select(UserAlbumCollection)
-        .where(UserAlbumCollection.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(UserAlbumCollection.created_at))
         .limit(limit)
         .offset(offset)
         .options(selectinload(UserAlbumCollection.album))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +325,7 @@ async def uncollect_playlist(db: AsyncSession, user_id: int, playlist_id: int) -
 
 async def list_playlist_collections(
     db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
-) -> list[UserPlaylistCollection]:
+) -> dict[str, object]:
     """查询用户的收藏歌单列表。
 
     Args:
@@ -325,17 +335,22 @@ async def list_playlist_collections(
         offset: 偏移量，默认 0。
 
     Returns:
-        按收藏时间倒序排列的 UserPlaylistCollection 列表。
+        {"items": 按收藏时间倒序的 UserPlaylistCollection 列表, "total": 总记录数}。
     """
+    where_clause = [UserPlaylistCollection.user_id == user_id]
     stmt = (
         select(UserPlaylistCollection)
-        .where(UserPlaylistCollection.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(UserPlaylistCollection.created_at))
         .limit(limit)
         .offset(offset)
         .options(selectinload(UserPlaylistCollection.playlist).selectinload(Playlist.user))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}
 
 
 # ---------------------------------------------------------------------------
@@ -418,7 +433,7 @@ async def unrelease_music(db: AsyncSession, user_id: int, music_id: int) -> None
 
 async def list_releases(
     db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
-) -> list[UserMusicRelease]:
+) -> dict[str, object]:
     """查询用户的已发布音乐列表。
 
     Args:
@@ -428,11 +443,12 @@ async def list_releases(
         offset: 偏移量，默认 0。
 
     Returns:
-        按标记时间倒序排列的 UserMusicRelease 列表。
+        {"items": 按标记时间倒序的 UserMusicRelease 列表, "total": 总记录数}。
     """
+    where_clause = [UserMusicRelease.user_id == user_id]
     stmt = (
         select(UserMusicRelease)
-        .where(UserMusicRelease.user_id == user_id)
+        .where(*where_clause)
         .order_by(desc(UserMusicRelease.created_at))
         .limit(limit)
         .offset(offset)
@@ -442,4 +458,8 @@ async def list_releases(
             .selectinload(MusicAuthor.author),
         )
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list((await db.execute(stmt)).scalars().all())
+    total = (
+        await db.execute(select(func.count()).where(*where_clause))
+    ).scalar_one()
+    return {"items": items, "total": total}

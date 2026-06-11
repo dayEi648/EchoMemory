@@ -287,6 +287,11 @@ export type PlayHistoryCreateInput = {
   music_id: number;
 };
 
+export type PaginatedPlayHistoryList = {
+  items: PlayHistoryItem[];
+  total: number;
+};
+
 /* ==================== Dictionary ==================== */
 
 export type DictionaryType =

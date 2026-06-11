@@ -321,7 +321,7 @@ async def search_albums(
     )
 
 
-@router.get("/", response_model=list[AlbumListOut])
+@router.get("/", response_model=PaginatedAlbumListOut)
 async def list_albums(
     db: SessionDep,
     emotion_tag_id: int | None = Query(None),
