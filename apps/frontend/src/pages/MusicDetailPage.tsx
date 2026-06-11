@@ -13,6 +13,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { EmptyState } from "../components/ui/EmptyState";
+import { CommentSection } from "../components/ui/CommentSection";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
 const tokenStore = createLocalStorageTokenStore();
@@ -275,6 +276,16 @@ export const MusicDetailPage = () => {
           </div>
         </div>
       </FadeIn>
+
+      {/* Comments */}
+      {music && (
+        <FadeIn delay={0.2}>
+          <section style={{ marginBottom: 32 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({music.comment_count})</h3>
+            <CommentSection targetType="music" targetId={music.id} />
+          </section>
+        </FadeIn>
+      )}
 
       {/* Related Songs */}
       {related.length > 0 && (

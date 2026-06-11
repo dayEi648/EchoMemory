@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Heart, MessageCircle, Trash2, Clock, Lock } from "lucide-react";
+import { Heart, MessageCircle, Trash2, Clock, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 import { Avatar } from "./Avatar";
+import { CommentSection } from "./CommentSection";
 import type { SpacePostListItem } from "../../shared/api/types";
 
 export interface PostAuthor {
@@ -47,6 +48,7 @@ export const SpacePostCard = ({
 }: SpacePostCardProps) => {
   const [liked, setLiked] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const isOwner = currentUserId === author.id;
   const sortedImages = [...post.images].sort((a, b) => a.ordinal - b.ordinal);
@@ -179,10 +181,28 @@ export const SpacePostCard = ({
           赞
         </motion.button>
 
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--color-muted)" }}>
+        <motion.button
+          onClick={() => setShowComments(!showComments)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 13,
+            padding: "4px 8px",
+            minHeight: "auto",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: showComments ? "var(--color-accent-2)" : "var(--color-muted)",
+          }}
+        >
           <MessageCircle size={14} />
           {post.comment_count}
-        </span>
+          {showComments ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </motion.button>
 
         {isOwner && (
           <motion.button
@@ -208,6 +228,13 @@ export const SpacePostCard = ({
           </motion.button>
         )}
       </div>
+
+      {/* Comment Section */}
+      {showComments && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--color-border)" }}>
+          <CommentSection targetType="space_post" targetId={post.id} />
+        </div>
+      )}
     </motion.div>
   );
 };

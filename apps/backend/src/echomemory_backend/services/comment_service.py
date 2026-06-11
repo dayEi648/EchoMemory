@@ -222,6 +222,31 @@ async def list_comments(
     return {"items": items, "total": total}
 
 
+async def list_replies(
+    db: AsyncSession,
+    root_id: int,
+) -> list[Comment]:
+    """获取指定根评论的所有非删除回复（按创建时间正序）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        root_id: 根评论主键。
+
+    Returns:
+        回复 Comment 列表（已关联用户信息）。
+    """
+    stmt = (
+        select(Comment)
+        .where(
+            Comment.root_id == root_id,
+            Comment.is_deleted.is_(False),
+        )
+        .order_by(Comment.created_at)
+        .options(selectinload(Comment.user))
+    )
+    return list((await db.execute(stmt)).scalars().all())
+
+
 async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
     """软删除评论。
 

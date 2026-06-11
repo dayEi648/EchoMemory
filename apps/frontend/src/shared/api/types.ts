@@ -346,6 +346,42 @@ export type PlaylistUpdateInput = {
   is_private?: boolean;
 };
 
+/* ==================== Comment ==================== */
+
+export type CommentTargetType = "music" | "playlist" | "space_post";
+
+export type CommentUser = {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string | null;
+};
+
+export type CommentItem = {
+  id: number;
+  content: string;
+  user: CommentUser;
+  like_count: number;
+  dislike_count: number;
+  reply_count: number;
+  parent_id: number | null;
+  root_id: number | null;
+  is_nested_reply: boolean;
+  created_at: string;
+};
+
+export type PaginatedCommentList = {
+  items: CommentItem[];
+  total: number;
+};
+
+export type CommentCreateInput = {
+  target_type: CommentTargetType;
+  target_id: number;
+  content: string;
+  parent_id?: number;
+};
+
 /* ==================== Collection ==================== */
 
 export type MusicCollectionItem = {

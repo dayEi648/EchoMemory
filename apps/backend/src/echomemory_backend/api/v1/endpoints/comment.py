@@ -9,6 +9,15 @@ from echomemory_backend.services import comment_service
 router = APIRouter(prefix="/comments", tags=["comments"])
 
 
+@router.get("/replies/{root_id}", response_model=list[CommentOut])
+async def list_replies(
+    db: SessionDep,
+    root_id: int,
+):
+    """获取指定根评论的所有非删除回复（按时间正序）。公开接口，无需登录。"""
+    return await comment_service.list_replies(db, root_id=root_id)
+
+
 @router.post("/", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
 async def create_comment(
     db: SessionDep,
