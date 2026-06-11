@@ -315,6 +315,7 @@ export const DictionaryPage = () => {
           setFormName("");
         }}
         title={`新增${activeLabel}`}
+        maxWidth={400}
         footer={
           <>
             <motion.button
@@ -363,6 +364,7 @@ export const DictionaryPage = () => {
           setFormName("");
         }}
         title={`编辑${activeLabel}`}
+        maxWidth={400}
         footer={
           <>
             <motion.button

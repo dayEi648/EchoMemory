@@ -587,7 +587,7 @@ export const UserManagementPage = () => {
               取消
             </motion.button>
             <motion.button
-              className="primary-button"
+              className="btn-primary"
               onClick={handleEditSubmit}
               disabled={editSubmitting}
               whileTap={{ scale: 0.97 }}
@@ -599,7 +599,7 @@ export const UserManagementPage = () => {
         }
       >
         {editUser && (
-          <div className="form-stack">
+          <div className="form-stack modal-form-grid">
             <label>
               昵称
               <input
@@ -685,13 +685,13 @@ export const UserManagementPage = () => {
                 </label>
               </>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <label className="form-checkbox">
               <input
                 type="checkbox"
                 checked={editForm.is_verified ?? false}
                 onChange={(e) => setEditForm((f) => ({ ...f, is_verified: e.target.checked }))}
               />
-              <span style={{ fontSize: 13 }}>已认证</span>
+              <span>已认证</span>
             </label>
           </div>
         )}
@@ -833,7 +833,7 @@ export const UserManagementPage = () => {
               取消
             </motion.button>
             <motion.button
-              className="primary-button"
+              className="btn-primary"
               onClick={handleCreateSubmit}
               disabled={
                 createSubmitting ||
@@ -849,7 +849,7 @@ export const UserManagementPage = () => {
           </>
         }
       >
-        <div className="form-stack">
+        <div className="form-stack modal-form-grid">
           <label>
             用户名 *
             <input
@@ -971,13 +971,13 @@ export const UserManagementPage = () => {
               onChange={(e) => setCreateForm((f) => ({ ...f, exp: Number(e.target.value) }))}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <label className="form-checkbox">
             <input
               type="checkbox"
               checked={createForm.is_verified ?? false}
               onChange={(e) => setCreateForm((f) => ({ ...f, is_verified: e.target.checked }))}
             />
-            <span style={{ fontSize: 13 }}>已认证</span>
+            <span>已认证</span>
           </label>
         </div>
       </Modal>

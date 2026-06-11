@@ -536,7 +536,7 @@ export const AdminMusicPage = () => {
               取消
             </motion.button>
             <motion.button
-              className="primary-button"
+              className="btn-primary"
               onClick={handleEditSubmit}
               disabled={editSubmitting}
               whileTap={{ scale: 0.97 }}

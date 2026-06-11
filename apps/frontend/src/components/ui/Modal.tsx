@@ -128,17 +128,15 @@ export const Modal = ({ open, onClose, title, children, footer, maxWidth = 520 }
             </div>
 
             {/* 内容区 */}
-            <div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>
+            <div className="modal-body" style={{ padding: "20px", overflowY: "auto", flex: 1 }}>
               {children}
             </div>
 
             {/* 底部操作区 */}
             {footer && (
               <div
+                className="modal-footer"
                 style={{
-                  display: "flex",
-                  gap: 10,
-                  justifyContent: "flex-end",
                   padding: "12px 20px",
                   borderTop: "1px solid var(--color-border)",
                   flexShrink: 0,

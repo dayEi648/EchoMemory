@@ -135,17 +135,72 @@ button {
 }
 
 .form-stack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  max-width: 380px;
+  width: 100%;
 }
 
-.form-stack label {
-  display: grid;
+.form-stack label:not(.form-checkbox) {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   color: var(--color-ink);
   font-size: 13px;
   font-weight: 600;
+}
+
+.form-stack.modal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.form-stack.modal-form-grid > label:has(textarea),
+.form-stack.modal-form-grid > label:has(> input[type="checkbox"]),
+.form-stack.modal-form-grid > .form-field--full,
+.form-stack.modal-form-grid > p {
+  grid-column: 1 / -1;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.form-field--long textarea {
+  min-height: 96px;
+}
+
+.form-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  user-select: none;
+}
+
+.form-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 input,
@@ -172,9 +227,11 @@ textarea:focus {
 
 textarea {
   resize: vertical;
+  min-height: 88px;
 }
 
-.primary-button {
+.primary-button,
+.btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -187,14 +244,18 @@ textarea {
   background: var(--color-ink);
   font-weight: 600;
   font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: opacity 0.2s ease;
 }
 
-.primary-button:hover:not(:disabled) {
+.primary-button:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
   opacity: 0.88;
 }
 
-.primary-button:disabled {
+.primary-button:disabled,
+.btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -212,6 +273,8 @@ textarea {
   background: transparent;
   font-weight: 500;
   font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
@@ -227,6 +290,8 @@ textarea {
   gap: 6px;
   min-height: 32px;
   padding: 0 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
   border: 0;
   border-radius: 8px;
   color: white;
@@ -696,6 +761,36 @@ textarea {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Modal */
+.modal-body {
+  width: 100%;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.modal-footer > * {
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .form-stack.modal-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-stack.modal-form-grid > label:has(textarea),
+  .form-stack.modal-form-grid > label:has(> input[type="checkbox"]),
+  .form-stack.modal-form-grid > .form-field--full,
+  .form-stack.modal-form-grid > p {
+    grid-column: auto;
   }
 }
 
@@ -1787,11 +1882,14 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  width: fit-content;
+  max-width: 100%;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-ink);
   user-select: none;
+  align-self: flex-start;
 }
 
 .import-toggle-switch {

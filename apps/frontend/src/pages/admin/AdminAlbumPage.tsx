@@ -669,7 +669,7 @@ export const AdminAlbumPage = () => {
               取消
             </motion.button>
             <motion.button
-              className="primary-button"
+              className="btn-primary"
               onClick={handleCreate}
               disabled={submitting}
               whileTap={{ scale: 0.97 }}
@@ -700,7 +700,7 @@ export const AdminAlbumPage = () => {
               取消
             </motion.button>
             <motion.button
-              className="primary-button"
+              className="btn-primary"
               onClick={handleEdit}
               disabled={submitting}
               whileTap={{ scale: 0.97 }}

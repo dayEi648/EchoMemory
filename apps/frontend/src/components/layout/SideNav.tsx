@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 import { playlistApi } from "../../shared/api/instances";
 import type { PlaylistListItem } from "../../shared/api/types";
+import { CreatePlaylistModal } from "../ui/CreatePlaylistModal";
 
 const mainLinks = [
   { to: "/", icon: Compass, label: "发现音乐" },
@@ -21,12 +22,17 @@ const communityLinks = [
 export const SideNav = () => {
   const location = useLocation();
   const [playlists, setPlaylists] = useState<PlaylistListItem[]>([]);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  useEffect(() => {
+  const loadPlaylists = () => {
     playlistApi
       .listPlaylists({ limit: 20 })
       .then((res) => setPlaylists(res.items ?? []))
       .catch(() => { /* silently fail */ });
+  };
+
+  useEffect(() => {
+    loadPlaylists();
   }, []);
 
   const renderNavLink = (to: string, Icon: React.ElementType, label: string) => {
@@ -68,9 +74,23 @@ export const SideNav = () => {
       <div className="side-nav-section" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div className="side-nav-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           我的歌单
-          <NavLink to="/playlists" title="全部歌单" style={{ color: "var(--color-muted)", padding: 0, lineHeight: 1 }}>
+          <button
+            type="button"
+            title="创建歌单"
+            onClick={() => setCreateModalOpen(true)}
+            style={{
+              color: "var(--color-muted)",
+              padding: 0,
+              lineHeight: 1,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+          >
             <Plus size={14} />
-          </NavLink>
+          </button>
         </div>
         <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
           {playlists.length === 0 ? (
@@ -100,6 +120,14 @@ export const SideNav = () => {
         <div className="side-nav-label">社区</div>
         {communityLinks.map((link) => renderNavLink(link.to, link.icon, link.label))}
       </div>
+
+      <CreatePlaylistModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={(playlist) => {
+          setPlaylists((prev) => [playlist, ...prev.filter((item) => item.id !== playlist.id)].slice(0, 20));
+        }}
+      />
     </nav>
   );
 };
