@@ -1,6 +1,6 @@
 """用户收藏服务模块，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
 
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

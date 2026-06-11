@@ -1,6 +1,6 @@
 """评论业务服务模块，提供评论的创建、查询、删除、点赞/点踩等核心操作。"""
 
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

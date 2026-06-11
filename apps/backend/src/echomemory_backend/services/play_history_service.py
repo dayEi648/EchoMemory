@@ -4,7 +4,7 @@
 并在创建播放历史时同步递增音乐、专辑和歌单的播放次数。
 """
 
-from sqlalchemy import delete, desc, select, update
+from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
