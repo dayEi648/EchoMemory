@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import { useAuthStore } from "./shared/stores/authStore";
+import { usePlayerStore } from "./shared/stores/playerStore";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthPage } from "./pages/AuthPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
@@ -34,6 +35,13 @@ const RequireAuth = () => {
       void useAuthStore.getState().init();
     }
   }, [initialized]);
+
+  // 用户登录后恢复上一次的播放器状态
+  useEffect(() => {
+    if (user && initialized) {
+      usePlayerStore.getState().initFromStorage();
+    }
+  }, [user, initialized]);
 
   if (loading) {
     return (

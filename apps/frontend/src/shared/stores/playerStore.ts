@@ -4,6 +4,68 @@ import type { MusicListItem } from "../api/types";
 import { getApis } from "../api/instances";
 import { defaultPlayerController } from "./playerController";
 
+/** localStorage 键名：播放器状态持久化 */
+const PLAYER_STATE_KEY = "echomemory_player_state";
+
+/** 需要持久化的播放器状态（不含函数和 file_url） */
+interface PersistedPlayerState {
+  currentTrack: PlayerTrack | null;
+  queue: PlayerTrack[];
+  queueIndex: number;
+  queueContext: QueueContext;
+  progress: number;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  isShuffle: boolean;
+  isRepeat: boolean;
+}
+
+/** 将 track 中的 file_url 置空（OSS 签名 URL 可能过期，恢复时重新加载） */
+const stripFileUrls = (track: PlayerTrack | null): PlayerTrack | null => {
+  if (!track) return null;
+  return { ...track, file_url: null };
+};
+
+const stripQueueFileUrls = (queue: PlayerTrack[]): PlayerTrack[] =>
+  queue.map((t) => ({ ...t, file_url: null }));
+
+/** 保存当前播放器状态到 localStorage */
+const savePlayerState = (state: PlayerState) => {
+  try {
+    const data: PersistedPlayerState = {
+      currentTrack: stripFileUrls(state.currentTrack),
+      queue: stripQueueFileUrls(state.queue),
+      queueIndex: state.queueIndex,
+      queueContext: state.queueContext,
+      progress: state.progress,
+      currentTime: state.currentTime,
+      duration: state.duration,
+      volume: state.volume,
+      isShuffle: state.isShuffle,
+      isRepeat: state.isRepeat,
+    };
+    localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage 不可用时静默失败
+  }
+};
+
+/** 从 localStorage 恢复播放器状态 */
+const loadPlayerState = (): PersistedPlayerState | null => {
+  try {
+    const raw = localStorage.getItem(PLAYER_STATE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as PersistedPlayerState;
+    // 基本校验
+    if (!data || typeof data !== "object") return null;
+    if (!Array.isArray(data.queue)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+};
+
 /** 播放器中使用的可播放曲目，在 MusicListItem 基础上扩展 file_url */
 export interface PlayerTrack extends MusicListItem {
   file_url: string | null;
@@ -39,6 +101,8 @@ interface PlayerState {
     contextTracks: PlayerTrack[],
     context: NonNullable<QueueContext>,
   ) => void;
+  /** 从 localStorage 恢复上一次的播放状态 */
+  initFromStorage: () => void;
   /** 独立播放模式：将单曲加入当前临时播放列表 */
   playStandalone: (track: PlayerTrack) => void;
   /** 设置队列并开始播放（底层方法） */
@@ -225,6 +289,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     isRepeat: false,
     recorded: false,
 
+    initFromStorage: () => {
+      const saved = loadPlayerState();
+      if (!saved || !saved.currentTrack) return;
+
+      set({
+        currentTrack: saved.currentTrack,
+        queue: saved.queue,
+        queueIndex: saved.queueIndex,
+        queueContext: saved.queueContext,
+        progress: saved.progress,
+        currentTime: saved.currentTime,
+        duration: saved.duration,
+        volume: saved.volume,
+        isShuffle: saved.isShuffle,
+        isRepeat: saved.isRepeat,
+        isPlaying: false, // 不自动播放
+        recorded: false,
+      });
+    },
+
     playTrack: (track) => {
       const state = get();
       if (state.currentTrack?.id === track.id) {
@@ -327,3 +411,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
   };
 });
+
+// 浏览器环境下，订阅 store 变化自动持久化（500ms debounce）
+if (typeof window !== "undefined") {
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  usePlayerStore.subscribe((state) => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => savePlayerState(state), 500);
+  });
+}
