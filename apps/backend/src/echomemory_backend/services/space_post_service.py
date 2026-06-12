@@ -4,9 +4,11 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
+from echomemory_backend.services.notification_service import create_notification
 
 
 async def create_space_post(
@@ -189,6 +191,19 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
     like = SpacePostLike(post_id=post_id, user_id=user_id)
     db.add(like)
     await db.commit()
+
+    post = await db.get(SpacePost, post_id)
+    if post is not None and post.user_id != user_id:
+        await create_notification(
+            db,
+            recipient_id=post.user_id,
+            actor_id=user_id,
+            type=NotificationType.SPACE_POST_LIKE,
+            target_type="space_post",
+            target_id=post_id,
+            extra={"content": (post.content or "")[:100]},
+        )
+        await db.commit()
 
 
 async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:

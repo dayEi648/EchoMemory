@@ -147,14 +147,15 @@ def clean_tables():
     with sync_test_engine.begin() as conn:
         conn.execute(text("""
             TRUNCATE TABLE user_follows, users, musics, music_authors, music_instruments,
-            music_emotion_tags, music_interest_tags, styles, languages, 
+            music_emotion_tags, music_interest_tags, styles, languages,
             instruments, emotion_tags, interest_tags, albums, album_authors, album_musics,
             album_emotion_tags, album_interest_tags, playlists, playlist_musics,
             playlist_emotion_tags, playlist_interest_tags, comments, comment_likes,
             comment_dislikes, space_posts, space_post_images, space_post_likes,
             play_history, user_music_releases, user_music_collections,
             user_album_collections, user_playlist_collections,
-            user_emotion_tags, user_interest_tags
+            user_emotion_tags, user_interest_tags,
+            notifications, conversations, direct_messages, user_blocks
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(_DICTIONARY_SEED_SQL))

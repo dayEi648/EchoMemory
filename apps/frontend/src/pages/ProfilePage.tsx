@@ -111,6 +111,7 @@ export const ProfilePage = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h2 style={{ margin: 0 }}>{profile.nickname}</h2>
               {currentUser && currentUser.id !== profile.id && (
+                <>
                 <motion.button onClick={handleToggleFollow} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} type="button"
                   style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8,
                     border: following ? "1px solid var(--color-border)" : "none",
@@ -119,6 +120,16 @@ export const ProfilePage = () => {
                   {following ? <UserMinus size={14} /> : <UserPlus size={14} />}
                   {following ? "已关注" : "关注"}
                 </motion.button>
+                <motion.button
+                  onClick={() => navigate(`/messages?u=${profile.id}`)}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} type="button"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8,
+                    border: "1px solid var(--color-border)", background: "var(--color-surface-soft)",
+                    color: "var(--color-ink)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                  <MessageCircle size={14} />
+                  发私信
+                </motion.button>
+                </>
               )}
             </div>
             <div className="profile-handle">@{profile.username}</div>

@@ -2,7 +2,22 @@
 
 from fastapi import APIRouter
 
-from echomemory_backend.api.v1.endpoints import album, auth, carousel, collection, comment, dictionary, music, play_history, playlist, space_post, users
+from echomemory_backend.api.v1.endpoints import (
+    album,
+    auth,
+    carousel,
+    collection,
+    comment,
+    dictionary,
+    message,
+    music,
+    notification,
+    play_history,
+    playlist,
+    space_post,
+    users,
+    ws_inbox,
+)
 
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
@@ -16,3 +31,6 @@ router.include_router(collection.router)
 router.include_router(comment.router)
 router.include_router(space_post.router)
 router.include_router(carousel.router)
+router.include_router(notification.router)
+router.include_router(message.router)
+router.include_router(ws_inbox.router)

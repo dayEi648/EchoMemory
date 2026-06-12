@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import { useAuthStore } from "./shared/stores/authStore";
 import { usePlayerStore } from "./shared/stores/playerStore";
+import { useInboxStore } from "./shared/stores/inboxStore";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthPage } from "./pages/AuthPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
@@ -13,6 +14,7 @@ import { EchoPage } from "./pages/EchoPage";
 import { SearchPage } from "./pages/SearchPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AccountPage } from "./pages/AccountPage";
+import { MessagesPage } from "./pages/MessagesPage";
 import { AdminShell } from "./pages/admin/AdminShell";
 import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { UserManagementPage } from "./pages/admin/UserManagementPage";
@@ -41,6 +43,21 @@ const RequireAuth = () => {
   useEffect(() => {
     if (user && initialized) {
       usePlayerStore.getState().initFromStorage();
+    }
+  }, [user, initialized]);
+
+  // 用户登录后建立 WebSocket 推送并刷新未读数
+  useEffect(() => {
+    if (user && initialized) {
+      useInboxStore.getState().connectWebSocket();
+      void useInboxStore.getState().refreshUnread();
+    }
+  }, [user, initialized]);
+
+  // 用户登出时重置 inbox
+  useEffect(() => {
+    if (!user && initialized) {
+      useInboxStore.getState().reset();
     }
   }, [user, initialized]);
 
@@ -142,6 +159,7 @@ export default function App() {
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/space" element={<SpacePage />} />
           <Route path="/space/:userId" element={<SpacePage />} />
+          <Route path="/messages" element={<MessagesPage />} />
         </Route>
 
         {/* 管理后台路由 */}

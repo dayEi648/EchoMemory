@@ -1,5 +1,5 @@
 from echomemory_backend.db.base import Base
-from echomemory_backend.models.enums import UserRole, UserStatus
+from echomemory_backend.models.enums import NotificationType, UserRole, UserStatus
 from echomemory_backend.models.album import (
     Album,
     AlbumAuthor,
@@ -26,6 +26,11 @@ from echomemory_backend.models.dictionary import (
     LevelConfig,
     Style,
 )
+from echomemory_backend.models.message import (
+    Conversation,
+    DirectMessage,
+    UserBlock,
+)
 from echomemory_backend.models.music import (
     Music,
     MusicAuthor,
@@ -33,6 +38,7 @@ from echomemory_backend.models.music import (
     MusicInstrument,
     MusicInterestTag,
 )
+from echomemory_backend.models.notification import Notification
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import (
     Playlist,
@@ -64,6 +70,8 @@ __all__ = [
     "Comment",
     "CommentDislike",
     "CommentLike",
+    "Conversation",
+    "DirectMessage",
     "EmotionTag",
     "Instrument",
     "InterestTag",
@@ -74,6 +82,8 @@ __all__ = [
     "MusicEmotionTag",
     "MusicInstrument",
     "MusicInterestTag",
+    "Notification",
+    "NotificationType",
     "PlayHistory",
     "Playlist",
     "PlaylistEmotionTag",
@@ -85,6 +95,7 @@ __all__ = [
     "Style",
     "User",
     "UserAlbumCollection",
+    "UserBlock",
     "UserEmotionTag",
     "UserFollow",
     "UserInterestTag",

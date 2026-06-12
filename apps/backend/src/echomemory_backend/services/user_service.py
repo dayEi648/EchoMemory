@@ -8,8 +8,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.user import User, UserFollow
 from echomemory_backend.schemas.user import UserCreate, UserUpdate
+from echomemory_backend.services.notification_service import create_notification
 from echomemory_backend.services.playlist_service import create_default_like_playlist
 
 
@@ -187,6 +189,16 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
     except IntegrityError:
         await db.rollback()
         raise BusinessError("已关注该用户", 409)
+
+    await create_notification(
+        db,
+        recipient_id=followee_id,
+        actor_id=follower_id,
+        type=NotificationType.FOLLOW,
+        target_type="user",
+        target_id=followee_id,
+    )
+    await db.commit()
 
 
 async def is_following(db: AsyncSession, follower_id: int, followee_id: int) -> bool:

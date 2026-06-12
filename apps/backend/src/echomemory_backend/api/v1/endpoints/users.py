@@ -28,7 +28,7 @@ from echomemory_backend.schemas.user import (
 from echomemory_backend.schemas.user_tag import UserTagOut
 from echomemory_backend.services import admin_service
 from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.services import user_service
+from echomemory_backend.services import message_service, user_service
 from echomemory_backend.services import user_tag_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -169,6 +169,28 @@ async def unfollow_user(
 ) -> None:
     """取消关注某用户。"""
     await user_service.unfollow_user(db, current_user.id, follow_in.followee_id)
+    return None
+
+
+@router.post("/{user_id}/block", status_code=status.HTTP_204_NO_CONTENT)
+async def block_user(
+    db: SessionDep,
+    current_user: ActiveUser,
+    user_id: int,
+) -> None:
+    """屏蔽指定用户，使其无法继续向当前用户发送私信（幂等）。"""
+    await message_service.block_user(db, current_user.id, user_id)
+    return None
+
+
+@router.delete("/{user_id}/block", status_code=status.HTTP_204_NO_CONTENT)
+async def unblock_user(
+    db: SessionDep,
+    current_user: ActiveUser,
+    user_id: int,
+) -> None:
+    """取消对指定用户的屏蔽（幂等）。"""
+    await message_service.unblock_user(db, current_user.id, user_id)
     return None
 
 

@@ -52,6 +52,7 @@ class User(Base):
     birth: Mapped[date | None] = mapped_column(Date)
     bio: Mapped[str | None] = mapped_column(Text)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_official: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     like_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

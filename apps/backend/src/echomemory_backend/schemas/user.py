@@ -126,6 +126,7 @@ class UserOut(BaseModel):
     birth: date | None = None
     bio: str | None = None
     is_verified: bool
+    is_official: bool = False
     like_count: int
     avatar_url: str | None = None
     created_at: datetime | None = None

@@ -13,6 +13,8 @@ import { createSpacePostApi } from "./spacePostApi";
 import { createDictionaryApi } from "./dictionaryApi";
 import { createCarouselApi } from "./carouselApi";
 import { createUserApi } from "./userApi";
+import { createNotificationApi } from "./notificationApi";
+import { createMessageApi } from "./messageApi";
 
 const isDev = import.meta.env.DEV;
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -38,6 +40,8 @@ export type ApiRegistry = {
   spacePostApi: ReturnType<typeof createSpacePostApi>;
   dictionaryApi: ReturnType<typeof createDictionaryApi>;
   carouselApi: ReturnType<typeof createCarouselApi>;
+  notificationApi: ReturnType<typeof createNotificationApi>;
+  messageApi: ReturnType<typeof createMessageApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -53,6 +57,8 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     spacePostApi: createSpacePostApi(options),
     dictionaryApi: createDictionaryApi(options),
     carouselApi: createCarouselApi(options),
+    notificationApi: createNotificationApi(options),
+    messageApi: createMessageApi(options),
   };
 }
 
@@ -78,6 +84,8 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   spacePostApi = apis.spacePostApi;
   dictionaryApi = apis.dictionaryApi;
   carouselApi = apis.carouselApi;
+  notificationApi = apis.notificationApi;
+  messageApi = apis.messageApi;
 }
 
 export let userApi = apis.userApi;
@@ -90,3 +98,5 @@ export let commentApi = apis.commentApi;
 export let spacePostApi = apis.spacePostApi;
 export let dictionaryApi = apis.dictionaryApi;
 export let carouselApi = apis.carouselApi;
+export let notificationApi = apis.notificationApi;
+export let messageApi = apis.messageApi;

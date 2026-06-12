@@ -19,6 +19,7 @@ export type UserMe = {
   birth: string | null;
   bio: string | null;
   is_verified: boolean;
+  is_official?: boolean;
   like_count: number;
   avatar_url: string | null;
   created_at: string | null;
@@ -514,3 +515,89 @@ export type PaginatedDictionaryItems = {
   items: DictionaryItem[];
   total: number;
 };
+
+/* ==================== Notification & Message ==================== */
+
+export type NotificationType = 0 | 1 | 2 | 3 | 4;
+
+export type NotificationActor = {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string | null;
+  is_official: boolean;
+};
+
+export type NotificationItem = {
+  id: number;
+  type: NotificationType;
+  target_type: "user" | "comment" | "space_post";
+  target_id: number;
+  is_read: boolean;
+  extra: Record<string, unknown>;
+  created_at: string;
+  actor: NotificationActor | null;
+};
+
+export type PaginatedNotificationList = {
+  items: NotificationItem[];
+  total: number;
+};
+
+export type UnreadSummary = {
+  notification_unread: number;
+  message_unread: number;
+};
+
+export type MessagePeer = {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string | null;
+  is_official: boolean;
+};
+
+export type DirectMessageItem = {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  content: string;
+  created_at: string;
+};
+
+export type ConversationItem = {
+  id: number;
+  peer: MessagePeer;
+  last_message: DirectMessageItem | null;
+  unread_count: number;
+  is_blocked_by_me: boolean;
+  is_blocking_me: boolean;
+  updated_at: string;
+};
+
+export type PaginatedConversationList = {
+  items: ConversationItem[];
+  total: number;
+};
+
+export type PaginatedDirectMessageList = {
+  items: DirectMessageItem[];
+  total: number;
+};
+
+export type InboxEvent =
+  | {
+      type: "notification";
+      id: number;
+      notification_type: NotificationType;
+      target_type: "user" | "comment" | "space_post";
+      target_id: number;
+    }
+  | {
+      type: "message";
+      conversation_id: number;
+      message_id: number;
+      sender_id: number;
+      content: string;
+    };
+

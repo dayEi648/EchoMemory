@@ -19,3 +19,13 @@ class UserStatus(IntEnum):
     TEMP_BAN = 1
     SUSPENDED = 2
     BANNED = 3
+
+
+class NotificationType(IntEnum):
+    """通知类型枚举。"""
+
+    FOLLOW = 0
+    COMMENT_REPLY = 1
+    COMMENT_LIKE = 2
+    SPACE_POST_LIKE = 3
+    SPACE_POST_COMMENT = 4

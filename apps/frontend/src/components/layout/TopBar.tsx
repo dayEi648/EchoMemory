@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 
 import { AvatarMenu } from "./AvatarMenu";
+import { InboxBell } from "./InboxBell";
 
 export const TopBar = () => {
   const navigate = useNavigate();
@@ -79,15 +80,7 @@ export const TopBar = () => {
       </motion.form>
 
       <div className="top-bar-actions">
-        <motion.button
-          className="action-button"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.92 }}
-          type="button"
-          title="通知"
-        >
-          <Bell size={18} />
-        </motion.button>
+        <InboxBell />
         <AvatarMenu />
       </div>
     </header>

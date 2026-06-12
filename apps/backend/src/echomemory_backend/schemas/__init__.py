@@ -16,15 +16,39 @@ from echomemory_backend.schemas.user import (
     UserSearchOut,
     UserUpdate,
 )
+from echomemory_backend.schemas.message import (
+    ConversationOut,
+    DirectMessageCreate,
+    DirectMessageOut,
+    MessagePeerOut,
+    PaginatedConversationOut,
+    PaginatedDirectMessageOut,
+)
+from echomemory_backend.schemas.notification import (
+    NotificationActorOut,
+    NotificationOut,
+    PaginatedNotificationOut,
+    UnreadSummaryOut,
+)
 
 __all__ = [
+    "ConversationOut",
+    "DirectMessageCreate",
+    "DirectMessageOut",
     "FollowCreate",
     "FolloweeOut",
     "FollowerOut",
+    "MessagePeerOut",
+    "NotificationActorOut",
+    "NotificationOut",
+    "PaginatedConversationOut",
+    "PaginatedDirectMessageOut",
+    "PaginatedNotificationOut",
     "PaginatedUserAdminOut",
     "Token",
     "TokenPayload",
     "TokenRefresh",
+    "UnreadSummaryOut",
     "UserAdminUpdate",
     "UserBanAction",
     "UserBase",
