@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { createUserApi, type ApiError } from "../api/userApi";
-import { setApiTokenStoreForTest } from "../api/instances";
+import { replaceApiTokenStore } from "../api/instances";
 import type { UpdateMeInput, UserMe } from "../api/types";
 import { createLocalStorageTokenStore, type TokenStore } from "../auth/tokenStore";
 
@@ -47,7 +47,7 @@ const defaultTokenStore = createLocalStorageTokenStore();
 let currentTokenStore = defaultTokenStore;
 let currentApi = createUserApi({ baseUrl: API_BASE_URL, tokenStore: currentTokenStore });
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
   initialized: false,
@@ -57,7 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   _setTokenStore: (ts: TokenStore) => {
     currentTokenStore = ts;
     currentApi = createUserApi({ baseUrl: API_BASE_URL, tokenStore: ts });
-    setApiTokenStoreForTest(ts);
+    replaceApiTokenStore(ts);
     set({ tokenStore: ts, api: currentApi });
   },
 

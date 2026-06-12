@@ -249,7 +249,7 @@ export const AdminMusicPage = () => {
         header={(
           <>
       <FadeIn>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div className="admin-page-header">
           <h1 className="page-title">音乐管理</h1>
           <motion.button
             className="btn-primary"
@@ -267,23 +267,13 @@ export const AdminMusicPage = () => {
 
       <FadeIn delay={0.08}>
         {/* 搜索栏 */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
-            <Search
-              size={14}
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--color-muted)",
-              }}
-            />
+        <div className="admin-search-row">
+          <div className="admin-search-input-wrap">
+            <Search size={14} className="admin-search-icon" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索歌名..."
-              style={{ paddingLeft: 32 }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
@@ -301,12 +291,11 @@ export const AdminMusicPage = () => {
         </div>
 
         {/* 筛选栏 */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+        <div className="admin-filter-bar">
+          <div className="admin-filter-field">
             <select
               value={styleFilter}
               onChange={(e) => { setStyleFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部风格</option>
               {styles.map((s) => (
@@ -315,11 +304,10 @@ export const AdminMusicPage = () => {
             </select>
           </div>
 
-          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+          <div className="admin-filter-field">
             <select
               value={languageFilter}
               onChange={(e) => { setLanguageFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部语言</option>
               {languages.map((l) => (
@@ -332,7 +320,6 @@ export const AdminMusicPage = () => {
             <select
               value={publishedFilter}
               onChange={(e) => { setPublishedFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部状态</option>
               <option value="true">已上架</option>
@@ -344,7 +331,6 @@ export const AdminMusicPage = () => {
             <select
               value={vipFilter}
               onChange={(e) => { setVipFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部 VIP</option>
               <option value="true">VIP</option>

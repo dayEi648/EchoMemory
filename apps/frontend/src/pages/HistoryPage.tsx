@@ -3,10 +3,10 @@ import { motion } from "framer-motion";
 import { Play, Trash2, Clock, Music } from "lucide-react";
 import { toast } from "sonner";
 
-import { usePlayerStore } from "../shared/stores/playerStore";
-import { playHistoryApi, musicApi } from "../shared/api/instances";
+import { playHistoryApi } from "../shared/api/instances";
 import type { PlayHistoryItem } from "../shared/api/types";
-import { toPlayerTrack, formatRelativeTime } from "../shared/utils";
+import { formatRelativeTime } from "../shared/utils";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageTitle } from "../components/ui/PageTitle";
@@ -15,7 +15,7 @@ import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 
 export const HistoryPage = () => {
-  const playStandalone = usePlayerStore((s) => s.playStandalone);
+  const { playMusicById } = usePlayMusic();
   const [history, setHistory] = useState<PlayHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -41,19 +41,6 @@ export const HistoryPage = () => {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
-
-  const handlePlay = async (item: PlayHistoryItem) => {
-    try {
-      const detail = await musicApi.getMusicDetail(item.music.id);
-      if (detail.file_url) {
-        await playStandalone(toPlayerTrack(detail));
-      } else {
-        toast.error("该歌曲暂不可播放");
-      }
-    } catch {
-      toast.error("加载歌曲失败");
-    }
-  };
 
   const handleDelete = async (id: number) => {
     try {
@@ -86,7 +73,7 @@ export const HistoryPage = () => {
       header={(
         <FadeIn>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-            <PageTitle>播放历史</PageTitle>
+            <PageTitle icon={Clock} iconAccent="mint">播放历史</PageTitle>
             {history.length > 0 && (
               <motion.button
                 className="ghost-button"
@@ -122,20 +109,12 @@ export const HistoryPage = () => {
           <div style={{ fontSize: 14, fontWeight: 500 }}>加载中...</div>
         </div>
       ) : history.length === 0 ? (
-        <EmptyState icon={Music} title="暂无播放记录" description="开始听歌后，这里会记录你的播放历史。" />
+        <EmptyState icon={Music} title="暂无播放记录" description="开始听歌后，这里会记录你的播放历史。" accent="mint" />
       ) : (
         <StaggerContainer staggerDelay={0.03}>
           {history.map((item) => (
             <StaggerItem key={item.id}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "12px 0",
-                  borderBottom: "1px solid var(--color-border)",
-                }}
-              >
+              <div className="history-row">
                 <img
                   src={item.music.cover_icon_url ?? undefined}
                   alt={item.music.title}
@@ -156,7 +135,7 @@ export const HistoryPage = () => {
                 <div style={{ display: "flex", gap: 8 }}>
                   <motion.button
                     className="player-btn"
-                    onClick={() => handlePlay(item)}
+                    onClick={() => playMusicById(item.music.id)}
                     whileHover={{ scale: 1.12 }}
                     whileTap={{ scale: 0.92 }}
                     type="button"

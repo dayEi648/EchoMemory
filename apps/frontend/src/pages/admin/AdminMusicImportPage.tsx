@@ -134,7 +134,7 @@ export const AdminMusicImportPage = () => {
           {/* ========== 左栏：主要内容 ========== */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* 基本信息 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">基本信息</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <label>
@@ -171,7 +171,7 @@ export const AdminMusicImportPage = () => {
             </div>
 
             {/* 媒体文件 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">媒体文件</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <CompactFileRow
@@ -193,7 +193,7 @@ export const AdminMusicImportPage = () => {
             </div>
 
             {/* 封面图片 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">封面图片</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <ImagePreviewZone
@@ -224,7 +224,7 @@ export const AdminMusicImportPage = () => {
           {/* ========== 右栏：元信息 ========== */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* 分类 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">分类</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <SearchableTagSelect
@@ -256,7 +256,7 @@ export const AdminMusicImportPage = () => {
             </div>
 
             {/* 标签 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">标签</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <SearchableTagSelect
@@ -299,7 +299,7 @@ export const AdminMusicImportPage = () => {
             </div>
 
             {/* 作者 */}
-            <div className="import-section">
+            <div className="warm-panel">
               <h3 className="import-section-title">作者</h3>
               <AuthorSelect
                 selectedAuthors={selectedAuthors}

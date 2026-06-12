@@ -240,6 +240,12 @@ class AdminMusicListOut(BaseModel):
 # 音乐更新模型
 # ---------------------------------------------------------------------------
 
+class LyricsOut(BaseModel):
+    """歌词文本输出。"""
+
+    content: str
+
+
 class PaginatedMusicListOut(BaseModel):
     """音乐列表分页响应 Schema。"""
 

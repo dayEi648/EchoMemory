@@ -40,7 +40,7 @@ export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     if (response.status === 204) {
       return undefined as T;
     }
-    let data: unknown = {};
+    let data: unknown;
     try {
       data = await response.json();
     } catch {

@@ -12,6 +12,7 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import (
+    LyricsOut,
     MusicOut,
     PaginatedAdminMusicListOut,
     PaginatedMusicListOut,
@@ -431,6 +432,31 @@ async def list_musics(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/{music_id}/lyrics", response_model=LyricsOut)
+async def get_music_lyrics(
+    db: SessionDep,
+    music_id: int,
+):
+    """获取已上架音乐的歌词文本（由服务端代理 OSS，避免前端跨域）。"""
+    music = await music_service.get_music_by_id(db, music_id)
+    if music is None or not music.is_published:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
+        )
+    if not music.lyrics_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lyrics not found"
+        )
+    try:
+        content = await oss_client.fetch_text_by_url(music.lyrics_url)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to load lyrics",
+        ) from exc
+    return LyricsOut(content=content)
 
 
 @router.get("/{music_id}", response_model=MusicOut)

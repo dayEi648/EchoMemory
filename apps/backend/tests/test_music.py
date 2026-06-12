@@ -507,6 +507,51 @@ class TestGetMusic:
         assert resp.json()["is_collected_by_me"] is False
 
 
+class TestGetMusicLyrics:
+    """测试公开获取歌词文本功能。"""
+
+    async def test_get_lyrics_success(
+        self, client: TestClient, db_session: AsyncSession, monkeypatch
+    ):
+        """测试已上架且有歌词 URL 时返回歌词内容。"""
+        music = await _create_music_directly(db_session, title="LyricsSong")
+        music.lyrics_url = "https://fake-oss.example.com/lyrics/test.lrc"
+        db_session.add(music)
+        await db_session.commit()
+
+        async def fake_fetch(_url: str) -> str:
+            return "[00:00.00]Test lyrics\n[00:05.00]Line two"
+
+        from echomemory_backend.core import oss_client
+
+        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
+
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 200
+        assert "Test lyrics" in resp.json()["content"]
+
+    async def test_get_lyrics_no_url_returns_404(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试无歌词 URL 时返回 404。"""
+        music = await _create_music_directly(db_session, title="NoLyrics")
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 404
+
+    async def test_get_lyrics_unpublished_returns_404(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试未上架音乐获取歌词时返回 404。"""
+        music = await _create_music_directly(
+            db_session, title="HiddenLyrics", is_published=False
+        )
+        music.lyrics_url = "https://fake-oss.example.com/lyrics/hidden.lrc"
+        db_session.add(music)
+        await db_session.commit()
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 404
+
+
 class TestListMusics:
     """测试公开查询音乐列表功能。"""
 

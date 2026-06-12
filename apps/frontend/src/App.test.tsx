@@ -106,6 +106,18 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "个人中心" })).not.toBeInTheDocument();
   });
 
+  it("blocks restricted users from entering the app", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    mockDiscoverApis(makeUser({ status: 3 }));
+
+    renderApp({ tokenStore });
+
+    expect(await screen.findByText("无法进入应用")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument();
+    expect(screen.queryByText("发现音乐")).not.toBeInTheDocument();
+  });
+
   it("renders discover page when play history music uses the backend compact shape", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
@@ -299,5 +311,6 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "个人空间" })).toBeInTheDocument();
     expect(await screen.findByText("还没有发表过说说")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

@@ -8,9 +8,8 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
-import { usePlayerStore } from "../shared/stores/playerStore";
-import { playlistApi, collectionApi, playHistoryApi, spacePostApi, musicApi } from "../shared/api/instances";
-import { toPlayerTrack } from "../shared/utils";
+import { playlistApi, collectionApi, playHistoryApi, spacePostApi } from "../shared/api/instances";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import type { UserPublic, PlaylistListItem, AlbumCollectionItem, PlayHistoryItem } from "../shared/api/types";
 import { Avatar } from "../components/ui/Avatar";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -18,13 +17,12 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
-import { formatAuthors } from "../shared/utils";
 
 export const ProfilePage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { api, user: currentUser } = useAuthStore();
-  const playStandalone = usePlayerStore((s) => s.playStandalone);
+  const { playMusicById } = usePlayMusic();
   const [profile, setProfile] = useState<UserPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
@@ -33,7 +31,7 @@ export const ProfilePage = () => {
   const [myPlaylists, setMyPlaylists] = useState<PlaylistListItem[]>([]);
   const [myAlbums, setMyAlbums] = useState<AlbumCollectionItem[]>([]);
   const [myHistory, setMyHistory] = useState<PlayHistoryItem[]>([]);
-  const [postTotal, setPostTotal] = useState(0);
+  const [, setPostTotal] = useState(0);
   const [dashLoading, setDashLoading] = useState(false);
   const [publicPlaylists, setPublicPlaylists] = useState<PlaylistListItem[]>([]);
   const [publicPlaylistsLoading, setPublicPlaylistsLoading] = useState(false);
@@ -104,11 +102,14 @@ export const ProfilePage = () => {
       {/* ====== Header (common) ====== */}
       <FadeIn>
         <motion.div className="profile-header" whileHover={{ boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }} transition={{ duration: 0.25 }}>
-          {profile.avatar_url ? (
-            <img className="avatar-large" src={profile.avatar_url} alt={`${profile.nickname}的头像`} />
-          ) : (
-            <div className="avatar-large-fallback">{profile.nickname.slice(0, 1) || profile.username.slice(0, 1)}</div>
-          )}
+          <Avatar
+            user={{
+              avatar_url: profile.avatar_url,
+              nickname: profile.nickname,
+              username: profile.username,
+            }}
+            variant="profile"
+          />
           <div className="profile-meta" style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h2 style={{ margin: 0 }}>{profile.nickname}</h2>
@@ -220,16 +221,7 @@ export const ProfilePage = () => {
                       {myHistory.map((item, i) => (
                         <StaggerItem key={item.id}>
                           <SongRow index={i} name={item.music.title} artist="未知艺人" musicId={item.music.id} coverUrl={item.music.cover_icon_url ?? undefined}
-                            onPlay={async () => {
-                              try {
-                                const detail = await musicApi.getMusicDetail(item.music.id);
-                                if (detail.file_url) {
-                                  await playStandalone(toPlayerTrack(detail));
-                                } else {
-                                  toast.error("该歌曲暂不可播放");
-                                }
-                              } catch { toast.error("加载失败"); }
-                            }}
+                            onPlay={() => playMusicById(item.music.id)}
                           />
                         </StaggerItem>
                       ))}

@@ -279,8 +279,8 @@ export const UserManagementPage = () => {
         header={(
           <>
       <FadeIn>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h1 className="page-title" style={{ margin: 0 }}>用户管理</h1>
+        <div className="admin-page-header">
+          <h1 className="page-title">用户管理</h1>
           <motion.button
             className="primary-button"
             onClick={() => setCreateModalOpen(true)}
@@ -297,23 +297,13 @@ export const UserManagementPage = () => {
 
       <FadeIn delay={0.08}>
         {/* 搜索栏 */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
-            <Search
-              size={14}
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--color-muted)",
-              }}
-            />
+        <div className="admin-search-row">
+          <div className="admin-search-input-wrap">
+            <Search size={14} className="admin-search-icon" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索用户名或昵称..."
-              style={{ paddingLeft: 32 }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
@@ -331,12 +321,11 @@ export const UserManagementPage = () => {
         </div>
 
         {/* 筛选栏 */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+        <div className="admin-filter-bar">
+          <div className="admin-filter-field">
             <select
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部角色</option>
               <option value="0">普通用户</option>
@@ -346,11 +335,10 @@ export const UserManagementPage = () => {
             </select>
           </div>
 
-          <div style={{ flex: "1 1 130px", minWidth: 130 }}>
+          <div className="admin-filter-field">
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部状态</option>
               <option value="0">正常</option>
@@ -364,7 +352,6 @@ export const UserManagementPage = () => {
             <select
               value={deletedFilter}
               onChange={(e) => { setDeletedFilter(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="">全部</option>
               <option value="false">未注销</option>
@@ -376,7 +363,6 @@ export const UserManagementPage = () => {
             <select
               value={sortBy}
               onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="id">用户ID</option>
               <option value="created_at">注册时间</option>
@@ -390,7 +376,6 @@ export const UserManagementPage = () => {
             <select
               value={sortOrder}
               onChange={(e) => { setSortOrder(e.target.value); setPage(0); }}
-              style={{ width: "100%", fontSize: 13 }}
             >
               <option value="desc">降序</option>
               <option value="asc">升序</option>

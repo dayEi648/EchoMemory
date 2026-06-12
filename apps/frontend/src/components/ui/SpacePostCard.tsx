@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Avatar } from "./Avatar";
 import { CommentSection } from "./CommentSection";
 import type { SpacePostListItem } from "../../shared/api/types";
+import { formatRelativeTime } from "../../shared/utils";
 
 export interface PostAuthor {
   id: number;
@@ -21,21 +22,6 @@ interface SpacePostCardProps {
   onDelete: (postId: number) => void;
   onLike: (postId: number) => void;
   onUnlike: (postId: number) => void;
-}
-
-function formatPostTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export const SpacePostCard = ({
@@ -89,17 +75,13 @@ export const SpacePostCard = ({
 
   return (
     <motion.div
+      className="space-post-card"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
+      whileHover={{ y: -2 }}
       transition={{ duration: 0.25 }}
-      style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: 14,
-        padding: 20,
-        opacity: deleting ? 0.5 : 1,
-      }}
+      style={{ opacity: deleting ? 0.5 : 1 }}
     >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -118,7 +100,7 @@ export const SpacePostCard = ({
           </div>
           <div style={{ fontSize: 12, color: "var(--color-muted)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
             <Clock size={11} />
-            {formatPostTime(post.created_at)}
+            {formatRelativeTime(post.created_at)}
           </div>
         </div>
       </div>
@@ -234,8 +216,13 @@ export const SpacePostCard = ({
 
       {/* Comment Section */}
       {showComments && (
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--color-border)" }}>
-          <CommentSection targetType="space_post" targetId={post.id} />
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--color-hairline)" }}>
+          <CommentSection
+            targetType="space_post"
+            targetId={post.id}
+            commentCount={post.comment_count}
+            embedded
+          />
         </div>
       )}
     </motion.div>

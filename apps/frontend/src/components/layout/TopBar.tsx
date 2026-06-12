@@ -26,7 +26,9 @@ export const TopBar = () => {
         style={{ cursor: "pointer" }}
         onClick={() => navigate("/")}
       >
-        <Music2 size={20} />
+        <span className="brand-mark-sm" aria-hidden>
+          <Music2 size={16} />
+        </span>
         <span>回声记忆</span>
       </motion.div>
 
@@ -85,7 +87,7 @@ export const TopBar = () => {
                 right: 8,
                 top: "50%",
                 transform: "translateY(-50%)",
-                background: "var(--color-ink)",
+                background: "var(--color-brand-coral)",
                 color: "white",
                 border: "none",
                 borderRadius: 6,

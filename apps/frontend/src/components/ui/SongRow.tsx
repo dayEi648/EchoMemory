@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Play, Heart, Music } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { usePlayerStore } from "../../shared/stores/playerStore";
+import { usePlayerViewStore } from "../../shared/stores/playerViewStore";
 
 interface SongRowProps {
   index: number;
@@ -12,8 +13,15 @@ interface SongRowProps {
   showHeart?: boolean;
   musicId?: number;
   coverUrl?: string;
+  isPlaying?: boolean;
   onPlay?: () => void;
 }
+
+const rankColors = [
+  "var(--color-brand-coral)",
+  "var(--color-brand-ochre)",
+  "var(--color-brand-peach)",
+];
 
 export const SongRow = ({
   index,
@@ -24,24 +32,28 @@ export const SongRow = ({
   showHeart = false,
   musicId,
   coverUrl,
+  isPlaying: isPlayingProp,
   onPlay,
 }: SongRowProps) => {
   const [hovered, setHovered] = useState(false);
   const [coverError, setCoverError] = useState(false);
-  const navigate = useNavigate();
+  const openPlayerView = usePlayerViewStore((s) => s.open);
+  const currentTrackId = usePlayerStore((s) => s.currentTrack?.id);
+  const playerIsPlaying = usePlayerStore((s) => s.isPlaying);
+  const isPlaying =
+    isPlayingProp ?? (musicId !== undefined && currentTrackId === musicId && playerIsPlaying);
 
   const isTop3 = index <= 2;
-  const rankColors = ["var(--color-accent)", "#b8860b", "#a0522d"];
 
   const handleClick = () => {
-    if (musicId) {
-      navigate(`/music/${musicId}`);
+    if (musicId !== undefined) {
+      openPlayerView(musicId);
     }
   };
 
   return (
     <div
-      className="song-row"
+      className={`song-row${isPlaying ? " playing" : ""}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
@@ -50,8 +62,12 @@ export const SongRow = ({
       <span
         className="song-index"
         style={{
-          fontWeight: isTop3 ? 700 : 400,
-          color: isTop3 ? rankColors[index] : "var(--color-muted)",
+          fontWeight: isTop3 || isPlaying ? 700 : 400,
+          color: isPlaying
+            ? "var(--color-brand-coral)"
+            : isTop3
+              ? rankColors[index]
+              : "var(--color-muted)",
         }}
       >
         {hovered && onPlay ? (
@@ -63,9 +79,9 @@ export const SongRow = ({
               e.stopPropagation();
               onPlay?.();
             }}
-            style={{ cursor: "pointer", display: "inline-flex" }}
+            style={{ cursor: "pointer", display: "inline-flex", color: "var(--color-brand-coral)" }}
           >
-            <Play size={14} fill="var(--color-ink)" />
+            <Play size={14} fill="currentColor" />
           </motion.span>
         ) : (
           index + 1
@@ -79,7 +95,7 @@ export const SongRow = ({
           style={{
             width: 40,
             height: 40,
-            borderRadius: 4,
+            borderRadius: 8,
             objectFit: "cover",
             flexShrink: 0,
           }}
@@ -87,17 +103,11 @@ export const SongRow = ({
       ) : coverUrl ? (
         <div
           aria-hidden
+          className="icon-accent-bg icon-accent-bg--lavender"
           style={{
             width: 40,
             height: 40,
-            borderRadius: 4,
             flexShrink: 0,
-            background: "var(--color-border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--color-muted)",
-            fontSize: 16,
           }}
         >
           <Music size={16} />
@@ -115,6 +125,7 @@ export const SongRow = ({
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.15 }}
+              style={{ color: "var(--color-brand-pink)" }}
             >
               <Heart size={14} />
             </motion.span>

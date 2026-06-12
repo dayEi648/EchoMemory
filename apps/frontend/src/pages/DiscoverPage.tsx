@@ -10,7 +10,8 @@ import { musicApi } from "../shared/api/instances";
 import { albumApi } from "../shared/api/instances";
 import { playHistoryApi } from "../shared/api/instances";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
-import { calcLevelProgress, formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
+import { calcLevelProgress, formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -21,9 +22,8 @@ import { EmptyState } from "../components/ui/EmptyState";
 export const DiscoverPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const playTrack = usePlayerStore((s) => s.playTrack);
-  const playStandalone = usePlayerStore((s) => s.playStandalone);
   const playQueue = usePlayerStore((s) => s.playQueue);
+  const { playMusicListItem, playMusicById } = usePlayMusic();
 
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
   const [albums, setAlbums] = useState<AlbumListItem[]>([]);
@@ -49,32 +49,6 @@ export const DiscoverPage = () => {
     };
     load();
   }, []);
-
-  const handlePlayMusic = async (music: MusicListItem) => {
-    try {
-      const detail = await musicApi.getMusicDetail(music.id);
-      if (detail.file_url) {
-        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
-      } else {
-        toast.error("该歌曲暂不可播放");
-      }
-    } catch {
-      toast.error("加载歌曲失败");
-    }
-  };
-
-  const handlePlayHistoryMusic = async (musicId: number) => {
-    try {
-      const detail = await musicApi.getMusicDetail(musicId);
-      if (detail.file_url) {
-        await playStandalone(toPlayerTrack(detail));
-      } else {
-        toast.error("该歌曲暂不可播放");
-      }
-    } catch {
-      toast.error("加载歌曲失败");
-    }
-  };
 
   const handlePlayRecommend = async () => {
     if (newSongs.length === 0) return;
@@ -211,27 +185,16 @@ export const DiscoverPage = () => {
                     {recentPlays.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => handlePlayHistoryMusic(item.music.id)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          cursor: "pointer",
-                          padding: "4px 0",
-                        }}
+                        className="hero-recent-item"
+                        onClick={() => playMusicById(item.music.id)}
                       >
                         <img
                           src={item.music.cover_icon_url ?? undefined}
                           alt={item.music.title}
-                          style={{ width: 32, height: 32, borderRadius: 4, objectFit: "cover" }}
                         />
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {item.music.title}
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                            未知艺人
-                          </div>
+                          <div className="hero-recent-title">{item.music.title}</div>
+                          <div className="hero-recent-artist">未知艺人</div>
                         </div>
                       </div>
                     ))}
@@ -244,27 +207,16 @@ export const DiscoverPage = () => {
                 <div className="hero-sidebar-card">
                   <h4><TrendingUp size={12} /> 等级进度</h4>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 24, fontWeight: 700, color: "var(--color-accent)" }}>
+                    <span style={{ fontSize: 24, fontWeight: 700, color: "var(--color-brand-coral)" }}>
                       Lv.{user.level}
                     </span>
                     <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          height: 6,
-                          background: "var(--color-border)",
-                          borderRadius: 3,
-                          overflow: "hidden",
-                        }}
-                      >
+                      <div className="level-progress-bar">
                         <motion.div
+                          className="level-progress-fill"
                           initial={{ width: 0 }}
                           animate={{ width: `${calcLevelProgress(user.exp, user.level)}%` }}
                           transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                          style={{
-                            height: "100%",
-                            background: "var(--color-accent)",
-                            borderRadius: 3,
-                          }}
                         />
                       </div>
                       <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{user.exp} EXP</span>
@@ -299,7 +251,7 @@ export const DiscoverPage = () => {
               />
             </StaggerItem>
           ))}
-          {albums.length === 0 && <EmptyState icon={Disc} title="暂无推荐专辑" />}
+          {albums.length === 0 && <EmptyState icon={Disc} title="暂无推荐专辑" accent="lavender" />}
         </StaggerContainer>
       </section>
 
@@ -315,11 +267,11 @@ export const DiscoverPage = () => {
                 artist={formatAuthors(song.authors)}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
-                onPlay={() => handlePlayMusic(song)}
+                onPlay={() => playMusicListItem(song)}
               />
             </StaggerItem>
           ))}
-          {newSongs.length === 0 && <EmptyState icon={Music} title="暂无新歌上架" />}
+          {newSongs.length === 0 && <EmptyState icon={Music} title="暂无新歌上架" accent="peach" />}
         </StaggerContainer>
       </section>
 
@@ -341,11 +293,11 @@ export const DiscoverPage = () => {
                 artist={formatAuthors(song.authors)}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
-                onPlay={() => handlePlayMusic(song)}
+                onPlay={() => playMusicListItem(song)}
               />
             </StaggerItem>
           ))}
-          {newSongs.length === 0 && <EmptyState icon={TrendingUp} title="暂无排行数据" />}
+          {newSongs.length === 0 && <EmptyState icon={TrendingUp} title="暂无排行数据" accent="ochre" />}
         </StaggerContainer>
       </section>
     </div>

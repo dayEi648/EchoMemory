@@ -136,23 +136,23 @@ export const SpacePage = () => {
             marginBottom: 24,
           }}
         >
-          <motion.div className="stat-card" whileHover={{ y: -2, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }} transition={{ duration: 0.2 }}>
-            <div className="stat-card-icon" style={{ background: "#8d7cf620", color: "#8d7cf6" }}><FileText size={20} /></div>
+          <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
+            <div className="stat-card-icon icon-accent-bg icon-accent-bg--lavender"><FileText size={20} /></div>
             <div className="stat-card-value">{total}</div>
             <div className="stat-card-label">全部说说</div>
           </motion.div>
-          <motion.div className="stat-card" whileHover={{ y: -2, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }} transition={{ duration: 0.2 }}>
-            <div className="stat-card-icon" style={{ background: "#2bb3a320", color: "#2bb3a3" }}><Image size={20} /></div>
+          <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
+            <div className="stat-card-icon icon-accent-bg icon-accent-bg--mint"><Image size={20} /></div>
             <div className="stat-card-value">{imagePostCount}</div>
             <div className="stat-card-label">带图说说</div>
           </motion.div>
-          <motion.div className="stat-card" whileHover={{ y: -2, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }} transition={{ duration: 0.2 }}>
-            <div className="stat-card-icon" style={{ background: "#ff5b5720", color: "#ff5b57" }}><Heart size={20} /></div>
+          <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
+            <div className="stat-card-icon icon-accent-bg icon-accent-bg--coral"><Heart size={20} /></div>
             <div className="stat-card-value">{author.id === currentUser?.id ? currentUser?.like_count ?? 0 : "—"}</div>
             <div className="stat-card-label">获赞总数</div>
           </motion.div>
-          <motion.div className="stat-card" whileHover={{ y: -2, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }} transition={{ duration: 0.2 }}>
-            <div className="stat-card-icon" style={{ background: "#b8860b20", color: "#b8860b" }}><TrendingUp size={20} /></div>
+          <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
+            <div className="stat-card-icon icon-accent-bg icon-accent-bg--ochre"><TrendingUp size={20} /></div>
             <div className="stat-card-value">Lv.{currentUser?.level ?? "—"}</div>
             <div className="stat-card-label">当前等级</div>
           </motion.div>

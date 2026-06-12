@@ -150,27 +150,13 @@ export const PlaylistDetailPage = () => {
             <ArrowLeft size={16} /> 返回
           </motion.button>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 32,
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="detail-header">
             {/* Cover */}
             <motion.div
+              className="detail-cover"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
-              style={{
-                width: 240,
-                height: 240,
-                borderRadius: 12,
-                overflow: "hidden",
-                flexShrink: 0,
-                background: "var(--color-border)",
-              }}
             >
               {playlist.cover_icon_url ? (
                 <img
@@ -179,16 +165,7 @@ export const PlaylistDetailPage = () => {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "linear-gradient(135deg, #1a3a3a 0%, #2d5a5a 100%)",
-                  }}
-                >
+                <div className="detail-cover-placeholder">
                   <ListMusic size={48} color="rgba(255,255,255,0.3)" />
                 </div>
               )}
@@ -197,7 +174,7 @@ export const PlaylistDetailPage = () => {
             {/* Info */}
             <div style={{ flex: 1, minWidth: 280 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>{playlist.title}</h1>
+                <h1 className="detail-title" style={{ margin: 0 }}>{playlist.title}</h1>
                 {playlist.is_private && (
                   <span title="私密歌单" style={{ color: "var(--color-muted)" }}>
                     <Lock size={16} />
@@ -306,8 +283,11 @@ export const PlaylistDetailPage = () => {
       {playlist && (
         <FadeIn delay={0.2}>
           <section style={{ marginTop: 32 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>评论 ({playlist.comment_count})</h3>
-            <CommentSection targetType="playlist" targetId={playlist.id} />
+            <CommentSection
+              targetType="playlist"
+              targetId={playlist.id}
+              commentCount={playlist.comment_count}
+            />
           </section>
         </FadeIn>
       )}

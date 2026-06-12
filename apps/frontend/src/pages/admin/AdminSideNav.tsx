@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Music, BookOpen, Shield, Activity, Disc3 } from "lucide-react";
+import { Users, Music, BookOpen, Activity, Disc3 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const adminLinks = [
@@ -8,7 +8,6 @@ const adminLinks = [
   { to: "/admin/music", icon: Music, label: "音乐管理" },
   { to: "/admin/albums", icon: Disc3, label: "专辑管理" },
   { to: "/admin/dict", icon: BookOpen, label: "字典维护" },
-  { to: "/admin/audit", icon: Shield, label: "内容审核" },
 ];
 
 export const AdminSideNav = () => {
@@ -40,7 +39,7 @@ export const AdminSideNav = () => {
                     transform: "translateY(-50%)",
                     width: 3,
                     height: 20,
-                    background: "var(--color-ink)",
+                    background: "var(--color-brand-coral)",
                     borderRadius: "0 4px 4px 0",
                   }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}

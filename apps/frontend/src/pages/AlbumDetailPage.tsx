@@ -125,27 +125,13 @@ export const AlbumDetailPage = () => {
             <ArrowLeft size={16} /> 返回
           </motion.button>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 32,
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="detail-header">
             {/* Cover */}
             <motion.div
+              className="detail-cover"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
-              style={{
-                width: 240,
-                height: 240,
-                borderRadius: 12,
-                overflow: "hidden",
-                flexShrink: 0,
-                background: "var(--color-border)",
-              }}
             >
               {album.cover_icon_url ? (
                 <img
@@ -154,16 +140,7 @@ export const AlbumDetailPage = () => {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "linear-gradient(135deg, #1a3a3a 0%, #2d5a5a 100%)",
-                  }}
-                >
+                <div className="detail-cover-placeholder">
                   <Music size={48} color="rgba(255,255,255,0.3)" />
                 </div>
               )}
@@ -171,7 +148,7 @@ export const AlbumDetailPage = () => {
 
             {/* Info */}
             <div style={{ flex: 1, minWidth: 280 }}>
-              <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>{album.title}</h1>
+              <h1 className="detail-title">{album.title}</h1>
               {album.description && (
                 <p style={{ fontSize: 14, color: "var(--color-muted)", marginBottom: 16, lineHeight: 1.6 }}>
                   {album.description}

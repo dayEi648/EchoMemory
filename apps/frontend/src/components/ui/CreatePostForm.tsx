@@ -62,11 +62,6 @@ export const CreatePostForm = ({ onCreated }: CreatePostFormProps) => {
       toast.error("请输入内容或上传图片");
       return;
     }
-    if (trimmed.length > MAX_CONTENT_LENGTH) {
-      toast.error(`内容不能超过 ${MAX_CONTENT_LENGTH} 字`);
-      return;
-    }
-
     setSubmitting(true);
     try {
       const created = await spacePostApi.createPost({

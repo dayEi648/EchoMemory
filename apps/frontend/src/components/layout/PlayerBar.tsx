@@ -12,10 +12,12 @@ import {
   Disc,
   Clock,
 } from "lucide-react";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { usePlayerStore, type QueueContext } from "../../shared/stores/playerStore";
+import { usePlayerViewStore } from "../../shared/stores/playerViewStore";
+import { useProgressScrub } from "../../shared/useProgressScrub";
 import { formatAuthors, formatTime } from "../../shared/utils";
 
 const queueContextLabel = (ctx: QueueContext): { icon: typeof Disc; label: string } | null => {
@@ -53,66 +55,50 @@ export const PlayerBar = () => {
     toggleShuffle,
     toggleRepeat,
   } = usePlayerStore();
+  const openCurrentPlayer = usePlayerViewStore((s) => s.openCurrent);
 
   const [showQueue, setShowQueue] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
-  const [isDraggingProgress, setIsDraggingProgress] = useState(false);
-  const progressBarRef = useRef<HTMLDivElement>(null);
 
-  const seekFromClientX = useCallback(
-    (clientX: number) => {
-      if (!progressBarRef.current || duration <= 0) return;
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const percent = ((clientX - rect.left) / rect.width) * 100;
-      seek(Math.max(0, Math.min(100, percent)));
-    },
-    [duration, seek],
-  );
-
-  const handleProgressPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.currentTarget.setPointerCapture(e.pointerId);
-      setIsDraggingProgress(true);
-      seekFromClientX(e.clientX);
-    },
-    [seekFromClientX],
-  );
-
-  useEffect(() => {
-    if (!isDraggingProgress) return;
-    const handlePointerMove = (e: PointerEvent) => {
-      if (e.buttons === 0) {
-        setIsDraggingProgress(false);
-        return;
-      }
-      seekFromClientX(e.clientX);
-    };
-    const handlePointerUp = () => {
-      setIsDraggingProgress(false);
-    };
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, [isDraggingProgress, seekFromClientX]);
-
-  const displayProgress = progress;
+  const {
+    barRef: progressBarRef,
+    isDragging: isDraggingProgress,
+    displayProgress,
+    displayCurrentTime,
+    handlePointerDown: handleProgressPointerDown,
+  } = useProgressScrub({
+    progress,
+    currentTime,
+    duration,
+    seek,
+    enabled: duration > 0,
+  });
 
   return (
     <>
       <footer className="player-bar">
         {/* Song Info */}
-        <div className="player-song-info">
+        <div
+          className={`player-song-info${currentTrack ? " player-song-info--clickable" : ""}`}
+          onClick={() => currentTrack && openCurrentPlayer()}
+          onKeyDown={(e) => {
+            if (currentTrack && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              openCurrentPlayer();
+            }
+          }}
+          role={currentTrack ? "button" : undefined}
+          tabIndex={currentTrack ? 0 : undefined}
+          title={currentTrack ? "打开播放页" : undefined}
+        >
           <motion.div
             className="cover-placeholder"
-            whileHover={{ scale: 1.05 }}
+            whileHover={currentTrack ? { scale: 1.05 } : undefined}
             transition={{ duration: 0.2 }}
             style={{
               background: currentTrack?.cover_icon_url
                 ? undefined
-                : "linear-gradient(135deg, #1a3a3a 0%, #2d5a5a 100%)",
+                : "linear-gradient(135deg, var(--color-brand-teal) 0%, #2d5a5a 100%)",
               position: "relative",
               overflow: "hidden",
             }}
@@ -245,7 +231,7 @@ export const PlayerBar = () => {
           </div>
 
           <div className="player-progress">
-            <span className="time">{formatTime(currentTime)}</span>
+            <span className="time">{formatTime(displayCurrentTime)}</span>
             <div
               className="player-progress-bar"
               ref={progressBarRef}

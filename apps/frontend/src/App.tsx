@@ -19,7 +19,7 @@ import { AdminMusicPage } from "./pages/admin/AdminMusicPage";
 import { AdminMusicImportPage } from "./pages/admin/AdminMusicImportPage";
 import { DictionaryPage } from "./pages/admin/DictionaryPage";
 import { AdminAlbumPage } from "./pages/admin/AdminAlbumPage";
-import { MusicDetailPage } from "./pages/MusicDetailPage";
+import { MusicRouteOpener } from "./pages/MusicRouteOpener";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
 import { SpacePage } from "./pages/SpacePage";
@@ -66,6 +66,40 @@ const RequireAuth = () => {
     return <AuthPage />;
   }
 
+  if (user.status !== 0) {
+    const statusMessage =
+      user.status === 1
+        ? "账号已被临时封禁，暂时无法使用。"
+        : user.status === 2
+          ? "账号已被暂停使用，请联系管理员。"
+          : "账号已被封禁，无法继续使用。";
+
+    return (
+      <div className="loading-screen">
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, maxWidth: 360, textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>无法进入应用</div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--color-muted)", lineHeight: 1.6 }}>{statusMessage}</p>
+          <button
+            type="button"
+            onClick={() => void useAuthStore.getState().logout()}
+            style={{
+              padding: "8px 18px",
+              borderRadius: 10,
+              border: "none",
+              background: "var(--color-ink)",
+              color: "white",
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 600,
+            }}
+          >
+            退出登录
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return <Outlet />;
 };
 
@@ -92,7 +126,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/account" element={<AccountPage />} />
-          <Route path="/music/:musicId" element={<MusicDetailPage />} />
+          <Route path="/music/:musicId" element={<MusicRouteOpener />} />
           <Route path="/album/:albumId" element={<AlbumDetailPage />} />
           <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
           <Route path="/space" element={<SpacePage />} />

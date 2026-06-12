@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ThumbsUp, ThumbsDown, MessageCircle, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -18,19 +18,56 @@ interface CommentItemProps {
   onReply: (parentId: number, rootId: number) => void;
   /** 被删除回调 */
   onDeleted: (commentId: number) => void;
+  /** 父级递增时刷新已展开的子回复列表 */
+  replyRefreshKey?: number;
 }
 
-export const CommentItem = ({ comment, currentUserId, targetType, targetId, onReply, onDeleted }: CommentItemProps) => {
+export const CommentItem = ({
+  comment,
+  currentUserId,
+  targetType,
+  targetId,
+  onReply,
+  onDeleted,
+  replyRefreshKey = 0,
+}: CommentItemProps) => {
   const [liked, setLiked] = useState(comment.liked_by_me ?? false);
   const [disliked, setDisliked] = useState(comment.disliked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(comment.like_count);
-  const [dislikeCount, setDislikeCount] = useState(comment.dislike_count);
+  const [, setDislikeCount] = useState(comment.dislike_count);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState<CommentItemType[]>([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
 
   const isOwner = currentUserId === comment.user.id;
   const isRoot = comment.parent_id === null;
+  const lastReplyRefreshKey = useRef(replyRefreshKey);
+
+  useEffect(() => {
+    if (!isRoot || !showReplies || replyRefreshKey === 0) {
+      lastReplyRefreshKey.current = replyRefreshKey;
+      return;
+    }
+    if (replyRefreshKey === lastReplyRefreshKey.current) return;
+    lastReplyRefreshKey.current = replyRefreshKey;
+
+    let cancelled = false;
+    commentApi
+      .listReplies(comment.id)
+      .then((data) => {
+        if (!cancelled) {
+          setReplies(data);
+          setShowReplies(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("加载回复失败");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [replyRefreshKey, showReplies, isRoot, comment.id]);
 
   const handleLike = async () => {
     try {
@@ -93,29 +130,35 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
   };
 
   return (
-    <div style={{ marginBottom: isRoot ? 16 : 8 }}>
+    <div className={isRoot ? "comment-item" : "comment-item comment-item--reply"}>
       <div style={{ display: "flex", gap: 10 }}>
         <Avatar user={comment.user} size="sm" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{comment.user.nickname}</span>
-            <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{formatRelativeTime(comment.created_at)}</span>
+        <div className="comment-item-body">
+          <div className="comment-item-meta">
+            <span className="comment-item-author">{comment.user.nickname}</span>
+            <span className="comment-item-time">{formatRelativeTime(comment.created_at)}</span>
           </div>
-          <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 8px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {comment.content}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button onClick={handleLike} style={{ ...actionBtnStyle, color: liked ? "var(--color-accent)" : "var(--color-muted)" }}>
-              <ThumbsUp size={13} fill={liked ? "var(--color-accent)" : "none"} /> {likeCount || ""}
+          <p className="comment-item-content">{comment.content}</p>
+          <div className="comment-item-actions">
+            <button
+              type="button"
+              onClick={handleLike}
+              className={`comment-action-btn${liked ? " comment-action-btn--liked" : ""}`}
+            >
+              <ThumbsUp size={13} fill={liked ? "currentColor" : "none"} /> {likeCount || ""}
             </button>
-            <button onClick={handleDislike} style={{ ...actionBtnStyle, color: disliked ? "var(--color-ink)" : "var(--color-muted)" }}>
-              <ThumbsDown size={13} fill={disliked ? "var(--color-ink)" : "none"} />
+            <button type="button" onClick={handleDislike} className="comment-action-btn">
+              <ThumbsDown size={13} fill={disliked ? "currentColor" : "none"} />
             </button>
-            <button onClick={() => onReply(comment.id, comment.root_id ?? comment.id)} style={actionBtnStyle}>
+            <button
+              type="button"
+              onClick={() => onReply(comment.id, comment.root_id ?? comment.id)}
+              className="comment-action-btn"
+            >
               <MessageCircle size={13} /> 回复
             </button>
             {isOwner && (
-              <button onClick={handleDelete} style={{ ...actionBtnStyle, color: "var(--color-muted)" }}>
+              <button type="button" onClick={handleDelete} className="comment-action-btn">
                 <Trash2 size={13} />
               </button>
             )}
@@ -124,13 +167,10 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
           {/* Replies expand */}
           {isRoot && comment.reply_count > 0 && (
             <button
+              type="button"
               onClick={loadReplies}
-              style={{
-                ...actionBtnStyle,
-                marginTop: 6,
-                color: "var(--color-accent-2)",
-                fontWeight: 500,
-              }}
+              className="comment-action-btn"
+              style={{ marginTop: 6, color: "var(--color-accent-2)", fontWeight: 500 }}
             >
               {repliesLoading ? "加载中..." : showReplies ? <><ChevronUp size={13} /> 收起回复</> : <><ChevronDown size={13} /> {comment.reply_count} 条回复</>}
             </button>
@@ -143,7 +183,7 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                style={{ marginTop: 8, paddingLeft: 16, borderLeft: "2px solid var(--color-border)" }}
+                className="comment-replies"
               >
                 {replies.map((reply) => (
                   <CommentItem
@@ -163,16 +203,4 @@ export const CommentItem = ({ comment, currentUserId, targetType, targetId, onRe
       </div>
     </div>
   );
-};
-
-const actionBtnStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  padding: "2px 4px",
-  fontSize: 12,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 3,
-  color: "var(--color-muted)",
 };

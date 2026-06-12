@@ -91,29 +91,23 @@ export const AuthPage = () => {
             >
               <label>
                 用户名
-                <input name="username" minLength={3} maxLength={32} required />
+                <input name="username" />
               </label>
               {mode === "register" && (
                 <label>
                   昵称
-                  <input name="nickname" minLength={1} maxLength={32} required />
+                  <input name="nickname" />
                 </label>
               )}
               <label>
                 密码
-                <input
-                  name="password"
-                  type="password"
-                  minLength={6}
-                  maxLength={128}
-                  required
-                />
+                <input name="password" type="password" />
               </label>
               {mode === "register" && (
                 <>
                   <label>
                     邮箱
-                    <input name="email" type="email" />
+                    <input name="email" />
                   </label>
                   <label>
                     性别
@@ -202,7 +196,7 @@ export const AuthPage = () => {
 
         {/* 特性卡片 */}
         <motion.div
-          className="feature-card feature-card-1"
+          className="auth-feature-card auth-feature-card-1"
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         >
@@ -214,7 +208,7 @@ export const AuthPage = () => {
         </motion.div>
 
         <motion.div
-          className="feature-card feature-card-2"
+          className="auth-feature-card auth-feature-card-2"
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         >
@@ -226,7 +220,7 @@ export const AuthPage = () => {
         </motion.div>
 
         <motion.div
-          className="feature-card feature-card-3"
+          className="auth-feature-card auth-feature-card-3"
           animate={{ y: [0, -5, 0] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         >
@@ -238,7 +232,7 @@ export const AuthPage = () => {
         </motion.div>
 
         <motion.div
-          className="feature-card feature-card-4"
+          className="auth-feature-card auth-feature-card-4"
           animate={{ y: [0, 7, 0] }}
           transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
         >

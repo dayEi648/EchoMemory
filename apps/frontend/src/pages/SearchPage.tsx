@@ -13,8 +13,8 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
-import { usePlayerStore } from "../shared/stores/playerStore";
 import { musicApi, albumApi, playlistApi } from "../shared/api/instances";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import type {
   UserSearchItem,
   MusicListItem,
@@ -32,7 +32,6 @@ import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
-import { toPlayerTrackFromListItem } from "../shared/utils";
 
 const tabs = [
   { key: "all", label: "综合", icon: Search },
@@ -47,14 +46,13 @@ const PAGE_SIZE = 10;
 const VALID_TABS = new Set(tabs.map((t) => t.key));
 
 export const SearchPage = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") ?? "";
   const tabFromUrl = searchParams.get("tab") ?? "all";
   const [activeTab, setActiveTab] = useState(() => (VALID_TABS.has(tabFromUrl) ? tabFromUrl : "all"));
   const { api, user: currentUser } = useAuthStore();
   const navigate = useNavigate();
-  const playTrack = usePlayerStore((s) => s.playTrack);
-  const playStandalone = usePlayerStore((s) => s.playStandalone);
+  const { playMusicListItem } = usePlayMusic();
 
   const [userResults, setUserResults] = useState<UserSearchItem[]>([]);
   const [songResults, setSongResults] = useState<MusicListItem[]>([]);
@@ -202,19 +200,6 @@ export const SearchPage = () => {
     }
   };
 
-  const handlePlayMusic = async (music: MusicListItem) => {
-    try {
-      const detail = await musicApi.getMusicDetail(music.id);
-      if (detail.file_url) {
-        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
-      } else {
-        toast.error("该歌曲暂不可播放");
-      }
-    } catch {
-      toast.error("加载歌曲失败");
-    }
-  };
-
   const songTotalPages = Math.ceil(songTotal / PAGE_SIZE);
   const albumTotalPages = Math.ceil(albumTotal / PAGE_SIZE);
   const playlistTotalPages = Math.ceil(playlistTotal / PAGE_SIZE);
@@ -251,12 +236,17 @@ export const SearchPage = () => {
             <h1 className="page-title">「{query}」的搜索结果</h1>
           </FadeIn>
           <FadeIn delay={0.06}>
-            <div className="search-tabs">
+            <div className="category-tabs">
               {tabs.map((tab) => (
                 <motion.button
                   key={tab.key}
-                  className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
-                  onClick={() => setActiveTab(tab.key)}
+                  className={`category-tab ${activeTab === tab.key ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    if (query) {
+                      setSearchParams({ q: query, tab: tab.key });
+                    }
+                  }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   type="button"
@@ -331,7 +321,7 @@ export const SearchPage = () => {
                           }
                           musicId={song.id}
                           coverUrl={song.cover_icon_url ?? undefined}
-                          onPlay={() => handlePlayMusic(song)}
+                          onPlay={() => playMusicListItem(song)}
                         />
                       </StaggerItem>
                     ))}

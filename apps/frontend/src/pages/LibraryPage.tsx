@@ -4,16 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
-import { usePlayerStore } from "../shared/stores/playerStore";
 import { useAuthStore } from "../shared/stores/authStore";
-import { collectionApi, musicApi } from "../shared/api/instances";
+import { collectionApi } from "../shared/api/instances";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import type {
   MusicCollectionItem,
   AlbumCollectionItem,
   PlaylistCollectionItem,
-  MusicListItem,
 } from "../shared/api/types";
-import { formatAuthors, toPlayerTrack, toPlayerTrackFromListItem } from "../shared/utils";
+import { formatAuthors } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
@@ -34,7 +33,7 @@ type TabKey = (typeof tabs)[number]["key"];
 
 export const LibraryPage = () => {
   const navigate = useNavigate();
-  const playStandalone = usePlayerStore((s) => s.playStandalone);
+  const { playMusicListItem } = usePlayMusic();
   const { user: currentUser } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>("songs");
@@ -149,20 +148,6 @@ export const LibraryPage = () => {
     navigate(`/playlist/${playlist.id}`);
   };
 
-  /** 播放收藏的歌曲 */
-  const handlePlaySong = async (music: MusicListItem) => {
-    try {
-      const detail = await musicApi.getMusicDetail(music.id);
-      if (detail.file_url) {
-        await playStandalone(toPlayerTrackFromListItem(music, detail.file_url));
-      } else {
-        toast.error("该歌曲暂不可播放");
-      }
-    } catch {
-      toast.error("加载歌曲失败");
-    }
-  };
-
   const songsTotalPages = Math.ceil(songsTotal / PAGE_SIZE);
   const albumsTotalPages = Math.ceil(albumsTotal / PAGE_SIZE);
   const playlistsTotalPages = Math.ceil(playlistsTotal / PAGE_SIZE);
@@ -184,11 +169,11 @@ export const LibraryPage = () => {
             <h1 className="page-title">我的收藏</h1>
           </FadeIn>
           <FadeIn delay={0.08}>
-            <div className="search-tabs" style={{ marginBottom: 20 }}>
+            <div className="category-tabs" style={{ marginBottom: 20 }}>
               {tabs.map((tab) => (
                 <motion.button
                   key={tab.key}
-                  className={`search-tab ${activeTab === tab.key ? "active" : ""}`}
+                  className={`category-tab ${activeTab === tab.key ? "active" : ""}`}
                   onClick={() => setActiveTab(tab.key)}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -227,7 +212,7 @@ export const LibraryPage = () => {
                           artist={formatAuthors(item.music.authors)}
                           musicId={item.music.id}
                           coverUrl={item.music.cover_icon_url ?? undefined}
-                          onPlay={() => handlePlaySong(item.music)}
+                          onPlay={() => playMusicListItem(item.music)}
                         />
                       </div>
                       <motion.button

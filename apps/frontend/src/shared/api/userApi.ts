@@ -1,4 +1,3 @@
-import type { TokenStore } from "../auth/tokenStore";
 import type {
   LoginInput,
   PaginatedUsers,

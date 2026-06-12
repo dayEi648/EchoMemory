@@ -1,5 +1,4 @@
-import type { TokenStore } from "../auth/tokenStore";
-import type { MusicDetail, MusicListItem, MusicUpdateInput, PaginatedAdminMusicList, PaginatedMusicList } from "./types";
+import type { MusicDetail, MusicUpdateInput, PaginatedAdminMusicList, PaginatedMusicList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 import { appendDefined } from "../utils";
 
@@ -25,6 +24,8 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       return request<PaginatedMusicList>(`/music/?${query.toString()}`, {}, false);
     },
     getMusicDetail: (musicId: number) => request<MusicDetail>(`/music/${musicId}`, {}, false),
+    getMusicLyrics: (musicId: number) =>
+      request<{ content: string }>(`/music/${musicId}/lyrics`, {}, false),
     adminImportMusic: (input: {
       title: string;
       audio_file: File;

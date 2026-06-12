@@ -33,7 +33,7 @@ export const SideNav = () => {
 
   useEffect(() => {
     loadPlaylists();
-  }, []);
+  }, [location.pathname]);
 
   const renderNavLink = (to: string, Icon: React.ElementType, label: string) => {
     const isActive =
@@ -76,18 +76,9 @@ export const SideNav = () => {
           我的歌单
           <button
             type="button"
+            className="side-nav-add-btn"
             title="创建歌单"
             onClick={() => setCreateModalOpen(true)}
-            style={{
-              color: "var(--color-muted)",
-              padding: 0,
-              lineHeight: 1,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-            }}
           >
             <Plus size={14} />
           </button>

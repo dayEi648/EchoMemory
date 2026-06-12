@@ -51,6 +51,10 @@ export const PaginationBar = ({
   const prevPage = page - 1;
   const nextPage = page + 1;
 
+  if (totalPages <= 1) {
+    return null;
+  }
+
   return (
     <div className="pagination-bar">
       {onPageSizeChange && pageSize !== undefined && (

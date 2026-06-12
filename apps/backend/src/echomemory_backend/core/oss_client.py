@@ -191,29 +191,62 @@ def _upload_file_to_oss_sync(
     return _build_oss_url(object_key)
 
 
+def _object_key_from_url(url: str) -> str | None:
+    """从 OSS 公开 URL 解析 object_key。
+
+    Args:
+        url: OSS 对象的公开访问 URL。
+
+    Returns:
+        合法的 object_key；URL 不属于本项目 bucket 时返回 None。
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    endpoint = (settings.oss_endpoint or "").removeprefix("https://").removeprefix("http://")
+    expected_host = f"{settings.oss_bucket_name}.{endpoint}"
+    if parsed.netloc != expected_host:
+        return None
+    object_key = parsed.path.lstrip("/")
+    return object_key or None
+
+
+def _fetch_text_by_url_sync(url: str) -> str:
+    """根据 URL 从 OSS 读取文本内容（同步实现）。
+
+    Args:
+        url: OSS 对象的公开访问 URL。
+
+    Returns:
+        解码后的 UTF-8 文本。
+
+    Raises:
+        ValueError: URL 非法或对象不存在时抛出。
+        RuntimeError: OSS 读取失败时抛出。
+    """
+    object_key = _object_key_from_url(url)
+    if not object_key:
+        raise ValueError(f"Invalid OSS URL: {url}")
+
+    try:
+        bucket = _get_bucket()
+        result = bucket.get_object(object_key)
+        raw = result.read()
+    except oss2.exceptions.OssError as exc:
+        raise RuntimeError(f"OSS fetch failed: {exc}") from exc
+
+    return raw.decode("utf-8-sig")
+
+
 def _delete_object_by_url_sync(url: str) -> None:
     """根据 URL 删除 OSS 对象（同步实现）。删除失败时记录日志但不抛异常。
 
     删除前校验 URL 的 host 是否属于本项目 bucket，以及 object_key
     是否以预期的业务前缀开头，防止误删或处理外部 URL。
     """
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-
-    # 校验 host 是否匹配本项目的 bucket.endpoint
-    endpoint = (settings.oss_endpoint or "").removeprefix("https://").removeprefix("http://")
-    expected_host = f"{settings.oss_bucket_name}.{endpoint}"
-    if parsed.netloc != expected_host:
-        logger.warning(
-            "Refusing to delete OSS object from foreign host: %s (expected: %s)",
-            parsed.netloc,
-            expected_host,
-        )
-        return
-
-    object_key = parsed.path.lstrip("/")
+    object_key = _object_key_from_url(url)
     if not object_key:
+        logger.warning("Refusing to delete OSS object from foreign or invalid URL: %s", url)
         return
 
     # 校验 object_key 是否以允许的业务前缀开头
@@ -310,3 +343,19 @@ async def upload_lyrics_to_oss(
 async def delete_object_by_url(url: str) -> None:
     """根据 URL 删除 OSS 对象。删除失败时记录日志但不抛异常。"""
     await to_thread.run_sync(_delete_object_by_url_sync, url)
+
+
+async def fetch_text_by_url(url: str) -> str:
+    """根据 URL 从 OSS 异步读取文本内容。
+
+    Args:
+        url: OSS 对象的公开访问 URL。
+
+    Returns:
+        解码后的 UTF-8 文本。
+
+    Raises:
+        ValueError: URL 非法时抛出。
+        RuntimeError: OSS 读取失败时抛出。
+    """
+    return await to_thread.run_sync(_fetch_text_by_url_sync, url)

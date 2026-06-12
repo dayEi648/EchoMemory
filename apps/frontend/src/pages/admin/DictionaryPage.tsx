@@ -198,14 +198,7 @@ export const DictionaryPage = () => {
 
       {/* 工具栏 */}
       <FadeIn delay={0.1}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
+        <div className="admin-page-header">
           <span style={{ fontSize: 14, color: "var(--color-muted)", fontWeight: 500 }}>
             {activeLabel} · 共 {total} 项
           </span>

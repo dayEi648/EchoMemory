@@ -305,7 +305,7 @@ export const AdminAlbumPage = () => {
     <div className="import-form-grid">
       {/* 左栏：基本信息 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div className="import-section">
+        <div className="warm-panel">
           <h3 className="import-section-title">基本信息</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <label>
@@ -372,7 +372,7 @@ export const AdminAlbumPage = () => {
 
       {/* 右栏：封面 + 作者 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div className="import-section">
+        <div className="warm-panel">
           <h3 className="import-section-title">封面图片</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <ImagePreviewZone
@@ -394,7 +394,7 @@ export const AdminAlbumPage = () => {
           </div>
         </div>
 
-        <div className="import-section">
+        <div className="warm-panel">
           <h3 className="import-section-title">作者</h3>
           <AuthorSelect
             selectedAuthors={formAuthors}
@@ -419,14 +419,7 @@ export const AdminAlbumPage = () => {
           <>
       {/* ========== 页面标题 + 新建按钮 ========== */}
       <FadeIn>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 20,
-          }}
-        >
+        <div className="admin-page-header">
           <h1 className="page-title">专辑管理</h1>
           <motion.button
             className="btn-primary"
@@ -444,25 +437,13 @@ export const AdminAlbumPage = () => {
 
       {/* ========== 搜索栏 ========== */}
       <FadeIn delay={0.08}>
-        <div
-          style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}
-        >
-          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
-            <Search
-              size={14}
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--color-muted)",
-              }}
-            />
+        <div className="admin-search-row">
+          <div className="admin-search-input-wrap">
+            <Search size={14} className="admin-search-icon" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索专辑标题..."
-              style={{ paddingLeft: 32 }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>

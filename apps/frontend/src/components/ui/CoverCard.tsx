@@ -1,24 +1,18 @@
 import { motion } from "framer-motion";
 import { Play } from "lucide-react";
 
-const gradientPairs: [string, string][] = [
-  ["#ff9a9e", "#fecfef"],
-  ["#a18cd1", "#fbc2eb"],
-  ["#84fab0", "#8fd3f4"],
-  ["#fccb90", "#d57eeb"],
-  ["#e0c3fc", "#8ec5fc"],
-  ["#43e97b", "#38f9d7"],
-  ["#fa709a", "#fee140"],
-  ["#30cfd0", "#330867"],
-  ["#a8edea", "#fed6e3"],
-  ["#ffecd2", "#fcb69f"],
-  ["#667eea", "#764ba2"],
-  ["#f093fb", "#f5576c"],
+const brandGradients: [string, string][] = [
+  ["var(--color-brand-pink)", "#ff7aa8"],
+  ["var(--color-brand-teal)", "#2d5a5a"],
+  ["var(--color-brand-lavender)", "#d4c8f5"],
+  ["var(--color-brand-peach)", "#ffc9a8"],
+  ["var(--color-brand-ochre)", "#f0cc6a"],
+  ["var(--color-brand-mint)", "#c4e8dc"],
 ];
 
 function getGradient(id: number): [string, string] {
-  const idx = Math.abs(id) % gradientPairs.length;
-  return gradientPairs[idx];
+  const idx = Math.abs(id) % brandGradients.length;
+  return brandGradients[idx];
 }
 
 interface CoverCardProps {
@@ -75,18 +69,6 @@ export const CoverCard = ({ id, title, subtitle, coverUrl, onClick, onPlay }: Co
               position: "relative",
             }}
           >
-            {/* subtle noise texture overlay */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                opacity: 0.08,
-                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-                backgroundSize: "128px 128px",
-                mixBlendMode: "overlay",
-              }}
-            />
-            {/* decorative circle */}
             <div
               style={{
                 position: "absolute",
@@ -95,7 +77,7 @@ export const CoverCard = ({ id, title, subtitle, coverUrl, onClick, onPlay }: Co
                 width: "80%",
                 height: "80%",
                 borderRadius: "50%",
-                background: "rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.15)",
               }}
             />
           </div>

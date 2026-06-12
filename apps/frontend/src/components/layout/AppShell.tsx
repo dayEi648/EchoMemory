@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
+import { MusicPlayerOverlay } from "../player/MusicPlayerOverlay";
 import { TopBar } from "./TopBar";
 import { SideNav } from "./SideNav";
 import { PlayerBar } from "./PlayerBar";
@@ -27,6 +28,7 @@ export const AppShell = () => {
         </main>
       </div>
       <PlayerBar />
+      <MusicPlayerOverlay />
     </div>
   );
 };

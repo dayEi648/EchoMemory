@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -15,23 +15,65 @@ const PAGE_SIZE = 10;
 interface CommentSectionProps {
   targetType: CommentTargetType;
   targetId: number;
+  /** 已知评论总数，用于收起态展示；不传则轻量请求 */
+  commentCount?: number;
+  /** 嵌入模式：不显示收起栏，直接展示内容（如空间说说已有点击展开） */
+  embedded?: boolean;
 }
 
-export const CommentSection = ({ targetType, targetId }: CommentSectionProps) => {
+export const CommentSection = ({
+  targetType,
+  targetId,
+  commentCount: commentCountProp,
+  embedded = false,
+}: CommentSectionProps) => {
   const { user } = useAuthStore();
   const currentUserId = user?.id ?? 0;
 
+  const [expanded, setExpanded] = useState(embedded);
   const [comments, setComments] = useState<CommentItemType[]>([]);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(commentCountProp ?? 0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [countLoading, setCountLoading] = useState(false);
 
-  // Input
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [replyTo, setReplyTo] = useState<{ parentId: number; rootId: number; nickname: string } | null>(null);
+  /** 根评论 id → 刷新序号，回复成功后递增以触发子回复列表重载 */
+  const [replyRefreshKeys, setReplyRefreshKeys] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    if (commentCountProp !== undefined) {
+      setTotal(commentCountProp);
+    }
+  }, [commentCountProp]);
+
+  /** 收起态：仅拉取评论总数 */
+  useEffect(() => {
+    if (embedded || expanded || commentCountProp !== undefined) return;
+
+    let cancelled = false;
+    setCountLoading(true);
+    commentApi
+      .listRootComments(targetType, targetId, { limit: 1, offset: 0 })
+      .then((res) => {
+        if (!cancelled) setTotal(res.total);
+      })
+      .catch(() => {
+        /* 收起态静默失败 */
+      })
+      .finally(() => {
+        if (!cancelled) setCountLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [embedded, expanded, commentCountProp, targetType, targetId]);
 
   const loadComments = useCallback(async () => {
+    if (!expanded) return;
     setLoading(true);
     try {
       const res = await commentApi.listRootComments(targetType, targetId, {
@@ -45,9 +87,11 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
     } finally {
       setLoading(false);
     }
-  }, [targetType, targetId, page]);
+  }, [targetType, targetId, page, expanded]);
 
-  useEffect(() => { loadComments(); }, [loadComments]);
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
 
   const handleSubmit = async () => {
     const trimmed = input.trim();
@@ -60,17 +104,23 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
         content: trimmed,
         parent_id: replyTo?.parentId,
       });
+      const wasReply = replyTo !== null;
       if (replyTo) {
-        // Reply was added — reload to reflect new reply count on parent
+        const { rootId } = replyTo;
         setReplyTo(null);
-        loadComments();
+        setComments((prev) =>
+          prev.map((c) => (c.id === rootId ? { ...c, reply_count: c.reply_count + 1 } : c)),
+        );
+        setReplyRefreshKeys((prev) => ({ ...prev, [rootId]: (prev[rootId] ?? 0) + 1 }));
       } else {
-        // New root comment — prepend to list
         setComments((prev) => [created, ...prev]);
         setTotal((t) => t + 1);
+        if (page !== 0) {
+          setPage(0);
+        }
       }
       setInput("");
-      toast.success(replyTo ? "回复成功" : "评论成功");
+      toast.success(wasReply ? "回复成功" : "评论成功");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "发表失败");
     } finally {
@@ -90,11 +140,10 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  return (
-    <div>
-      {/* Input */}
+  const renderBody = () => (
+    <>
       {user && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginTop: 16, marginBottom: 20 }}>
           <AnimatePresence>
             {replyTo && (
               <motion.div
@@ -112,8 +161,16 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
               >
                 回复 <strong>@{replyTo.nickname}</strong>
                 <button
+                  type="button"
                   onClick={() => setReplyTo(null)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-accent)", fontSize: 12, padding: 0 }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-accent)",
+                    fontSize: 12,
+                    padding: 0,
+                  }}
                 >
                   取消
                 </button>
@@ -142,8 +199,8 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
                 padding: "8px 16px",
                 borderRadius: 10,
                 border: "none",
-                background: submitting || !input.trim() ? "var(--color-primary-disabled)" : "var(--color-ink)",
-                color: "white",
+                background: submitting || !input.trim() ? "var(--color-surface-soft)" : "var(--color-ink)",
+                color: submitting || !input.trim() ? "var(--color-muted)" : "white",
                 cursor: submitting || !input.trim() ? "not-allowed" : "pointer",
                 fontSize: 13,
                 fontWeight: 600,
@@ -157,11 +214,12 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
         </div>
       )}
 
-      {/* List */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: 32, color: "var(--color-muted)", fontSize: 13 }}>加载中...</div>
+        <div style={{ textAlign: "center", padding: 32, color: "var(--color-muted)", fontSize: 13 }}>
+          加载中...
+        </div>
       ) : comments.length === 0 ? (
-        <EmptyState icon={MessageCircle} title="暂无评论" description="快来发表第一条评论吧" compact />
+        <EmptyState icon={MessageCircle} title="暂无评论" description="快来发表第一条评论吧" compact accent="lavender" />
       ) : (
         <>
           {comments.map((comment) => (
@@ -173,13 +231,57 @@ export const CommentSection = ({ targetType, targetId }: CommentSectionProps) =>
               targetId={targetId}
               onReply={handleReply}
               onDeleted={handleDeleted}
+              replyRefreshKey={replyRefreshKeys[comment.id] ?? 0}
             />
           ))}
-          {(totalPages > 1 || total > 0) && (
-            <PaginationBar page={page} totalPages={totalPages} onPageChange={setPage} loading={loading} total={total} />
-          )}
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            loading={loading}
+            total={total}
+          />
         </>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return <div>{renderBody()}</div>;
+  }
+
+  return (
+    <div className="comment-section">
+      <button
+        type="button"
+        className="comment-section-toggle"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        <MessageCircle size={18} />
+        <span>评论</span>
+        <span className="comment-section-count">
+          ({countLoading && commentCountProp === undefined ? "…" : total})
+        </span>
+        <span className="comment-section-toggle-icon">
+          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            className="comment-section-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            style={{ overflow: "hidden" }}
+          >
+            {renderBody()}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

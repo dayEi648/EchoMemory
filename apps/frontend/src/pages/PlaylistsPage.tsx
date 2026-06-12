@@ -14,6 +14,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { CreatePlaylistModal } from "../components/ui/CreatePlaylistModal";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
+import { PageTitle } from "../components/ui/PageTitle";
 
 const PAGE_SIZE = 12;
 
@@ -102,7 +103,7 @@ export const PlaylistsPage = () => {
                 gap: 12,
               }}
             >
-              <h1 className="page-title" style={{ margin: 0 }}>我的歌单</h1>
+              <PageTitle icon={ListMusic} iconAccent="lavender">我的歌单</PageTitle>
               <CreatePlaylistButton onClick={openCreateModal} />
             </div>
           </FadeIn>

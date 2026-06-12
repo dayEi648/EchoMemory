@@ -50,8 +50,8 @@ export function getApis(): ApiRegistry {
   return apis;
 }
 
-/** 测试环境替换 tokenStore，并重建所有 API 实例。 */
-export function setApiTokenStoreForTest(tokenStore: TokenStore): void {
+/** 替换 tokenStore 并重建所有 API 实例（测试与内部初始化共用）。 */
+export function replaceApiTokenStore(tokenStore: TokenStore): void {
   currentTokenStore = tokenStore;
   apis = buildApis(tokenStore);
   userApi = apis.userApi;

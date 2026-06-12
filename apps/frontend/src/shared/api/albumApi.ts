@@ -1,5 +1,4 @@
-import type { TokenStore } from "../auth/tokenStore";
-import type { AlbumDetail, AlbumListItem, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList, PaginatedAdminAlbumList } from "./types";
+import type { AlbumDetail, AlbumCreateInput, AlbumUpdateInput, PaginatedAlbumList, PaginatedAdminAlbumList } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 import { appendDefined } from "../utils";
 
