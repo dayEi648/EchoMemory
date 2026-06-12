@@ -70,6 +70,7 @@ export const SongRow = ({
   const handleClick = () => {
     if (musicId !== undefined) {
       openPlayerView(musicId);
+      onPlay?.();
     }
   };
 

@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 import { Sparkles, TrendingUp, Flame, Music, Disc, Radio, Compass, Zap } from "lucide-react";
 import { toast } from "sonner";
 
-import { musicApi, albumApi } from "../shared/api/instances";
+import { musicApi, albumApi, carouselApi } from "../shared/api/instances";
 import type { MusicListItem, AlbumListItem } from "../shared/api/types";
+import type { CarouselItem } from "../shared/api/carouselApi";
 import { formatAuthors, formatAlbumTitle } from "../shared/utils";
 import { usePlayMusic } from "../shared/usePlayMusic";
 import { HeroCarousel } from "../components/ui/HeroCarousel";
@@ -18,7 +19,8 @@ import { StaggerContainer, StaggerItem } from "../components/motion/StaggerConta
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 
-const CAROUSEL_SLIDES: CarouselSlide[] = [
+/** 无轮播数据时的占位 slides */
+const FALLBACK_SLIDES: CarouselSlide[] = [
   {
     title: "发现你的音乐记忆",
     subtitle: "EchoMemory 用 AI 理解你的品味，为你推荐专属好音乐",
@@ -35,6 +37,25 @@ const CAROUSEL_SLIDES: CarouselSlide[] = [
     gradient: "linear-gradient(135deg, #1a2a4a 0%, #2d3a7a 60%, #4a5a9a 100%)",
   },
 ];
+
+/** 将 API 返回的 CarouselItem 转为轮播 slide */
+function carouselItemToSlide(
+  item: CarouselItem,
+  navigate: (path: string) => void,
+  playMusicById: (id: number) => void,
+): CarouselSlide {
+  const onClick =
+    item.type === "music"
+      ? () => playMusicById(item.target_id)
+      : () => navigate(`/album/${item.target_id}`);
+  return {
+    title: item.title,
+    subtitle: item.description,
+    gradient: "",
+    imageUrl: item.image_url,
+    onClick,
+  };
+}
 
 /** 每日推荐 / 私人入口 占位卡片数据 */
 const DAILY_CARDS = [
@@ -66,24 +87,31 @@ const DAILY_CARDS = [
 
 export const DiscoverPage = () => {
   const navigate = useNavigate();
-  const { playMusicListItem } = usePlayMusic();
+  const { playMusicListItem, playMusicById } = usePlayMusic();
 
   const [hotSongs, setHotSongs] = useState<MusicListItem[]>([]);
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
   const [albums, setAlbums] = useState<AlbumListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(FALLBACK_SLIDES);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [hotRes, newRes, albumRes] = await Promise.all([
+        const [hotRes, newRes, albumRes, carouselRes] = await Promise.all([
           musicApi.listMusic({ limit: 5 }), // 热歌：用默认排序
           musicApi.listMusic({ limit: 8 }), // 新歌
           albumApi.listAlbums({ limit: 6 }),
+          carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
         ]);
         setHotSongs(hotRes.items ?? []);
         setNewSongs(newRes.items ?? []);
         setAlbums(albumRes.items ?? []);
+
+        const items = carouselRes as CarouselItem[];
+        if (items.length > 0) {
+          setCarouselSlides(items.map((item) => carouselItemToSlide(item, (path) => navigate(path), (id) => playMusicById(id))));
+        }
       } catch {
         toast.error("加载内容失败，请稍后重试");
       } finally {
@@ -91,13 +119,13 @@ export const DiscoverPage = () => {
       }
     };
     load();
-  }, []);
+  }, [navigate]);
 
   return (
     <div>
       {/* ====== 1. Hero Carousel ====== */}
       <FadeIn>
-        <HeroCarousel slides={CAROUSEL_SLIDES} interval={5000} />
+        <HeroCarousel slides={carouselSlides} interval={5000} />
       </FadeIn>
 
       {/* ====== 2. 每日推荐 + 私人入口 ====== */}

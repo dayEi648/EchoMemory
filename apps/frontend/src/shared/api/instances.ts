@@ -11,6 +11,7 @@ import { createCollectionApi } from "./collectionApi";
 import { createCommentApi } from "./commentApi";
 import { createSpacePostApi } from "./spacePostApi";
 import { createDictionaryApi } from "./dictionaryApi";
+import { createCarouselApi } from "./carouselApi";
 import { createUserApi } from "./userApi";
 
 const isDev = import.meta.env.DEV;
@@ -36,6 +37,7 @@ export type ApiRegistry = {
   commentApi: ReturnType<typeof createCommentApi>;
   spacePostApi: ReturnType<typeof createSpacePostApi>;
   dictionaryApi: ReturnType<typeof createDictionaryApi>;
+  carouselApi: ReturnType<typeof createCarouselApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -50,6 +52,7 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     commentApi: createCommentApi(options),
     spacePostApi: createSpacePostApi(options),
     dictionaryApi: createDictionaryApi(options),
+    carouselApi: createCarouselApi(options),
   };
 }
 
@@ -74,6 +77,7 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   commentApi = apis.commentApi;
   spacePostApi = apis.spacePostApi;
   dictionaryApi = apis.dictionaryApi;
+  carouselApi = apis.carouselApi;
 }
 
 export let userApi = apis.userApi;
@@ -85,3 +89,4 @@ export let collectionApi = apis.collectionApi;
 export let commentApi = apis.commentApi;
 export let spacePostApi = apis.spacePostApi;
 export let dictionaryApi = apis.dictionaryApi;
+export let carouselApi = apis.carouselApi;

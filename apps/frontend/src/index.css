@@ -3098,6 +3098,26 @@ textarea {
   align-items: center;
   padding: 40px 56px;
   overflow: hidden;
+  cursor: default;
+}
+
+.hero-carousel-slide[role="button"] {
+  cursor: pointer;
+}
+
+.hero-carousel-bg-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+
+.hero-carousel-bg-img::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.05) 100%);
 }
 
 .hero-carousel-content {

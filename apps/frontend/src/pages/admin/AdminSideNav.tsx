@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Music, BookOpen, Activity, Disc3 } from "lucide-react";
+import { Users, Music, BookOpen, Activity, Disc3, Image } from "lucide-react";
 import { motion } from "framer-motion";
 
 const adminLinks = [
@@ -7,6 +7,7 @@ const adminLinks = [
   { to: "/admin/users", icon: Users, label: "用户管理" },
   { to: "/admin/music", icon: Music, label: "音乐管理" },
   { to: "/admin/albums", icon: Disc3, label: "专辑管理" },
+  { to: "/admin/carousel", icon: Image, label: "推图管理" },
   { to: "/admin/dict", icon: BookOpen, label: "字典维护" },
 ];
 

@@ -209,7 +209,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
   /** 将单独播放的歌曲加入临时播放列表并切换到该歌曲 */
   const _playTemporaryTrack = (track: PlayerTrack) => {
-    if (!track.file_url) return;
+    if (!track.file_url) {
+      // 懒加载 file_url（恢复持久化状态后 file_url 为空）
+      void (async () => {
+        const loaded = await _ensureFileUrl(track);
+        if (loaded?.file_url) _playTemporaryTrack(loaded);
+      })();
+      return;
+    }
 
     const { queue, queueContext } = get();
     const baseQueue = queueContext?.type === "temporary" ? queue : [];
@@ -311,7 +318,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     playTrack: (track) => {
       const state = get();
-      if (state.currentTrack?.id === track.id) {
+      // 同一曲目且已有 file_url → 切换播放/暂停
+      if (state.currentTrack?.id === track.id && state.currentTrack?.file_url) {
         state.togglePlay();
         return;
       }
@@ -377,6 +385,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (isPlaying) {
         audio.pause();
       } else if (currentTrack) {
+        if (!currentTrack.file_url) {
+          // 恢复持久化状态后 file_url 为空，先懒加载
+          void (async () => {
+            const loaded = await _ensureFileUrl(currentTrack);
+            if (loaded?.file_url) _playTemporaryTrack(loaded);
+          })();
+          return;
+        }
         audio.play().catch(() => {});
       }
     },
