@@ -504,11 +504,6 @@ export type DictionaryType =
 export type DictionaryItem = {
   id: number;
   name: string;
-  description: string | null;
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 };
 
 export type PaginatedDictionaryItems = {

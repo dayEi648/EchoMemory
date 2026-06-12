@@ -5,7 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep, TokenDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.api.v1.endpoints._upload_helpers import (
+    form_to_schema,
+    upload_optional_image,
+)
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
@@ -40,23 +43,18 @@ def _parse_user_create_form(
     city: str | None = Form(None),
 ) -> UserCreate:
     """将 multipart form 字段解析为 UserCreate Schema。"""
-    data = {
-        "username": username,
-        "nickname": nickname,
-        "password": password,
-        "gender": gender,
-    }
-    if email is not None:
-        data["email"] = email
-    if phone is not None:
-        data["phone"] = phone
-    if birth is not None:
-        data["birth"] = birth
-    if bio is not None:
-        data["bio"] = bio
-    if city is not None:
-        data["city"] = city
-    return UserCreate(**data)
+    return form_to_schema(
+        UserCreate,
+        username=username,
+        nickname=nickname,
+        password=password,
+        gender=gender,
+        email=email,
+        phone=phone,
+        birth=birth,
+        bio=bio,
+        city=city,
+    )
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)

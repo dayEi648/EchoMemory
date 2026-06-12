@@ -91,21 +91,26 @@ export const DiscoverPage = () => {
 
   const [hotSongs, setHotSongs] = useState<MusicListItem[]>([]);
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
+  const [recommendSongs, setRecommendSongs] = useState<MusicListItem[]>([]);
   const [albums, setAlbums] = useState<AlbumListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(FALLBACK_SLIDES);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
-        const [hotRes, newRes, albumRes, carouselRes] = await Promise.all([
-          musicApi.listMusic({ limit: 5 }), // 热歌：用默认排序
-          musicApi.listMusic({ limit: 8 }), // 新歌
+        const [hotRes, newRes, recRes, albumRes, carouselRes] = await Promise.all([
+          musicApi.listMusic({ limit: 5, sort_by: "play_count" }),
+          musicApi.listMusic({ limit: 8, sort_by: "created_at" }),
+          musicApi.listMusic({ limit: 5, sort_by: "hot" }),
           albumApi.listAlbums({ limit: 6 }),
           carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
         ]);
+        if (cancelled) return;
         setHotSongs(hotRes.items ?? []);
         setNewSongs(newRes.items ?? []);
+        setRecommendSongs(recRes.items ?? []);
         setAlbums(albumRes.items ?? []);
 
         const items = carouselRes as CarouselItem[];
@@ -113,12 +118,13 @@ export const DiscoverPage = () => {
           setCarouselSlides(items.map((item) => carouselItemToSlide(item, (path) => navigate(path), (id) => playMusicById(id))));
         }
       } catch {
-        toast.error("加载内容失败，请稍后重试");
+        if (!cancelled) toast.error("加载内容失败，请稍后重试");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (
@@ -218,7 +224,7 @@ export const DiscoverPage = () => {
               title="推荐榜"
               icon={Sparkles}
               accent="lavender"
-              songs={hotSongs.slice(0, 5)}
+              songs={recommendSongs}
               loading={loading}
               onPlay={(song) => playMusicListItem(song)}
             />

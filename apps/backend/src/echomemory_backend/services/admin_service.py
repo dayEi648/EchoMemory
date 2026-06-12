@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.redis_client import increment_user_token_version
 from echomemory_backend.core.security import get_password_hash
-from echomemory_backend.core.utils import parse_iso8601_duration
+from echomemory_backend.core.utils import escape_like, parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import UserAdminCreate, UserAdminUpdate, UserBanAction
@@ -56,10 +56,10 @@ async def list_users_with_count(
     if role is not None:
         where_clause.append(User.role == role)
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        escaped = escape_like(q)
         where_clause.append(
-            (User.username.ilike(f"%{escaped_q}%", escape="\\"))
-            | (User.nickname.ilike(f"%{escaped_q}%", escape="\\"))
+            (User.username.ilike(f"%{escaped}%", escape="\\"))
+            | (User.nickname.ilike(f"%{escaped}%", escape="\\"))
         )
 
     # 查询总数

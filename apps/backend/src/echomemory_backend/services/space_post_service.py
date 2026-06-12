@@ -4,6 +4,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.core.exceptions import BusinessError
@@ -115,14 +116,9 @@ async def list_space_posts(
         .where(*where_clause)
         .options(selectinload(SpacePost.images))
         .order_by(desc(SpacePost.created_at))
-        .limit(limit)
-        .offset(offset)
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def soft_delete_space_post(db: AsyncSession, post: SpacePost) -> None:

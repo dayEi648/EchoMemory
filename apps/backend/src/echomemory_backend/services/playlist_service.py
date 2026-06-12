@@ -19,6 +19,12 @@ from echomemory_backend.models.playlist import (
     PlaylistMusic,
 )
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.utils import escape_like
+from echomemory_backend.db.pagination import paginate
+from echomemory_backend.services.association_helpers import (
+    rebuild_tag_association,
+    sync_owner_tags_from_musics,
+)
 from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_interest_tags_exist,
@@ -43,12 +49,15 @@ async def _set_playlist_emotion_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await validate_emotion_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(PlaylistEmotionTag).where(PlaylistEmotionTag.playlist_id == playlist.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=playlist.id,
+        owner_fk="playlist_id",
+        tag_ids=tag_ids,
+        assoc_model=PlaylistEmotionTag,
+        tag_fk="emotion_tag_id",
+        validate_fn=validate_emotion_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(PlaylistEmotionTag(playlist_id=playlist.id, emotion_tag_id=tag_id))
 
 
 async def _set_playlist_interest_tags(
@@ -67,12 +76,15 @@ async def _set_playlist_interest_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await validate_interest_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(PlaylistInterestTag).where(PlaylistInterestTag.playlist_id == playlist.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=playlist.id,
+        owner_fk="playlist_id",
+        tag_ids=tag_ids,
+        assoc_model=PlaylistInterestTag,
+        tag_fk="interest_tag_id",
+        validate_fn=validate_interest_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(PlaylistInterestTag(playlist_id=playlist.id, interest_tag_id=tag_id))
 
 
 async def _sync_playlist_tags_from_musics(
@@ -84,36 +96,14 @@ async def _sync_playlist_tags_from_musics(
         db: SQLAlchemy 异步 Session。
         playlist_id: 歌单主键 ID。
     """
-    # 收集情感标签（去重）
-    stmt = (
-        select(MusicEmotionTag.emotion_tag_id)
-        .join(PlaylistMusic, PlaylistMusic.music_id == MusicEmotionTag.music_id)
-        .where(PlaylistMusic.playlist_id == playlist_id)
-        .distinct()
+    await sync_owner_tags_from_musics(
+        db,
+        playlist_id,
+        music_join_model=PlaylistMusic,
+        owner_fk="playlist_id",
+        emotion_assoc_model=PlaylistEmotionTag,
+        interest_assoc_model=PlaylistInterestTag,
     )
-    emotion_tag_ids = list((await db.execute(stmt)).scalars().all())
-
-    # 收集兴趣标签（去重）
-    stmt = (
-        select(MusicInterestTag.interest_tag_id)
-        .join(PlaylistMusic, PlaylistMusic.music_id == MusicInterestTag.music_id)
-        .where(PlaylistMusic.playlist_id == playlist_id)
-        .distinct()
-    )
-    interest_tag_ids = list((await db.execute(stmt)).scalars().all())
-
-    # 重建标签关联
-    await db.execute(
-        delete(PlaylistEmotionTag).where(PlaylistEmotionTag.playlist_id == playlist_id)
-    )
-    for tag_id in emotion_tag_ids:
-        db.add(PlaylistEmotionTag(playlist_id=playlist_id, emotion_tag_id=tag_id))
-
-    await db.execute(
-        delete(PlaylistInterestTag).where(PlaylistInterestTag.playlist_id == playlist_id)
-    )
-    for tag_id in interest_tag_ids:
-        db.add(PlaylistInterestTag(playlist_id=playlist_id, interest_tag_id=tag_id))
 
 
 async def create_default_like_playlist(
@@ -253,8 +243,9 @@ async def search_playlists(
         exists().where(PlaylistMusic.playlist_id == Playlist.id),  # 排除空歌单
     ]
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Playlist.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Playlist.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
     if emotion_tag_id is not None:
         where_clause.append(
             exists().where(
@@ -274,15 +265,10 @@ async def search_playlists(
         select(Playlist)
         .where(*where_clause)
         .order_by(desc(Playlist.hot), desc(Playlist.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(Playlist.user))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def list_user_public_playlists(
@@ -307,15 +293,10 @@ async def list_user_public_playlists(
         select(Playlist)
         .where(*where_clause)
         .order_by(desc(Playlist.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(Playlist.user))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def list_user_playlists(
@@ -340,15 +321,10 @@ async def list_user_playlists(
         select(Playlist)
         .where(*where_clause)
         .order_by(desc(Playlist.is_like), desc(Playlist.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(Playlist.user))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def list_user_playlists_with_music_membership(

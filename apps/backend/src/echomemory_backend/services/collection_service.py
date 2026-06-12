@@ -7,6 +7,7 @@ from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
@@ -287,15 +288,10 @@ async def list_album_collections(
         select(UserAlbumCollection)
         .where(*where_clause)
         .order_by(desc(UserAlbumCollection.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(UserAlbumCollection.album))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 # ---------------------------------------------------------------------------
@@ -517,19 +513,14 @@ async def list_releases(
         select(UserMusicRelease)
         .where(*where_clause)
         .order_by(desc(UserMusicRelease.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(
             selectinload(UserMusicRelease.music)
             .selectinload(Music.authors)
             .selectinload(MusicAuthor.author),
         )
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def is_music_collected(db: AsyncSession, user_id: int, music_id: int) -> bool:

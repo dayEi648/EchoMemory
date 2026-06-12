@@ -90,6 +90,7 @@ export const SearchPage = () => {
   useEffect(() => {
     if (!query.trim()) return;
     setLoading(true);
+    let cancelled = false;
 
     if (activeTab === "all") {
       Promise.all([
@@ -107,6 +108,7 @@ export const SearchPage = () => {
         }),
       ])
         .then(([users, songs, albums, playlists]) => {
+          if (cancelled) return;
           setUserResults(users.items);
           setFollowedIds(
             new Set(users.items.filter((u) => u.is_followed_by_me).map((u) => u.id)),
@@ -120,9 +122,9 @@ export const SearchPage = () => {
           setPlaylistTotal(playlists.total);
         })
         .catch((err) => {
-          toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
         })
-        .finally(() => setLoading(false));
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "songs") {
       musicApi
         .searchMusic({
@@ -135,9 +137,9 @@ export const SearchPage = () => {
           setSongTotal(songs.total);
         })
         .catch((err) => {
-          toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
         })
-        .finally(() => setLoading(false));
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "albums") {
       albumApi
         .searchAlbums({
@@ -150,9 +152,9 @@ export const SearchPage = () => {
           setAlbumTotal(albums.total);
         })
         .catch((err) => {
-          toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
         })
-        .finally(() => setLoading(false));
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "playlists") {
       playlistApi
         .searchPlaylists({
@@ -165,9 +167,9 @@ export const SearchPage = () => {
           setPlaylistTotal(playlists.total);
         })
         .catch((err) => {
-          toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
         })
-        .finally(() => setLoading(false));
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "users") {
       api
         .searchUsers(query.trim(), PAGE_SIZE, userPage * PAGE_SIZE)
@@ -179,12 +181,13 @@ export const SearchPage = () => {
           setUserTotal(users.total);
         })
         .catch((err) => {
-          toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
         })
-        .finally(() => setLoading(false));
+        .finally(() => { if (!cancelled) setLoading(false); });
     } else {
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
+    return () => { cancelled = true; };
   }, [query, activeTab, songPage, albumPage, playlistPage, userPage, api]);
 
   const handleToggleFollow = async (userId: number) => {

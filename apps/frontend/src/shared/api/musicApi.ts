@@ -24,12 +24,14 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       release_date_from?: string;
       release_date_to?: string;
       q?: string;
+      sort_by?: string;
       limit?: number;
       offset?: number;
     } = {}) => {
       const query = new URLSearchParams();
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
+      if (params.sort_by) query.set("sort_by", params.sort_by);
       if (params.style_id !== undefined) query.set("style_id", String(params.style_id));
       if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
       if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));

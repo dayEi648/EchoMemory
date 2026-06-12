@@ -20,6 +20,9 @@ from echomemory_backend.models.music import (
 )
 from echomemory_backend.models.playlist import PlaylistMusic
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.utils import escape_like
+from echomemory_backend.db.pagination import paginate
+from echomemory_backend.services.association_helpers import rebuild_tag_association
 from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_instruments_exist,
@@ -72,14 +75,15 @@ async def _set_music_instruments(
     Raises:
         BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
     """
-    await validate_instruments_exist(db, instrument_ids)
-    await db.execute(
-        delete(MusicInstrument).where(MusicInstrument.music_id == music.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=music.id,
+        owner_fk="music_id",
+        tag_ids=instrument_ids,
+        assoc_model=MusicInstrument,
+        tag_fk="instrument_id",
+        validate_fn=validate_instruments_exist,
     )
-    for instrument_id in instrument_ids:
-        db.add(
-            MusicInstrument(music_id=music.id, instrument_id=instrument_id)
-        )
 
 
 async def _set_music_emotion_tags(
@@ -98,12 +102,15 @@ async def _set_music_emotion_tags(
     Raises:
         BusinessError: 存在不存在的情绪标签 ID 时抛出，状态码 404。
     """
-    await validate_emotion_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(MusicEmotionTag).where(MusicEmotionTag.music_id == music.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=music.id,
+        owner_fk="music_id",
+        tag_ids=tag_ids,
+        assoc_model=MusicEmotionTag,
+        tag_fk="emotion_tag_id",
+        validate_fn=validate_emotion_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(MusicEmotionTag(music_id=music.id, emotion_tag_id=tag_id))
 
 
 async def _set_music_interest_tags(
@@ -122,12 +129,15 @@ async def _set_music_interest_tags(
     Raises:
         BusinessError: 存在不存在的兴趣标签 ID 时抛出，状态码 404。
     """
-    await validate_interest_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(MusicInterestTag).where(MusicInterestTag.music_id == music.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=music.id,
+        owner_fk="music_id",
+        tag_ids=tag_ids,
+        assoc_model=MusicInterestTag,
+        tag_fk="interest_tag_id",
+        validate_fn=validate_interest_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(MusicInterestTag(music_id=music.id, interest_tag_id=tag_id))
 
 
 async def create_music(
@@ -242,10 +252,11 @@ async def list_musics(
     release_date_from: date | None = None,
     release_date_to: date | None = None,
     q: str | None = None,
+    sort_by: str = "created_at",
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
-    """分页列出音乐，支持多条件筛选。默认只返回已上架音乐。
+    """分页列出音乐，支持多条件筛选与排序。默认只返回已上架音乐。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -259,6 +270,7 @@ async def list_musics(
         release_date_from: 发行日期起始（含），默认 None 表示不限制。
         release_date_to: 发行日期截止（含），默认 None 表示不限制。
         q: 标题模糊搜索关键词，默认 None 表示不搜索。
+        sort_by: 排序字段，支持 created_at / play_count / hot，默认 created_at。
         limit: 每页返回的最大记录数，默认 20。
         offset: 分页偏移量，默认 0。
 
@@ -273,8 +285,9 @@ async def list_musics(
     if is_vip is not None:
         where_clause.append(Music.is_vip == is_vip)
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Music.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
     if instrument_id is not None:
         where_clause.append(
             exists().where(
@@ -301,21 +314,23 @@ async def list_musics(
     if release_date_to is not None:
         where_clause.append(Music.release_date <= release_date_to)
 
+    _SORT_COLUMNS = {
+        "created_at": Music.created_at,
+        "play_count": Music.play_count,
+        "hot": Music.hot,
+    }
+    sort_column = _SORT_COLUMNS.get(sort_by, Music.created_at)
+
     stmt = (
         select(Music)
         .where(*where_clause)
-        .order_by(desc(Music.created_at))
-        .limit(limit)
-        .offset(offset)
+        .order_by(desc(sort_column))
         .options(
             selectinload(Music.authors).selectinload(MusicAuthor.author)
         )
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def search_musics(
@@ -340,22 +355,18 @@ async def search_musics(
     """
     where_clause = [Music.is_published == is_published]
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Music.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
 
     stmt = (
         select(Music)
         .where(*where_clause)
         .order_by(desc(Music.hot))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(Music.authors).selectinload(MusicAuthor.author))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def admin_search_musics(
@@ -394,8 +405,9 @@ async def admin_search_musics(
     if is_published is not None:
         where_clause.append(Music.is_published == is_published)
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Music.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
     if style_id is not None:
         where_clause.append(Music.style_id == style_id)
     if language_id is not None:

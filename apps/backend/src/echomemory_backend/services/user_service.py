@@ -8,6 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.utils import escape_like
+from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.user import User, UserFollow
 from echomemory_backend.schemas.user import UserCreate, UserUpdate
@@ -256,6 +258,49 @@ async def unfollow_user(db: AsyncSession, follower_id: int, followee_id: int) ->
     await db.commit()
 
 
+async def _get_follow_relation(
+    db: AsyncSession,
+    user_id: int,
+    *,
+    relation_field,
+    join_field,
+    limit: int,
+    offset: int,
+) -> dict[str, object]:
+    """查询关注关系的用户列表（内部共用逻辑）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 查询目标的用户主键。
+        relation_field: UserFollow 上用于匹配 user_id 的列（follower_id 或 followee_id）。
+        join_field: UserFollow 上用于 join User 的列。
+        limit: 返回结果数量上限。
+        offset: 分页偏移量。
+
+    Returns:
+        {"items": 用户实例列表, "total": 总记录数}。
+    """
+    where_clause = [relation_field == user_id, User.is_deleted == False]
+    stmt = (
+        select(User)
+        .join(UserFollow, join_field == User.id)
+        .where(*where_clause)
+        .order_by(desc(UserFollow.created_at))
+    )
+    items = list(
+        (await db.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    )
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserFollow)
+            .join(User, join_field == User.id)
+            .where(*where_clause)
+        )
+    ).scalar_one()
+    return {"items": items, "total": total}
+
+
 async def get_followees(
     db: AsyncSession, user_id: int, limit: int, offset: int
 ) -> dict[str, object]:
@@ -270,28 +315,14 @@ async def get_followees(
     Returns:
         {"items": 用户实例列表, "total": 总记录数}。
     """
-    where_clause = [
-        UserFollow.follower_id == user_id,
-        User.is_deleted == False,
-    ]
-    stmt = (
-        select(User)
-        .join(UserFollow, UserFollow.followee_id == User.id)
-        .where(*where_clause)
-        .order_by(desc(UserFollow.created_at))
-        .limit(limit)
-        .offset(offset)
+    return await _get_follow_relation(
+        db,
+        user_id,
+        relation_field=UserFollow.follower_id,
+        join_field=UserFollow.followee_id,
+        limit=limit,
+        offset=offset,
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(
-            select(func.count())
-            .select_from(UserFollow)
-            .join(User, UserFollow.followee_id == User.id)
-            .where(*where_clause)
-        )
-    ).scalar_one()
-    return {"items": items, "total": total}
 
 
 async def get_followers(
@@ -308,28 +339,14 @@ async def get_followers(
     Returns:
         {"items": 用户实例列表, "total": 总记录数}。
     """
-    where_clause = [
-        UserFollow.followee_id == user_id,
-        User.is_deleted == False,
-    ]
-    stmt = (
-        select(User)
-        .join(UserFollow, UserFollow.follower_id == User.id)
-        .where(*where_clause)
-        .order_by(desc(UserFollow.created_at))
-        .limit(limit)
-        .offset(offset)
+    return await _get_follow_relation(
+        db,
+        user_id,
+        relation_field=UserFollow.followee_id,
+        join_field=UserFollow.follower_id,
+        limit=limit,
+        offset=offset,
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(
-            select(func.count())
-            .select_from(UserFollow)
-            .join(User, UserFollow.follower_id == User.id)
-            .where(*where_clause)
-        )
-    ).scalar_one()
-    return {"items": items, "total": total}
 
 
 async def search_users(
@@ -359,21 +376,12 @@ async def search_users(
     if role is not None:
         where_clause.append(User.role == role)
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        escaped = escape_like(q)
         where_clause.append(
-            (User.username.ilike(f"%{escaped_q}%", escape="\\"))
-            | (User.nickname.ilike(f"%{escaped_q}%", escape="\\"))
+            (User.username.ilike(f"%{escaped}%", escape="\\"))
+            | (User.nickname.ilike(f"%{escaped}%", escape="\\"))
         )
 
-    stmt = (
-        select(User)
-        .where(*where_clause)
-        .order_by(desc(User.exp))
-        .limit(limit)
-        .offset(offset)
-    )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    stmt = select(User).where(*where_clause).order_by(desc(User.exp))
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}

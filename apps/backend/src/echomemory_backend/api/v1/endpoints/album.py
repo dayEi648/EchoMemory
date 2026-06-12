@@ -3,7 +3,8 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.v1.endpoints._upload_helpers import UploadCollector
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
     AdminAlbumListItem,
@@ -15,6 +16,8 @@ from echomemory_backend.schemas.album import (
 from echomemory_backend.services import album_service, collection_service
 
 router = APIRouter(prefix="/albums", tags=["albums"])
+
+_ALBUM_NOT_DELETED = lambda album: not album.is_deleted
 
 
 # ---------------------------------------------------------------------------
@@ -49,17 +52,16 @@ async def create_album(
             detail="Cover must be an image file",
         )
 
-    uploaded_urls: list[str] = []
-    try:
+    async with UploadCollector() as uploads:
         cover_icon_url = await oss_client.upload_image_to_oss(
             cover_icon.file, folder="album_covers", filename_prefix="icon"
         )
-        uploaded_urls.append(cover_icon_url)
+        uploads.add(cover_icon_url)
 
         cover_url = await oss_client.upload_image_to_oss(
             cover.file, folder="album_covers", filename_prefix="cover"
         )
-        uploaded_urls.append(cover_url)
+        uploads.add(cover_url)
 
         album = await album_service.create_album(
             db,
@@ -70,13 +72,6 @@ async def create_album(
             cover_url=cover_url,
             author_ids=author_ids or None,
         )
-    except HTTPException:
-        raise
-    except Exception:
-        # 业务校验失败或数据库失败时清理已上传 OSS 文件
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
 
     # 重新加载完整关联数据
     album = await album_service.get_album_by_id(db, album.id)
@@ -112,11 +107,13 @@ async def admin_update_album(
     update_in: AlbumUpdate,
 ):
     """管理员修改专辑信息（不含文件替换和标签编辑）。"""
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
+    album = await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
 
     album = await album_service.update_album(
         db,
@@ -144,11 +141,13 @@ async def admin_update_album_covers(
     支持单独替换封面图标、封面大图，或同时替换两者。
     上传新图片到 OSS 后自动删除旧图片。
     """
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
+    album = await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
 
     if cover_icon is None and cover is None:
         raise HTTPException(
@@ -171,17 +170,16 @@ async def admin_update_album_covers(
             detail="Cover must be an image file",
         )
 
-    uploaded_urls: list[str] = []
     old_urls_to_delete: list[str] = []
     cover_icon_url: str | None = None
     cover_url: str | None = None
 
-    try:
+    async with UploadCollector() as uploads:
         if cover_icon is not None:
             cover_icon_url = await oss_client.upload_image_to_oss(
                 cover_icon.file, folder="album_covers", filename_prefix="icon"
             )
-            uploaded_urls.append(cover_icon_url)
+            uploads.add(cover_icon_url)
             if album.cover_icon_url:
                 old_urls_to_delete.append(album.cover_icon_url)
 
@@ -189,7 +187,7 @@ async def admin_update_album_covers(
             cover_url = await oss_client.upload_image_to_oss(
                 cover.file, folder="album_covers", filename_prefix="cover"
             )
-            uploaded_urls.append(cover_url)
+            uploads.add(cover_url)
             if album.cover_url:
                 old_urls_to_delete.append(album.cover_url)
 
@@ -199,14 +197,7 @@ async def admin_update_album_covers(
             cover_icon_url=cover_icon_url,
             cover_url=cover_url,
         )
-    except HTTPException:
-        raise
-    except Exception:
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
 
-    # 数据库更新成功后删除旧图片
     for old_url in old_urls_to_delete:
         await oss_client.delete_object_by_url(old_url)
 
@@ -221,11 +212,13 @@ async def admin_delete_album(
     album_id: int,
 ):
     """管理员软删除专辑。"""
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
+    album = await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
 
     await album_service.soft_delete_album(db, album)
     return None
@@ -243,11 +236,13 @@ async def add_music_to_album(
     music_id: int,
 ):
     """将一首已上架音乐加入专辑。"""
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
+    await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
 
     await album_service.add_music_to_album(db, album_id, music_id)
 
@@ -266,11 +261,13 @@ async def remove_music_from_album(
     music_id: int,
 ):
     """从专辑移除一首音乐。"""
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
+    await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
 
     await album_service.remove_music_from_album(db, album_id, music_id)
 
@@ -322,16 +319,18 @@ async def get_album(
     current_user: OptionalUser = None,
 ):
     """获取未删除专辑的详情。"""
-    album = await album_service.get_album_by_id(db, album_id)
-    if album is None or album.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
-        )
-    collected = False
-    if current_user is not None:
-        collected = await collection_service.is_album_collected(
-            db, current_user.id, album_id
-        )
-    return AlbumOut.model_validate(album).model_copy(
-        update={"is_collected_by_me": collected}
+    album = await require_entity(
+        album_service.get_album_by_id,
+        db,
+        album_id,
+        detail="Album not found",
+        predicate=_ALBUM_NOT_DELETED,
+    )
+    return await build_detail_response(
+        album,
+        AlbumOut,
+        collection_service.is_album_collected,
+        db,
+        current_user,
+        entity_id=album_id,
     )

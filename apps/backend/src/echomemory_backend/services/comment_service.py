@@ -4,6 +4,7 @@ from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.comment import Comment, CommentDislike, CommentLike
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.schemas.comment import CommentOut
@@ -270,15 +271,10 @@ async def list_comments(
         select(Comment)
         .where(*where_clause)
         .order_by(desc(Comment.created_at))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(Comment.user))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def list_replies(

@@ -26,6 +26,12 @@ from echomemory_backend.models.music import (
 )
 from echomemory_backend.models.user import User
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.utils import escape_like
+from echomemory_backend.db.pagination import paginate
+from echomemory_backend.services.association_helpers import (
+    rebuild_tag_association,
+    sync_owner_tags_from_musics,
+)
 from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_interest_tags_exist,
@@ -79,12 +85,15 @@ async def _set_album_emotion_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await validate_emotion_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(AlbumEmotionTag).where(AlbumEmotionTag.album_id == album.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=album.id,
+        owner_fk="album_id",
+        tag_ids=tag_ids,
+        assoc_model=AlbumEmotionTag,
+        tag_fk="emotion_tag_id",
+        validate_fn=validate_emotion_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(AlbumEmotionTag(album_id=album.id, emotion_tag_id=tag_id))
 
 
 async def _set_album_interest_tags(
@@ -103,12 +112,15 @@ async def _set_album_interest_tags(
     Raises:
         BusinessError: 某标签不存在时抛出，状态码 404。
     """
-    await validate_interest_tags_exist(db, tag_ids)
-    await db.execute(
-        delete(AlbumInterestTag).where(AlbumInterestTag.album_id == album.id)
+    await rebuild_tag_association(
+        db,
+        owner_id=album.id,
+        owner_fk="album_id",
+        tag_ids=tag_ids,
+        assoc_model=AlbumInterestTag,
+        tag_fk="interest_tag_id",
+        validate_fn=validate_interest_tags_exist,
     )
-    for tag_id in tag_ids:
-        db.add(AlbumInterestTag(album_id=album.id, interest_tag_id=tag_id))
 
 
 async def _sync_album_tags_from_musics(
@@ -120,36 +132,14 @@ async def _sync_album_tags_from_musics(
         db: SQLAlchemy 异步 Session。
         album_id: 专辑主键 ID。
     """
-    # 收集情感标签（去重）
-    stmt = (
-        select(MusicEmotionTag.emotion_tag_id)
-        .join(AlbumMusic, AlbumMusic.music_id == MusicEmotionTag.music_id)
-        .where(AlbumMusic.album_id == album_id)
-        .distinct()
+    await sync_owner_tags_from_musics(
+        db,
+        album_id,
+        music_join_model=AlbumMusic,
+        owner_fk="album_id",
+        emotion_assoc_model=AlbumEmotionTag,
+        interest_assoc_model=AlbumInterestTag,
     )
-    emotion_tag_ids = list((await db.execute(stmt)).scalars().all())
-
-    # 收集兴趣标签（去重）
-    stmt = (
-        select(MusicInterestTag.interest_tag_id)
-        .join(AlbumMusic, AlbumMusic.music_id == MusicInterestTag.music_id)
-        .where(AlbumMusic.album_id == album_id)
-        .distinct()
-    )
-    interest_tag_ids = list((await db.execute(stmt)).scalars().all())
-
-    # 重建标签关联
-    await db.execute(
-        delete(AlbumEmotionTag).where(AlbumEmotionTag.album_id == album_id)
-    )
-    for tag_id in emotion_tag_ids:
-        db.add(AlbumEmotionTag(album_id=album_id, emotion_tag_id=tag_id))
-
-    await db.execute(
-        delete(AlbumInterestTag).where(AlbumInterestTag.album_id == album_id)
-    )
-    for tag_id in interest_tag_ids:
-        db.add(AlbumInterestTag(album_id=album_id, interest_tag_id=tag_id))
 
 
 async def create_album(
@@ -262,8 +252,9 @@ async def list_albums(
     ]
 
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Album.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
     if emotion_tag_id is not None:
         where_clause.append(
             Album.id.in_(
@@ -281,18 +272,9 @@ async def list_albums(
             )
         )
 
-    stmt = (
-        select(Album)
-        .where(*where_clause)
-        .order_by(desc(Album.created_at))
-        .limit(limit)
-        .offset(offset)
-    )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    stmt = select(Album).where(*where_clause).order_by(desc(Album.created_at))
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def search_albums(
@@ -318,21 +300,13 @@ async def search_albums(
         exists().where(AlbumMusic.album_id == Album.id),  # 排除空专辑
     ]
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Album.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
 
-    stmt = (
-        select(Album)
-        .where(*where_clause)
-        .order_by(desc(Album.hot))
-        .limit(limit)
-        .offset(offset)
-    )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    stmt = select(Album).where(*where_clause).order_by(desc(Album.hot))
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def update_album(
@@ -496,8 +470,9 @@ async def admin_search_albums(
     """
     where_clause = [Album.is_deleted == False]
     if q:
-        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
-        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
+        where_clause.append(
+            Album.title.ilike(f"%{escape_like(q)}%", escape="\\")
+        )
 
     stmt = (
         select(Album)
@@ -507,12 +482,9 @@ async def admin_search_albums(
             selectinload(Album.musics),
         )
         .order_by(desc(Album.created_at))
-        .limit(limit)
-        .offset(offset)
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (await db.execute(select(func.count()).where(*where_clause))).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def update_album_covers(

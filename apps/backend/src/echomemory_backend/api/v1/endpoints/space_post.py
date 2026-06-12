@@ -1,10 +1,12 @@
 """空间动态（Space Post）API 路由端点，支持用户发布、查看、点赞、删除动态及管理员硬删除。"""
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.api.v1.endpoints._upload_helpers import (
+    UploadCollector,
+    upload_optional_image,
+)
 from echomemory_backend.core.oss_client import delete_object_by_url
 from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
@@ -31,33 +33,24 @@ async def create_space_post(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Content or at least one file is required",
         )
-    uploaded_urls: list[str] = []
-    try:
+    async with UploadCollector() as uploads:
         for file in files:
-            url = await upload_optional_image(
-                file,
-                folder="space_post_images",
-                prefix=str(current_user.id),
-                detail_name="File",
+            uploads.add(
+                await upload_optional_image(
+                    file,
+                    folder="space_post_images",
+                    prefix=str(current_user.id),
+                    detail_name="File",
+                )
             )
-            if url:
-                uploaded_urls.append(url)
 
         post = await space_post_service.create_space_post(
             db,
             user_id=current_user.id,
             content=content,
             is_private=is_private,
-            image_urls=uploaded_urls,
+            image_urls=uploads.urls,
         )
-    except HTTPException:
-        for url in uploaded_urls:
-            await delete_object_by_url(url)
-        raise
-    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
-        for url in uploaded_urls:
-            await delete_object_by_url(url)
-        raise
 
     post = await space_post_service.get_space_post_by_id(db, post.id)
     return (

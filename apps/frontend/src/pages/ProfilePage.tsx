@@ -47,27 +47,34 @@ export const ProfilePage = () => {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     api.getPublicUser(id).then((data) => {
-      setProfile(data);
-      setFollowing(data.is_followed_by_me ?? false);
+      if (!cancelled) {
+        setProfile(data);
+        setFollowing(data.is_followed_by_me ?? false);
+      }
     }).catch((err) => {
-      toast.error(err instanceof Error ? err.message : "加载用户资料失败");
-    }).finally(() => setLoading(false));
+      if (!cancelled) toast.error(err instanceof Error ? err.message : "加载用户资料失败");
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [userId, api, currentUser]);
 
   // Load dashboard data for own profile
   useEffect(() => {
     if (!isOwnProfile) return;
     setDashLoading(true);
+    let cancelled = false;
     Promise.all([
       playlistApi.listPlaylists({ limit: 4 }),
       collectionApi.listAlbumCollections({ limit: 4 }),
       playHistoryApi.listPlayHistory({ limit: 5 }),
     ]).then(([pl, al, hi]) => {
+      if (cancelled) return;
       setMyPlaylists(pl.items);
       setMyAlbums(al.items);
       setMyHistory(hi.items);
-    }).catch(() => {}).finally(() => setDashLoading(false));
+    }).catch(() => {}).finally(() => { if (!cancelled) setDashLoading(false); });
+    return () => { cancelled = true; };
   }, [isOwnProfile]);
 
   useEffect(() => {

@@ -5,7 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, OptionalUser, SessionDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.api.v1.endpoints._upload_helpers import (
+    form_to_schema,
+    upload_optional_image,
+)
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
@@ -44,22 +47,16 @@ def _parse_user_update_form(
     city: str | None = Form(None),
 ) -> UserUpdate:
     """将 multipart form 字段解析为 UserUpdate Schema。"""
-    data = {}
-    if nickname is not None:
-        data["nickname"] = nickname
-    if email is not None:
-        data["email"] = email
-    if phone is not None:
-        data["phone"] = phone
-    if gender is not None:
-        data["gender"] = gender
-    if birth is not None:
-        data["birth"] = birth
-    if bio is not None:
-        data["bio"] = bio
-    if city is not None:
-        data["city"] = city
-    return UserUpdate(**data)
+    return form_to_schema(
+        UserUpdate,
+        nickname=nickname,
+        email=email,
+        phone=phone,
+        gender=gender,
+        birth=birth,
+        bio=bio,
+        city=city,
+    )
 
 
 @router.patch("/me", response_model=UserMeOut)

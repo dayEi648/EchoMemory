@@ -130,7 +130,7 @@ class TestCreateSpacePost:
             fake_upload,
         )
         monkeypatch.setattr(
-            "echomemory_backend.api.v1.endpoints.space_post.delete_object_by_url",
+            "echomemory_backend.core.oss_client.delete_object_by_url",
             fake_delete,
         )
 

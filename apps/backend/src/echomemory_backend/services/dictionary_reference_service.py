@@ -11,6 +11,37 @@ from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag, Instrument
 
 
+async def _validate_ids_exist(
+    db: AsyncSession,
+    model: type,
+    ids: list[int],
+    label: str,
+) -> None:
+    """批量校验字典项 ID 是否存在。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        model: 字典表 ORM 模型类。
+        ids: 待校验的 ID 列表。
+        label: 错误消息中的资源名称。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 存在缺失 ID 时抛出，状态码 404。
+    """
+    if not ids:
+        return
+    existing = {
+        row
+        for row in (await db.execute(select(model.id).where(model.id.in_(ids)))).scalars()
+    }
+    missing = set(ids) - existing
+    if missing:
+        raise BusinessError(f"{label} not found: {sorted(missing)}", 404)
+
+
 async def validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
     """批量校验情感标签 ID 是否存在。
 
@@ -24,13 +55,7 @@ async def validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> N
     Raises:
         BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
     """
-    if not tag_ids:
-        return
-    stmt = select(EmotionTag.id).where(EmotionTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Emotion tags not found: {sorted(missing)}", 404)
+    await _validate_ids_exist(db, EmotionTag, tag_ids, "Emotion tags")
 
 
 async def validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:
@@ -46,13 +71,7 @@ async def validate_interest_tags_exist(db: AsyncSession, tag_ids: list[int]) -> 
     Raises:
         BusinessError: 存在不存在的标签 ID 时抛出，状态码 404。
     """
-    if not tag_ids:
-        return
-    stmt = select(InterestTag.id).where(InterestTag.id.in_(tag_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(tag_ids) - existing
-    if missing:
-        raise BusinessError(f"Interest tags not found: {sorted(missing)}", 404)
+    await _validate_ids_exist(db, InterestTag, tag_ids, "Interest tags")
 
 
 async def validate_instruments_exist(db: AsyncSession, instrument_ids: list[int]) -> None:
@@ -68,10 +87,4 @@ async def validate_instruments_exist(db: AsyncSession, instrument_ids: list[int]
     Raises:
         BusinessError: 存在不存在的乐器 ID 时抛出，状态码 404。
     """
-    if not instrument_ids:
-        return
-    stmt = select(Instrument.id).where(Instrument.id.in_(instrument_ids))
-    existing = {row for row in (await db.execute(stmt)).scalars()}
-    missing = set(instrument_ids) - existing
-    if missing:
-        raise BusinessError(f"Instruments not found: {sorted(missing)}", 404)
+    await _validate_ids_exist(db, Instrument, instrument_ids, "Instruments")

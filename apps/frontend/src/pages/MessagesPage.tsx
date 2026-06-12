@@ -7,50 +7,18 @@ import {
   Ban,
   CheckCheck,
   MessageCircle,
-  UserPlus,
-  Heart,
-  MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useInboxStore } from "../shared/stores/inboxStore";
 import { useAuthStore } from "../shared/stores/authStore";
 import type { NotificationItem, DirectMessageItem } from "../shared/api/types";
-
-const NOTIFICATION_ICON_MAP: Record<number, typeof Bell> = {
-  0: UserPlus,
-  1: MessageCircle,
-  2: Heart,
-  3: Heart,
-  4: MessageSquare,
-};
-
-const NOTIFICATION_LABEL_MAP: Record<number, string> = {
-  0: "关注了你",
-  1: "回复了你的评论",
-  2: "赞了你的评论",
-  3: "赞了你的动态",
-  4: "评论了你的动态",
-};
-
-/** 格式化未读数字：>=10 显示 "9+" */
-function formatBadge(n: number): string {
-  if (n >= 10) return "9+";
-  return String(n);
-}
-
-/** 格式化相对时间 */
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "刚刚";
-  if (mins < 60) return `${mins}分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
-}
+import {
+  NOTIFICATION_ICON_MAP,
+  NOTIFICATION_LABEL_MAP,
+  formatBadge,
+} from "../shared/notificationHelpers";
+import { formatRelativeTime } from "../shared/utils";
 
 /* ================================================================
  * Notification Panel
@@ -119,7 +87,7 @@ function NotificationPanel() {
                     {label}
                   </div>
                   <div className="notification-panel-item__time">
-                    {relativeTime(n.created_at)}
+                    {formatRelativeTime(n.created_at)}
                   </div>
                 </div>
                 {!n.is_read && <span className="notification-panel-item__dot" />}
@@ -170,14 +138,12 @@ function ChatPanel({ conversationId }: { conversationId: number }) {
     }
   }, [currentMessages.length, page]);
 
-  // 加载更多
+  // 加载更多历史消息
   const handleLoadMore = useCallback(async () => {
-    setPage((p) => p + 1);
-    const result = await loadMessages(conversationId);
-    // loadMessages 已在 store 中处理了 limit/offset，这里简单触发
-    // store 内 loadMessages 参数固定 limit=50，需支持 offset
-    // 内部处理
-  }, [conversationId, loadMessages]);
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await loadMessages(conversationId, { limit: 50, offset: nextPage * 50 });
+  }, [conversationId, loadMessages, page]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -447,7 +413,7 @@ export const MessagesPage = () => {
                 </span>
               )}
               <span className="messages-sidebar-time">
-                {relativeTime(c.updated_at)}
+                {formatRelativeTime(c.updated_at)}
               </span>
             </button>
           ))}

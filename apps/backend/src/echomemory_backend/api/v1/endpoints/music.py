@@ -7,7 +7,11 @@ from datetime import date
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
+from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.v1.endpoints._upload_helpers import (
+    UploadCollector,
+    upload_optional_image,
+)
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.schemas.music import (
@@ -20,6 +24,8 @@ from echomemory_backend.core.redis_client import check_rate_limit
 from echomemory_backend.services import collection_service, music_service
 
 router = APIRouter(prefix="/music", tags=["music"])
+
+_MUSIC_PUBLISHED = lambda music: music.is_published
 
 
 _ALLOWED_FILE_EXTS = {"mp3", "flac", "wav", "ogg", "aac", "lrc", "jpg", "jpeg", "png"}
@@ -113,31 +119,27 @@ async def import_music(
                 detail="release_date must be in YYYY-MM-DD format",
             ) from exc
 
-    # ----- 上传文件到 OSS（带孤儿文件清理） -----
-    uploaded_urls: list[str] = []
     file_prefix = uuid.uuid4().hex[:12]
-    try:
+    async with UploadCollector() as uploads:
         file_url = await oss_client.upload_audio_to_oss(
             audio_file.file,
             prefix=file_prefix,
             ext=_safe_ext(audio_file.filename, "mp3"),
         )
-        uploaded_urls.append(file_url)
+        uploads.add(file_url)
 
         cover_icon_url = await oss_client.upload_image_to_oss(
             cover_icon.file,
             folder="music_covers",
             filename_prefix="icon",
         )
-        uploaded_urls.append(cover_icon_url)
+        uploads.add(cover_icon_url)
 
         cover_home_url = await upload_optional_image(cover_home, "music_covers", "home")
-        if cover_home_url:
-            uploaded_urls.append(cover_home_url)
+        uploads.add(cover_home_url)
 
         cover_play_url = await upload_optional_image(cover_play, "music_covers", "play")
-        if cover_play_url:
-            uploaded_urls.append(cover_play_url)
+        uploads.add(cover_play_url)
 
         lyrics_url: str | None = None
         if lyrics_file is not None:
@@ -146,9 +148,8 @@ async def import_music(
                 prefix=file_prefix,
                 ext=_safe_ext(lyrics_file.filename, "lrc"),
             )
-            uploaded_urls.append(lyrics_url)
+            uploads.add(lyrics_url)
 
-        # ----- 创建数据库记录 -----
         music = await music_service.create_music(
             db,
             title=title,
@@ -167,15 +168,6 @@ async def import_music(
             cover_home_url=cover_home_url,
             cover_play_url=cover_play_url,
         )
-    except HTTPException:
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
-    except Exception:
-        # 任何其他异常（含 BusinessError、OSS 上传失败或数据库失败），清理已上传的 OSS 文件
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
 
     # 重新加载完整关联数据以匹配 MusicOut（避免异步懒加载 MissingGreenlet）
     music = await music_service.get_music_by_id(db, music.id)
@@ -204,11 +196,12 @@ async def admin_update_music(
     lyrics_file: UploadFile | None = File(None),
 ):
     """管理员修改音乐信息（含可选文件替换）。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
+    music = await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+    )
 
     # ----- 日期解析 -----
     release_date_parsed: date | None = None
@@ -232,7 +225,7 @@ async def admin_update_music(
     new_lyrics_url: str | None = None
 
     file_prefix = uuid.uuid4().hex[:12]
-    try:
+    async with UploadCollector() as uploads:
         if audio_file is not None:
             if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
                 raise HTTPException(
@@ -244,6 +237,7 @@ async def admin_update_music(
                 prefix=file_prefix,
                 ext=_safe_ext(audio_file.filename, "mp3"),
             )
+            uploads.add(new_file_url)
             if music.file_url:
                 old_urls_to_delete.append(music.file_url)
 
@@ -256,16 +250,19 @@ async def admin_update_music(
             new_cover_icon_url = await oss_client.upload_image_to_oss(
                 cover_icon.file, folder="music_covers", filename_prefix="icon"
             )
+            uploads.add(new_cover_icon_url)
             if music.cover_icon_url:
                 old_urls_to_delete.append(music.cover_icon_url)
 
         if cover_home is not None:
             new_cover_home_url = await upload_optional_image(cover_home, "music_covers", "home")
+            uploads.add(new_cover_home_url)
             if new_cover_home_url and music.cover_home_url:
                 old_urls_to_delete.append(music.cover_home_url)
 
         if cover_play is not None:
             new_cover_play_url = await upload_optional_image(cover_play, "music_covers", "play")
+            uploads.add(new_cover_play_url)
             if new_cover_play_url and music.cover_play_url:
                 old_urls_to_delete.append(music.cover_play_url)
 
@@ -275,17 +272,10 @@ async def admin_update_music(
                 prefix=file_prefix,
                 ext=_safe_ext(lyrics_file.filename, "lrc"),
             )
+            uploads.add(new_lyrics_url)
             if music.lyrics_url:
                 old_urls_to_delete.append(music.lyrics_url)
-    except HTTPException:
-        # 上传失败时清理已上传的新文件
-        for url in [new_file_url, new_cover_icon_url, new_cover_home_url, new_cover_play_url, new_lyrics_url]:
-            if url:
-                await oss_client.delete_object_by_url(url)
-        raise
 
-    # ----- 更新数据库 -----
-    try:
         music = await music_service.update_music(
             db,
             music,
@@ -306,20 +296,8 @@ async def admin_update_music(
             cover_play_url=new_cover_play_url,
         )
 
-        # 更新成功后删除旧文件
-        for url in old_urls_to_delete:
-            await oss_client.delete_object_by_url(url)
-    except Exception:
-        for url in [
-            new_file_url,
-            new_cover_icon_url,
-            new_cover_home_url,
-            new_cover_play_url,
-            new_lyrics_url,
-        ]:
-            if url:
-                await oss_client.delete_object_by_url(url)
-        raise
+    for url in old_urls_to_delete:
+        await oss_client.delete_object_by_url(url)
 
     # 重新加载完整关联数据以匹配 MusicOut
     music = await music_service.get_music_by_id(db, music.id)
@@ -333,11 +311,12 @@ async def admin_publish_music(
     music_id: int,
 ):
     """管理员上架音乐。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
+    music = await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+    )
     music = await music_service.set_music_published(db, music, published=True)
     music = await music_service.get_music_by_id(db, music.id)
     return music
@@ -350,11 +329,12 @@ async def admin_unpublish_music(
     music_id: int,
 ):
     """管理员下架音乐。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
+    music = await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+    )
     music = await music_service.set_music_published(db, music, published=False)
     music = await music_service.get_music_by_id(db, music.id)
     return music
@@ -399,12 +379,12 @@ async def admin_get_music(
     music_id: int,
 ):
     """管理员获取任意音乐详情（含未上架）。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
-    return music
+    return await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -437,10 +417,11 @@ async def list_musics(
     release_date_from: str | None = Query(None, description="发行日期起始 (YYYY-MM-DD)"),
     release_date_to: str | None = Query(None, description="发行日期截止 (YYYY-MM-DD)"),
     q: str | None = Query(None, description="按标题模糊搜索"),
+    sort_by: str = Query("created_at", description="排序字段: created_at / play_count / hot"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """分页列出已上架音乐，支持多条件筛选。"""
+    """分页列出已上架音乐，支持多条件筛选与排序。"""
     release_date_from_parsed: date | None = None
     release_date_to_parsed: date | None = None
     if release_date_from:
@@ -471,6 +452,7 @@ async def list_musics(
         release_date_from=release_date_from_parsed,
         release_date_to=release_date_to_parsed,
         q=q,
+        sort_by=sort_by,
         limit=limit,
         offset=offset,
     )
@@ -482,11 +464,13 @@ async def get_music_lyrics(
     music_id: int,
 ):
     """获取已上架音乐的歌词文本（由服务端代理 OSS，避免前端跨域）。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None or not music.is_published:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
+    music = await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+        predicate=_MUSIC_PUBLISHED,
+    )
     if not music.lyrics_url:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lyrics not found"
@@ -508,16 +492,18 @@ async def get_music(
     current_user: OptionalUser = None,
 ):
     """获取已上架音乐的详情。"""
-    music = await music_service.get_music_by_id(db, music_id)
-    if music is None or not music.is_published:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
-        )
-    collected = False
-    if current_user is not None:
-        collected = await collection_service.is_music_collected(
-            db, current_user.id, music_id
-        )
-    return MusicOut.model_validate(music).model_copy(
-        update={"is_collected_by_me": collected}
+    music = await require_entity(
+        music_service.get_music_by_id,
+        db,
+        music_id,
+        detail="Music not found",
+        predicate=_MUSIC_PUBLISHED,
+    )
+    return await build_detail_response(
+        music,
+        MusicOut,
+        collection_service.is_music_collected,
+        db,
+        current_user,
+        entity_id=music_id,
     )

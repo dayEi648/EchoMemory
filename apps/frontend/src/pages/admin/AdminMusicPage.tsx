@@ -44,6 +44,7 @@ export const AdminMusicPage = () => {
   const [musics, setMusics] = useState<AdminMusicListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [styleFilter, setStyleFilter] = useState<string>("");
   const [languageFilter, setLanguageFilter] = useState<string>("");
   const [publishedFilter, setPublishedFilter] = useState<string>("");
@@ -94,7 +95,7 @@ export const AdminMusicPage = () => {
     setLoading(true);
     try {
       const result = await musicApi.adminListMusic({
-        q: query || undefined,
+        q: searchQuery || undefined,
         style_id: styleFilter ? Number(styleFilter) : undefined,
         language_id: languageFilter ? Number(languageFilter) : undefined,
         is_published: publishedFilter === "" ? undefined : publishedFilter === "true",
@@ -113,7 +114,7 @@ export const AdminMusicPage = () => {
       setLoading(false);
     }
   }, [
-    query,
+    searchQuery,
     styleFilter,
     languageFilter,
     publishedFilter,
@@ -151,7 +152,7 @@ export const AdminMusicPage = () => {
     loadDict();
   }, []);
 
-  const handleSearch = () => setPage(0);
+  const handleSearch = () => { setSearchQuery(query); setPage(0); };
   const totalPages = Math.ceil(total / pageSize);
 
   const handleTogglePublish = async (music: AdminMusicListItem) => {

@@ -1,12 +1,53 @@
 """上传辅助模块，提供文件上传至 OSS 的公共函数。"""
 
 import logging
+from typing import TypeVar
 
 from fastapi import HTTPException, UploadFile, status
 
 from echomemory_backend.core import oss_client
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def form_to_schema(cls: type[T], **fields) -> T:
+    """将 Form 字段值过滤 None 后构造 Pydantic Schema。
+
+    Args:
+        cls: 目标 Pydantic Schema 类。
+        **fields: Form 字段键值对。
+
+    Returns:
+        构造好的 Schema 实例。
+    """
+    return cls(**{k: v for k, v in fields.items() if v is not None})
+
+
+class UploadCollector:
+    """管理上传过程中的 URL 收集与异常时自动清理。"""
+
+    def __init__(self) -> None:
+        self.urls: list[str] = []
+
+    def add(self, url: str | None) -> None:
+        """记录一个已上传的 URL，None 时忽略。
+
+        Args:
+            url: OSS 文件 URL，或 None。
+        """
+        if url:
+            self.urls.append(url)
+
+    async def __aenter__(self) -> "UploadCollector":
+        return self
+
+    async def __aexit__(self, exc_type, *_):
+        if exc_type is not None:
+            for url in self.urls:
+                await oss_client.delete_object_by_url(url)
+        return False
 
 
 async def upload_optional_image(

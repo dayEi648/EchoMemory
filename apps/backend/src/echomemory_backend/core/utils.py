@@ -1,6 +1,18 @@
 from datetime import timedelta
 
 
+def escape_like(value: str) -> str:
+    """转义 SQL LIKE 通配符 % 和 _，防止用户输入被解释为模式匹配。
+
+    Args:
+        value: 原始搜索关键词。
+
+    Returns:
+        转义后的字符串，可安全用于 ilike 模式。
+    """
+    return value.replace("%", "\\%").replace("_", "\\_")
+
+
 def timedelta_to_iso8601_duration(td: timedelta | None) -> str | None:
     """将 Python timedelta 转换为 ISO 8601 持续时间字符串。
 

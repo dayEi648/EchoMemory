@@ -3,9 +3,22 @@ from datetime import timedelta
 import pytest
 
 from echomemory_backend.core.utils import (
+    escape_like,
     parse_iso8601_duration,
     timedelta_to_iso8601_duration,
 )
+
+
+class TestEscapeLike:
+    """测试 SQL LIKE 通配符转义。"""
+
+    def test_escape_percent_and_underscore(self):
+        """应转义 % 和 _ 字符。"""
+        assert escape_like("100%_done") == "100\\%\\_done"
+
+    def test_plain_string_unchanged(self):
+        """普通字符串应保持不变。"""
+        assert escape_like("hello") == "hello"
 
 
 class TestParseIso8601Duration:

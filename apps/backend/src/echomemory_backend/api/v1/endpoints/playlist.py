@@ -6,8 +6,11 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
-from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
-from echomemory_backend.core import oss_client
+from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.v1.endpoints._upload_helpers import (
+    UploadCollector,
+    upload_optional_image,
+)
 from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PaginatedPlaylistMembershipOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import collection_service, playlist_service
 
@@ -33,19 +36,15 @@ async def create_playlist(
     标签由系统根据歌曲收藏自动计算，不允许手动编辑。
     """
     user_id = current_user.id
-    cover_icon_url: str | None = None
-    uploaded_urls: list[str] = []
+    async with UploadCollector() as uploads:
+        cover_icon_url = await upload_optional_image(
+            cover_icon,
+            folder="playlist_covers",
+            prefix="icon",
+            detail_name="Cover icon",
+        )
+        uploads.add(cover_icon_url)
 
-    cover_icon_url = await upload_optional_image(
-        cover_icon,
-        folder="playlist_covers",
-        prefix="icon",
-        detail_name="Cover icon",
-    )
-    if cover_icon_url:
-        uploaded_urls.append(cover_icon_url)
-
-    try:
         playlist = await playlist_service.create_playlist(
             db,
             user_id=user_id,
@@ -54,12 +53,6 @@ async def create_playlist(
             is_private=is_private,
             cover_icon_url=cover_icon_url,
         )
-    except HTTPException:
-        raise
-    except Exception:
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
 
     # 重新加载完整关联数据以匹配 PlaylistOut
     playlist = await playlist_service.get_playlist_by_id(db, playlist.id)
@@ -147,11 +140,12 @@ async def get_playlist(
 
     仅允许查看自己的歌单或 `is_private=False` 的公开歌单。
     """
-    playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
-    if playlist is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
-        )
+    playlist = await require_entity(
+        playlist_service.get_playlist_by_id,
+        db,
+        playlist_id,
+        detail="Playlist not found",
+    )
 
     if playlist.is_private and playlist.user_id != current_user.id:
         raise HTTPException(
@@ -159,11 +153,13 @@ async def get_playlist(
             detail="You do not have permission to view this playlist",
         )
 
-    collected = await collection_service.is_playlist_collected(
-        db, current_user.id, playlist_id
-    )
-    return PlaylistOut.model_validate(playlist).model_copy(
-        update={"is_collected_by_me": collected}
+    return await build_detail_response(
+        playlist,
+        PlaylistOut,
+        collection_service.is_playlist_collected,
+        db,
+        current_user,
+        entity_id=playlist_id,
     )
 
 
@@ -175,11 +171,12 @@ async def update_playlist(
     update_in: PlaylistUpdate,
 ):
     """修改歌单信息（仅文本字段，不含封面替换和标签编辑）。"""
-    playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
-    if playlist is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
-        )
+    playlist = await require_entity(
+        playlist_service.get_playlist_by_id,
+        db,
+        playlist_id,
+        detail="Playlist not found",
+    )
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
@@ -207,11 +204,12 @@ async def delete_playlist(
     playlist_id: int,
 ):
     """删除自己的歌单。"""
-    playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
-    if playlist is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
-        )
+    playlist = await require_entity(
+        playlist_service.get_playlist_by_id,
+        db,
+        playlist_id,
+        detail="Playlist not found",
+    )
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
@@ -238,11 +236,12 @@ async def add_music_to_playlist(
     music_id: int,
 ):
     """添加一首已上架音乐到歌单。仅允许操作自己的歌单。"""
-    playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
-    if playlist is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
-        )
+    playlist = await require_entity(
+        playlist_service.get_playlist_by_id,
+        db,
+        playlist_id,
+        detail="Playlist not found",
+    )
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
@@ -268,11 +267,12 @@ async def remove_music_from_playlist(
     music_id: int,
 ):
     """从歌单移除一首音乐。仅允许操作自己的歌单。"""
-    playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
-    if playlist is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
-        )
+    playlist = await require_entity(
+        playlist_service.get_playlist_by_id,
+        db,
+        playlist_id,
+        detail="Playlist not found",
+    )
 
     if playlist.user_id != current_user.id:
         raise HTTPException(

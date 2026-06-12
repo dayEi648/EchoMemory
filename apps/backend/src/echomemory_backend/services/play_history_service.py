@@ -8,6 +8,7 @@ from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
@@ -152,15 +153,10 @@ async def list_play_history(
         select(PlayHistory)
         .where(*where_clause)
         .order_by(desc(PlayHistory.played_at), desc(PlayHistory.id))
-        .limit(limit)
-        .offset(offset)
         .options(selectinload(PlayHistory.music))
     )
-    items = list((await db.execute(stmt)).scalars().all())
-    total = (
-        await db.execute(select(func.count()).where(*where_clause))
-    ).scalar_one()
-    return {"items": items, "total": total}
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
+    return {"items": page.items, "total": page.total}
 
 
 async def delete_play_history(

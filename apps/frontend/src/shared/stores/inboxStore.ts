@@ -39,7 +39,7 @@ interface InboxState {
   loadNotifications: () => Promise<void>;
   loadConversations: () => Promise<void>;
   selectConversation: (conversationId: number | null) => Promise<void>;
-  loadMessages: (conversationId: number) => Promise<void>;
+  loadMessages: (conversationId: number, params?: { limit?: number; offset?: number }) => Promise<void>;
   markNotificationRead: (notificationId: number) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   markConversationRead: (conversationId: number) => Promise<void>;
@@ -101,10 +101,17 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     set({ conversations: result.items });
   },
 
-  loadMessages: async (conversationId) => {
-    const result = await messageApi.listMessages(conversationId, { limit: 50 });
+  loadMessages: async (conversationId, params?: { limit?: number; offset?: number }) => {
+    const result = await messageApi.listMessages(conversationId, {
+      limit: params?.limit ?? 50,
+      offset: params?.offset ?? 0,
+    });
     // 服务端按时间倒序返回，前端展示需正序
-    set({ currentMessages: [...result.items].reverse() });
+    const messages = [...result.items].reverse();
+    const append = params?.offset != null && params.offset > 0;
+    set((s) => ({
+      currentMessages: append ? [...messages, ...s.currentMessages] : messages,
+    }));
   },
 
   selectConversation: async (conversationId) => {
