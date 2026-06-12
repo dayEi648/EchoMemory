@@ -364,6 +364,20 @@ export type PaginatedPlaylistList = {
   total: number;
 };
 
+export type PlaylistMembershipItem = {
+  id: number;
+  title: string;
+  is_private: boolean;
+  is_like: boolean;
+  cover_icon_url: string | null;
+  contains_music: boolean;
+};
+
+export type PaginatedPlaylistMembership = {
+  items: PlaylistMembershipItem[];
+  total: number;
+};
+
 export type PlaylistUpdateInput = {
   title?: string;
   description?: string;

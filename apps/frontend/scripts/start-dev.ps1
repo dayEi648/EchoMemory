@@ -22,6 +22,7 @@ if ($nginxRunning) {
 # 启动 Vite
 try {
     Write-Host "[vite] 启动中..." -ForegroundColor Green
+    node scripts/free-dev-port.mjs
     & npx vite
 } finally {
     # Vite 退出后自动停止 Nginx

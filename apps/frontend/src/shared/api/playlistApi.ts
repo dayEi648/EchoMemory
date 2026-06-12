@@ -1,4 +1,4 @@
-import type { PaginatedPlaylistList, PlaylistDetail, PlaylistUpdateInput } from "./types";
+import type { PaginatedPlaylistList, PaginatedPlaylistMembership, PlaylistDetail, PlaylistUpdateInput } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 import { appendDefined } from "../utils";
 
@@ -73,5 +73,9 @@ export const createPlaylistApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) 
     /** 从歌单移除歌曲。 */
     removeMusicFromPlaylist: (playlistId: number, musicId: number) =>
       request<void>(`/playlists/${playlistId}/musics/${musicId}`, { method: "DELETE" }),
+
+    /** 查询我的歌单及指定歌曲的归属状态（收藏弹窗用）。 */
+    listPlaylistMembershipForMusic: (musicId: number) =>
+      request<PaginatedPlaylistMembership>(`/playlists/membership/musics/${musicId}`),
   };
 };

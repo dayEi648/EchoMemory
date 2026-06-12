@@ -330,6 +330,50 @@ async def list_user_playlists(
     return {"items": items, "total": total}
 
 
+async def list_user_playlists_with_music_membership(
+    db: AsyncSession,
+    user_id: int,
+    music_id: int,
+) -> dict[str, object]:
+    """查询用户歌单列表，并标记指定歌曲是否已在各歌单中。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键 ID。
+        music_id: 待查询的歌曲 ID。
+
+    Returns:
+        {"items": 含 contains_music 标记的歌单列表, "total": 总记录数}。
+    """
+    where_clause = [Playlist.user_id == user_id]
+    stmt = (
+        select(Playlist)
+        .where(*where_clause)
+        .order_by(desc(Playlist.is_like), desc(Playlist.created_at))
+        .options(selectinload(Playlist.user))
+    )
+    playlists = list((await db.execute(stmt)).scalars().all())
+
+    containing_stmt = (
+        select(PlaylistMusic.playlist_id)
+        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+        .where(
+            Playlist.user_id == user_id,
+            PlaylistMusic.music_id == music_id,
+        )
+    )
+    containing_ids = set((await db.execute(containing_stmt)).scalars().all())
+
+    items = [
+        {
+            "playlist": playlist,
+            "contains_music": playlist.id in containing_ids,
+        }
+        for playlist in playlists
+    ]
+    return {"items": items, "total": len(items)}
+
+
 async def update_playlist(
     db: AsyncSession,
     playlist: Playlist,

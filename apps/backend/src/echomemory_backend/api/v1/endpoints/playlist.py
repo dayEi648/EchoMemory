@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
-from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PlaylistOut, PlaylistUpdate
+from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PaginatedPlaylistMembershipOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import collection_service, playlist_service
 from echomemory_backend.core.exceptions import BusinessError
 
@@ -110,6 +110,30 @@ async def list_public_playlists(
     return await playlist_service.list_user_public_playlists(
         db, user_id=user_id, limit=limit, offset=offset
     )
+
+
+@router.get("/membership/musics/{music_id}", response_model=PaginatedPlaylistMembershipOut)
+async def list_playlist_membership_for_music(
+    db: SessionDep,
+    current_user: ActiveUser,
+    music_id: int,
+):
+    """查询我的歌单列表，并标记指定歌曲是否已在各歌单中（用于收藏弹窗）。"""
+    result = await playlist_service.list_user_playlists_with_music_membership(
+        db, current_user.id, music_id
+    )
+    items = [
+        {
+            "id": item["playlist"].id,
+            "title": item["playlist"].title,
+            "is_private": item["playlist"].is_private,
+            "is_like": item["playlist"].is_like,
+            "cover_icon_url": item["playlist"].cover_icon_url,
+            "contains_music": item["contains_music"],
+        }
+        for item in result["items"]
+    ]
+    return {"items": items, "total": result["total"]}
 
 
 @router.get("/{playlist_id}", response_model=PlaylistOut)

@@ -8,13 +8,12 @@ from echomemory_backend.core.security import create_access_token, get_password_h
 from echomemory_backend.models.album import Album
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
-    UserMusicCollection,
     UserMusicRelease,
     UserPlaylistCollection,
 )
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music
-from echomemory_backend.models.playlist import Playlist
+from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
 
 BASE_URL = "/api/v1/collections"
@@ -132,11 +131,13 @@ class TestCollectMusic:
         )
         assert resp.status_code == 201
 
-        # 验证数据库只有一条记录
+        # 验证歌曲只存在于用户的一个歌单中（默认喜欢歌单）
         result = await db_session.execute(
-            select(UserMusicCollection).where(
-                UserMusicCollection.user_id == user.id,
-                UserMusicCollection.music_id == music.id,
+            select(PlaylistMusic)
+            .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+            .where(
+                Playlist.user_id == user.id,
+                PlaylistMusic.music_id == music.id,
             )
         )
         assert len(result.scalars().all()) == 1
@@ -190,14 +191,16 @@ class TestUncollectMusic:
         )
         assert resp.status_code == 204
 
-        # 验证数据库无记录
+        # 验证歌曲已从用户全部歌单中移除
         result = await db_session.execute(
-            select(UserMusicCollection).where(
-                UserMusicCollection.user_id == user.id,
-                UserMusicCollection.music_id == music.id,
+            select(PlaylistMusic)
+            .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+            .where(
+                Playlist.user_id == user.id,
+                PlaylistMusic.music_id == music.id,
             )
         )
-        assert result.scalar_one_or_none() is None
+        assert len(result.scalars().all()) == 0
 
     async def test_uncollect_music_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试取消未收藏音乐的幂等性。"""
@@ -507,6 +510,17 @@ class TestCollectPlaylist:
             headers=_auth_header(user),
         )
         assert resp.status_code == 404
+
+    async def test_collect_own_playlist_forbidden(self, client: TestClient, db_session: AsyncSession):
+        """测试收藏自己的歌单时返回 403。"""
+        user = await _create_user(db_session, "collect_own_pl")
+        playlist = await _create_playlist_directly(db_session, user.id, title="MyPlaylist")
+
+        resp = client.post(
+            f"{BASE_URL}/playlists/{playlist.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 403
 
     async def test_collect_playlist_unauthorized(self, client: TestClient, db_session: AsyncSession):
         """测试未登录用户收藏歌单时返回 401。"""

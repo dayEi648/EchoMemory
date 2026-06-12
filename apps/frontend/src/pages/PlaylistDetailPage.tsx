@@ -44,7 +44,7 @@ export const PlaylistDetailPage = () => {
   }, [playlistId]);
 
   const handleToggleCollect = async () => {
-    if (!playlist) return;
+    if (!playlist || currentUser?.id === playlist.user.id) return;
     try {
       if (collected) {
         await collectionApi.uncollectPlaylist(playlist.id);
@@ -136,6 +136,8 @@ export const PlaylistDetailPage = () => {
 
   const sortedMusics = [...playlist.musics].sort((a, b) => a.ordinal - b.ordinal);
   const isOwner = currentUser?.id === playlist.user.id;
+  /** 歌单收藏：仅对他人公开歌单可用（决策 §8） */
+  const canCollectPlaylist = !isOwner && !playlist.is_private;
 
   return (
     <div>
@@ -219,7 +221,7 @@ export const PlaylistDetailPage = () => {
                 <Play size={18} fill="white" />
                 播放全部
               </motion.button>
-              {!playlist.is_like && (
+              {canCollectPlaylist && (
                 <motion.button
                   onClick={handleToggleCollect}
                   whileHover={{ scale: 1.05 }}

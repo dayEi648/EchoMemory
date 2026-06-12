@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Music2, Disc, ListMusic, X } from "lucide-react";
+import { Music2, Disc, ListMusic, ListPlus, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
+import { AddToPlaylistModal } from "../components/ui/AddToPlaylistModal";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 
@@ -55,6 +56,9 @@ export const LibraryPage = () => {
   const [playlistsTotal, setPlaylistsTotal] = useState(0);
   const [playlistsPage, setPlaylistsPage] = useState(0);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
+
+  const [manageMusicId, setManageMusicId] = useState<number | null>(null);
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
   const loadSongs = useCallback(async () => {
     setSongsLoading(true);
@@ -101,15 +105,24 @@ export const LibraryPage = () => {
     else loadPlaylists();
   }, [activeTab, loadSongs, loadAlbums, loadPlaylists]);
 
-  /** 取消收藏歌曲 */
-  const handleUncollectSong = async (item: MusicCollectionItem) => {
-    try {
-      await collectionApi.uncollectMusic(item.music.id);
-      setSongs((prev) => prev.filter((s) => s.music.id !== item.music.id));
+  /** 管理歌曲所属歌单（收藏 = 歌单归属关系） */
+  const handleManageSong = (musicId: number) => {
+    setManageMusicId(musicId);
+    setPlaylistModalOpen(true);
+  };
+
+  const handleSongMembershipChange = (collected: boolean) => {
+    if (!collected && manageMusicId != null) {
+      setSongs((prev) => prev.filter((s) => s.music.id !== manageMusicId));
       setSongsTotal((t) => Math.max(0, t - 1));
-      toast.success("已取消收藏");
-    } catch {
-      toast.error("操作失败");
+    }
+  };
+
+  const handleClosePlaylistModal = () => {
+    setPlaylistModalOpen(false);
+    setManageMusicId(null);
+    if (activeTab === "songs") {
+      void loadSongs();
     }
   };
 
@@ -198,7 +211,7 @@ export const LibraryPage = () => {
               <div style={{ fontSize: 14, fontWeight: 500 }}>加载中...</div>
             </div>
           ) : songs.length === 0 ? (
-            <EmptyState icon={Music2} title="暂无收藏歌曲" description="在浏览歌曲时点击收藏，它们将出现在这里。" />
+            <EmptyState icon={Music2} title="暂无收藏歌曲" description="将歌曲添加到你的歌单，它们将出现在这里。" />
           ) : (
             <FadeIn delay={0.12}>
               <StaggerContainer staggerDelay={0.03}>
@@ -217,14 +230,14 @@ export const LibraryPage = () => {
                       </div>
                       <motion.button
                         className="ghost-button"
-                        onClick={() => handleUncollectSong(item)}
+                        onClick={() => handleManageSong(item.music.id)}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         type="button"
-                        title="取消收藏"
+                        title="管理歌单"
                         style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-muted)", flexShrink: 0 }}
                       >
-                        <X size={16} />
+                        <ListPlus size={16} />
                       </motion.button>
                     </div>
                   </StaggerItem>
@@ -344,6 +357,12 @@ export const LibraryPage = () => {
           )}
         </>
       )}
+      <AddToPlaylistModal
+        open={playlistModalOpen}
+        musicId={manageMusicId}
+        onClose={handleClosePlaylistModal}
+        onCollectedChange={handleSongMembershipChange}
+      />
     </PaginatedPageLayout>
   );
 };

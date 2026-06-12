@@ -146,6 +146,24 @@ class PaginatedPlaylistListOut(BaseModel):
     total: int
 
 
+class PlaylistMembershipItemOut(BaseModel):
+    """歌单归属项：用于歌曲收藏时的歌单选择器。"""
+
+    id: int
+    title: str
+    is_private: bool
+    is_like: bool
+    cover_icon_url: str | None = None
+    contains_music: bool
+
+
+class PaginatedPlaylistMembershipOut(BaseModel):
+    """用户歌单归属分页响应 Schema。"""
+
+    items: list[PlaylistMembershipItemOut]
+    total: int
+
+
 class PlaylistUpdate(BaseModel):
     """修改歌单信息的请求体（不含封面替换和标签编辑）。"""
 

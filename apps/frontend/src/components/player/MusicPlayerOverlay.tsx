@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { usePlayerStore } from "../../shared/stores/playerStore";
 import { usePlayerViewStore } from "../../shared/stores/playerViewStore";
 import { formatAuthors, toPlayerTrack } from "../../shared/utils";
-import { musicApi, collectionApi } from "../../shared/api/instances";
+import { musicApi } from "../../shared/api/instances";
 import type { MusicDetail } from "../../shared/api/types";
 import { EmptyState } from "../ui/EmptyState";
 import { CommentSection } from "../ui/CommentSection";
+import { AddToPlaylistModal } from "../ui/AddToPlaylistModal";
 import { PlayerScreenLyrics } from "./PlayerScreenLyrics";
 import { PlayerScreenTransport } from "./PlayerScreenTransport";
 
@@ -33,6 +34,7 @@ const PlayerScreen = ({ musicId, onClose }: PlayerScreenProps) => {
   const [music, setMusic] = useState<MusicDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [collected, setCollected] = useState(false);
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [tab, setTab] = useState<PlayerTab>("lyrics");
 
   const isCurrentTrack = music != null && currentTrack?.id === music.id;
@@ -92,21 +94,9 @@ const PlayerScreen = ({ musicId, onClose }: PlayerScreenProps) => {
     await playStandalone(toPlayerTrack(music));
   };
 
-  const handleToggleCollect = async () => {
+  const handleOpenCollectModal = () => {
     if (!music) return;
-    try {
-      if (collected) {
-        await collectionApi.uncollectMusic(music.id);
-        setCollected(false);
-        toast.success("已取消收藏");
-      } else {
-        await collectionApi.collectMusic(music.id);
-        setCollected(true);
-        toast.success("已收藏");
-      }
-    } catch {
-      toast.error("操作失败");
-    }
+    setPlaylistModalOpen(true);
   };
 
   return (
@@ -165,13 +155,20 @@ const PlayerScreen = ({ musicId, onClose }: PlayerScreenProps) => {
                 <button
                   type="button"
                   className={`ps-media__fav${collected ? " ps-media__fav--on" : ""}`}
-                  onClick={handleToggleCollect}
+                  onClick={handleOpenCollectModal}
                 >
                   <Heart size={16} fill={collected ? "currentColor" : "none"} />
                   {collected ? "已收藏" : "收藏"}
                 </button>
               </div>
             </aside>
+
+            <AddToPlaylistModal
+              open={playlistModalOpen}
+              musicId={music.id}
+              onClose={() => setPlaylistModalOpen(false)}
+              onCollectedChange={setCollected}
+            />
 
             <section className="ps-panel">
               <nav className="ps-tabs" aria-label="播放页分区">
