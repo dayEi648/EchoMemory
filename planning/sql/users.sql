@@ -20,12 +20,13 @@ CREATE TABLE users (
     birth         DATE,                                        -- 出生日期
     bio           TEXT,                                        -- 个人简介
     is_verified   BOOLEAN DEFAULT FALSE NOT NULL,             -- 是否通过专业/官方认证
+    is_official   BOOLEAN DEFAULT FALSE NOT NULL,             -- 是否为官方账号
     like_count    BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_users_like_count_nonnegative CHECK (like_count >= 0), -- 收到的总点赞数（反规范化计数）
     avatar_url    VARCHAR(500),                                -- 头像图片 URL
     last_login_at TIMESTAMPTZ,                                 -- 最近一次登录时间
     banned_at     TIMESTAMPTZ,                                 -- 封禁/限制/禁言开始时间
     ban_duration  INTERVAL,                                    -- 封禁/限制/禁言持续时长
-    updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,       -- 资料最后更新时间
+    updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL, -- 资料最后更新时间
     created_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,       -- 账号创建时间
     CONSTRAINT uq_users_username UNIQUE (username),
     CONSTRAINT chk_users_ban_consistency CHECK (

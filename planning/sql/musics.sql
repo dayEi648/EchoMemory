@@ -10,6 +10,7 @@ CREATE TABLE musics (
     hot             SMALLINT DEFAULT 0 NOT NULL CONSTRAINT chk_musics_hot CHECK (hot >= 0 AND hot <= 1000),                  -- 热度值 0~1000
     comment_count   BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_musics_comment_count_nonnegative CHECK (comment_count >= 0),    -- 评论数（反规范化计数，需应用层维护）
     play_count      BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_musics_play_count_nonnegative CHECK (play_count >= 0),          -- 播放次数（反规范化计数，需应用层维护）
+    forward_count   BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_musics_forward_count_nonnegative CHECK (forward_count >= 0),    -- 转发次数（反规范化计数，需应用层维护）
     is_published    BOOLEAN DEFAULT FALSE NOT NULL,                                      -- 是否上架
     release_date    DATE,                                                                 -- 发行日期
     file_url        VARCHAR(500),                                                         -- 音频文件 URL

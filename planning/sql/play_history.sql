@@ -9,6 +9,9 @@ CREATE TABLE play_history (
 -- 复合索引：按用户查询最近播放记录（核心读取场景）
 CREATE INDEX idx_play_history_user_time ON play_history(user_id, played_at DESC);
 
+-- 唯一索引：同一用户对同一首歌仅保留一条记录
+CREATE UNIQUE INDEX uq_play_history_user_music ON play_history(user_id, music_id);
+
 -- 触发器函数：维护每个用户最多100条去重播放记录
 CREATE OR REPLACE FUNCTION fn_play_history_cleanup()
 RETURNS TRIGGER AS $$

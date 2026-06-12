@@ -1,6 +1,6 @@
 -- 等级配置表：定义等级阈值，与 users 表解耦，便于随时调整升级曲线
 CREATE TABLE level_config (
-    level   SMALLINT PRIMARY KEY,
+    level   SMALLSERIAL PRIMARY KEY,
     min_exp INTEGER  NOT NULL,
     title   VARCHAR(50)
 );

@@ -10,7 +10,7 @@ CREATE TABLE space_posts (
     is_private BOOLEAN DEFAULT FALSE NOT NULL,                                      -- 是否私密
     comment_count BIGINT DEFAULT 0 NOT NULL,                                        -- 评论数（反规范化计数，需应用层维护）
     forward_count BIGINT DEFAULT 0 NOT NULL,                                        -- 转发数（反规范化计数，需应用层维护）
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,                               -- 更新时间
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,                      -- 更新时间
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,                      -- 创建时间
     is_deleted BOOLEAN DEFAULT FALSE NOT NULL,                                      -- 软删除标记
 

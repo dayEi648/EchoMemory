@@ -7,12 +7,13 @@ CREATE TABLE playlists (
     description     TEXT,                                                                   -- 歌单简介
     collect_count   BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_playlists_collect_count_nonnegative CHECK (collect_count >= 0),    -- 被收藏次数（反规范化计数，需应用层维护）
     play_count      BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_playlists_play_count_nonnegative CHECK (play_count >= 0),          -- 播放次数（反规范化计数，需应用层维护）
+    forward_count   BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_playlists_forward_count_nonnegative CHECK (forward_count >= 0),    -- 转发次数（反规范化计数，需应用层维护）
     hot             SMALLINT DEFAULT 0 NOT NULL CONSTRAINT chk_playlists_hot CHECK (hot >= 0 AND hot <= 1000),                  -- 热度值 0~1000
     comment_count   BIGINT DEFAULT 0 NOT NULL CONSTRAINT chk_playlists_comment_count_nonnegative CHECK (comment_count >= 0),    -- 评论数（反规范化计数，需应用层维护）
     is_like         BOOLEAN DEFAULT FALSE NOT NULL,                                       -- 是否为"喜欢"歌单（每个用户仅一个）
     is_recommended  BOOLEAN DEFAULT FALSE NOT NULL,                                       -- 是否平台推荐
     cover_icon_url  VARCHAR(500),                                                           -- 封面图标 URL
-    updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,                                  -- 更新时间
+    updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,                         -- 更新时间
     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL                          -- 创建时间
 );
 
