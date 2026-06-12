@@ -173,6 +173,8 @@ async def forward_to_space(
         source_id=source_id,
         content=content,
     )
+    # 重新加载以填充 images 关联（转发无图片，但需避免懒加载 MissingGreenlet）
+    post = await space_post_service.get_space_post_by_id(db, post.id)
     return (await space_post_service.build_space_post_outs(db, [post], current_user.id))[0]
 
 

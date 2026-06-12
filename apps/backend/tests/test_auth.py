@@ -158,6 +158,20 @@ class TestLogin:
         )
         assert resp.status_code == 401
 
+    async def test_login_writes_last_login_at(self, client: TestClient, db_session: AsyncSession):
+        """测试登录成功后写入 last_login_at。"""
+        user = await _create_user_directly(db_session, username="lastlogin", password="secret")
+        assert user.last_login_at is None
+
+        resp = client.post(
+            LOGIN_URL,
+            json={"username": "lastlogin", "password": "secret"},
+        )
+        assert resp.status_code == 200
+
+        await db_session.refresh(user)
+        assert user.last_login_at is not None
+
 
 class TestRefresh:
     """测试令牌刷新相关接口。"""

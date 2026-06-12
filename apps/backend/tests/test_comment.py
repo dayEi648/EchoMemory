@@ -1108,3 +1108,123 @@ class TestDislikeCount:
 
         await db_session.refresh(comment)
         assert comment.dislike_count == 0
+
+
+# ============================================================================
+# user.like_count 自动维护
+# ============================================================================
+
+
+class TestUserLikeCountFromComment:
+    """测试评论点赞/取消时自动维护 comment.user.like_count。"""
+
+    async def test_like_comment_increases_author_like_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试点赞评论后评论作者的 like_count 增加。"""
+        author = await _create_user(db_session, "author_like")
+        liker = await _create_user(db_session, "liker")
+        music = await _create_music_directly(db_session)
+        comment = await _create_comment_directly(
+            db_session, author.id, "My comment", music_id=music.id
+        )
+
+        assert author.like_count == 0
+
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 1
+
+    async def test_unlike_comment_decreases_author_like_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试取消点赞后评论作者的 like_count 减少（防负保护）。"""
+        author = await _create_user(db_session, "author_unlike")
+        liker = await _create_user(db_session, "unliker")
+        music = await _create_music_directly(db_session)
+        comment = await _create_comment_directly(
+            db_session, author.id, "My comment", music_id=music.id
+        )
+
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 1
+
+        client.delete(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 0
+
+    async def test_like_own_comment_no_self_increment(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试点赞自己的评论时虽然不触发通知，但 like_count 仍正常增加。"""
+        author = await _create_user(db_session, "self_liker")
+        music = await _create_music_directly(db_session)
+        comment = await _create_comment_directly(
+            db_session, author.id, "My own", music_id=music.id
+        )
+
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(author))
+        await db_session.refresh(author)
+        assert author.like_count == 1
+
+
+# ============================================================================
+# 评论排序
+# ============================================================================
+
+
+class TestCommentSortBy:
+    """测试评论列表排序参数。"""
+
+    async def test_sort_by_latest(self, client: TestClient, db_session: AsyncSession):
+        """测试按最新排序时评论按创建时间倒序。"""
+        user = await _create_user(db_session, "sort_latest")
+        music = await _create_music_directly(db_session)
+        a = await _create_comment_directly(db_session, user.id, "First", music_id=music.id)
+        b = await _create_comment_directly(db_session, user.id, "Second", music_id=music.id)
+
+        resp = client.get(
+            f"{BASE_URL}/music/{music.id}",
+            params={"sort_by": "latest"},
+        )
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        # 最新的在前
+        assert items[0]["content"] == "Second"
+        assert items[1]["content"] == "First"
+
+    async def test_sort_by_likes(self, client: TestClient, db_session: AsyncSession):
+        """测试按最热排序时评论按点赞数倒序。"""
+        user = await _create_user(db_session, "sort_likes")
+        music = await _create_music_directly(db_session)
+        a = await _create_comment_directly(db_session, user.id, "Low", music_id=music.id)
+        b = await _create_comment_directly(db_session, user.id, "High", music_id=music.id)
+
+        # 给 b 手动加点赞记录和计数
+        from sqlalchemy import update
+        db_session.add(CommentLike(comment_id=b.id, user_id=user.id))
+        await db_session.execute(
+            update(Comment).where(Comment.id == b.id).values(like_count=2)
+        )
+        await db_session.commit()
+
+        resp = client.get(
+            f"{BASE_URL}/music/{music.id}", params={"sort_by": "likes"}
+        )
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        # 点赞多的在前
+        assert items[0]["content"] == "High"
+        assert items[1]["content"] == "Low"
+
+    async def test_sort_by_recommended_default(self, client: TestClient, db_session: AsyncSession):
+        """测试默认的 recommended 排序正常返回。"""
+        user = await _create_user(db_session, "sort_default")
+        music = await _create_music_directly(db_session)
+        await _create_comment_directly(db_session, user.id, "A", music_id=music.id)
+        await _create_comment_directly(db_session, user.id, "B", music_id=music.id)
+
+        resp = client.get(f"{BASE_URL}/music/{music.id}")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 2

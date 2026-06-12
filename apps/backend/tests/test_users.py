@@ -553,3 +553,43 @@ class TestAdmin:
             },
         )
         assert resp.status_code == 403
+
+
+
+# ============================================================================
+# 管理仪表盘统计
+# ============================================================================
+
+
+class TestAdminDashboardStats:
+    """测试管理仪表盘统计接口。"""
+
+    ADMIN_STATS_URL = f"{BASE}/admin/stats"
+
+    async def test_stats_as_admin(self, client: TestClient, db_session: AsyncSession):
+        """测试管理员获取统计数据。"""
+        admin = await _create_user(db_session, "stats_admin", role=UserRole.ADMIN.value)
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "users" in data
+        assert "music" in data
+        assert "albums" in data
+        assert "playlists" in data
+        assert "comments" in data
+        assert "space_posts" in data
+        for v in data.values():
+            assert isinstance(v, int)
+
+    async def test_stats_as_normal_user_forbidden(self, client: TestClient, db_session: AsyncSession):
+        """测试普通用户访问统计接口返回 403。"""
+        user = await _create_user(db_session, "stats_normal")
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(user))
+        assert resp.status_code == 403
+
+    async def test_stats_unauthorized(self, client: TestClient):
+        """测试未登录访问统计接口返回 401。"""
+        resp = client.get(self.ADMIN_STATS_URL)
+        assert resp.status_code == 401

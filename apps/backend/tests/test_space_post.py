@@ -341,3 +341,93 @@ class TestAdminHardDelete:
         post = await _create_post(db_session, user.id, "No hard delete")
         resp = client.delete(f"{BASE}/admin/{post.id}", headers=_auth_header(user))
         assert resp.status_code == 403
+
+
+# ============================================================================
+# user.like_count 维护（空间动态）
+# ============================================================================
+
+
+class TestUserLikeCountFromSpacePost:
+    """测试空间动态点赞/取消时自动维护 post.user.like_count。"""
+
+    async def test_like_post_increases_author_like_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试点赞动态后作者的 like_count 增加。"""
+        author = await _create_user(db_session, "sp_author_like")
+        liker = await _create_user(db_session, "sp_liker")
+        post = await _create_post(db_session, author.id, "Like my post")
+
+        assert author.like_count == 0
+        client.post(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 1
+
+    async def test_unlike_post_decreases_author_like_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试取消点赞后作者的 like_count 减少。"""
+        author = await _create_user(db_session, "sp_author_unlike")
+        liker = await _create_user(db_session, "sp_unliker")
+        post = await _create_post(db_session, author.id, "Unlike my post")
+
+        client.post(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 1
+
+        client.delete(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
+        await db_session.refresh(author)
+        assert author.like_count == 0
+
+
+# ============================================================================
+# 转发
+# ============================================================================
+
+
+class TestForwardToSpace:
+    """测试转发内容到空间动态。"""
+
+    async def test_forward_space_post(self, client: TestClient, db_session: AsyncSession):
+        """测试转发别人的动态到自己的空间。"""
+        author = await _create_user(db_session, "fw_author")
+        forwarder = await _create_user(db_session, "fw_forwarder")
+        post = await _create_post(db_session, author.id, "Original post")
+
+        resp = client.post(
+            f"{BASE}/forward",
+            headers=_auth_header(forwarder),
+            data={"source_type": "space_post", "source_id": post.id, "content": "Check this!"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["user_id"] == forwarder.id
+        assert data["content"] == "Check this!"
+
+        # 源动态 forward_count 递增
+        await db_session.refresh(post)
+        assert post.forward_count == 1
+
+    async def test_forward_private_post_blocked(self, client: TestClient, db_session: AsyncSession):
+        """测试转发私密动态返回 404。"""
+        author = await _create_user(db_session, "fw_private_author")
+        forwarder = await _create_user(db_session, "fw_private_user")
+        post = await _create_post(db_session, author.id, "Secret", is_private=True)
+
+        resp = client.post(
+            f"{BASE}/forward",
+            headers=_auth_header(forwarder),
+            data={"source_type": "space_post", "source_id": post.id},
+        )
+        assert resp.status_code == 404
+
+    async def test_forward_invalid_source_type(self, client: TestClient, db_session: AsyncSession):
+        """测试转发无效 source_type 返回 400。"""
+        user = await _create_user(db_session, "fw_invalid")
+        resp = client.post(
+            f"{BASE}/forward",
+            headers=_auth_header(user),
+            data={"source_type": "invalid", "source_id": 1},
+        )
+        assert resp.status_code == 400
