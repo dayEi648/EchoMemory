@@ -88,6 +88,16 @@ export function getActiveLyricIndex(lines: LyricLine[], currentTime: number): nu
 }
 
 /**
+ * 获取界面展示用的歌词行索引。
+ * 播放尚未到达第一句时间戳时，仍对准第一句（提前就位）。
+ */
+export function getDisplayLyricIndex(lines: LyricLine[], currentTime: number): number {
+  if (lines.length === 0 || currentTime < 0) return -1;
+  const active = getActiveLyricIndex(lines, currentTime);
+  return active >= 0 ? active : 0;
+}
+
+/**
  * 在两行歌词时间戳之间插值，得到小数行索引（用于连续滚动）。
  */
 export function getInterpolatedLyricIndex(lines: LyricLine[], currentTime: number): number {

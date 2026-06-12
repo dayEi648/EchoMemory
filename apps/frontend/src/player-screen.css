@@ -430,22 +430,6 @@
   color: var(--color-brand-coral);
 }
 
-/* 中线高亮引导带（网易云式） */
-.ps-lyrics__guide {
-  position: absolute;
-  left: 8%;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 48px;
-  z-index: 2;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-brand-coral) 18%, transparent);
-  background: color-mix(in srgb, var(--color-brand-coral) 6%, transparent);
-  pointer-events: none;
-  box-shadow: inset 0 0 24px color-mix(in srgb, var(--color-brand-coral) 8%, transparent);
-}
-
 .ps-lyrics__scroll {
   position: absolute;
   inset: 0;
@@ -503,34 +487,27 @@
   line-height: 2.2;
   min-height: 2.2em;
   font-weight: 500;
-  color: var(--color-ink);
-  opacity: 0.28;
+  color: var(--color-muted);
+  opacity: 0.45;
   transition:
-    opacity 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-    font-weight 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    font-weight 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.ps-lyric-row--idle {
+.ps-lyric-row--upcoming {
   opacity: 0.4;
 }
 
-.ps-lyric-row--distant {
-  opacity: 0.22;
-}
-
-.ps-lyric-row--far {
-  opacity: 0.38;
-}
-
-.ps-lyric-row--adjacent {
-  opacity: 0.62;
+.ps-lyric-row--past {
+  opacity: 0.32;
+  color: var(--color-muted-soft);
 }
 
 .ps-lyric-row--current {
   opacity: 1;
-  color: var(--color-brand-coral);
   font-weight: 700;
+  color: var(--color-brand-coral);
 }
 
 .ps-lyric-row--seekable {
@@ -539,7 +516,11 @@
 }
 
 .ps-lyric-row--seekable:hover {
-  opacity: 0.85;
+  opacity: 0.72;
+}
+
+.ps-lyric-row--seekable.ps-lyric-row--current:hover {
+  opacity: 1;
 }
 
 /* —— 底部传输条 —— */

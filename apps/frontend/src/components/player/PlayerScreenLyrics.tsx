@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { FileText, LocateFixed } from "lucide-react";
 
 import { musicApi } from "../../shared/api/instances";
 import { usePlayerStore } from "../../shared/stores/playerStore";
 import {
   computeLineTransitionDuration,
-  getActiveLyricIndex,
+  getDisplayLyricIndex,
   LYRIC_LINE_TRANSITION_MS,
   parseLrc,
   type LyricLine,
@@ -16,13 +16,11 @@ interface PlayerScreenLyricsProps {
   hasLyrics: boolean;
 }
 
-function lyricDistanceClass(activeIndex: number, index: number): string {
-  if (activeIndex < 0) return "ps-lyric-row--idle";
-  const d = Math.abs(index - activeIndex);
-  if (d === 0) return "ps-lyric-row--current";
-  if (d === 1) return "ps-lyric-row--adjacent";
-  if (d === 2) return "ps-lyric-row--far";
-  return "ps-lyric-row--distant";
+function lyricLineClass(activeIndex: number, index: number): string {
+  if (activeIndex < 0) return "";
+  if (index === activeIndex) return "ps-lyric-row--current";
+  if (index < activeIndex) return "ps-lyric-row--past";
+  return "ps-lyric-row--upcoming";
 }
 
 /**
@@ -53,7 +51,7 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
   const translateYRef = useRef(0);
 
   const activeIndex =
-    isActiveTrack && synced ? getActiveLyricIndex(lines, currentTime) : -1;
+    isActiveTrack && synced ? getDisplayLyricIndex(lines, currentTime) : -1;
 
   activeIndexRef.current = activeIndex;
   translateYRef.current = translateY;
@@ -80,8 +78,15 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
     (
       index: number,
       options: { animate?: boolean; fromIndex?: number; forceAnimate?: boolean } = {},
-    ) => {
-      if (index < 0) return;
+    ): boolean => {
+      if (index < 0) return false;
+
+      const scrollEl = scrollRef.current;
+      const lineEl = lineRefs.current[index];
+      if (!scrollEl || !lineEl || scrollEl.clientHeight <= 0) {
+        return false;
+      }
+
       const fromIndex = options.fromIndex ?? prevActiveIndexRef.current;
       const shouldAnimate =
         options.forceAnimate === true ||
@@ -95,6 +100,7 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
       setTransitionMs(duration);
       setTranslateY(computeTranslateY(index));
       prevActiveIndexRef.current = index;
+      return true;
     },
     [computeTranslateY],
   );
@@ -188,16 +194,31 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
     };
   }, [enterManualScroll, lines.length]);
 
-  useEffect(() => {
-    if (!isActiveTrack || !synced || userLocked || activeIndex < 0) return;
-    if (activeIndex === prevActiveIndexRef.current) return;
+  useLayoutEffect(() => {
+    if (!isActiveTrack || !synced || userLocked || activeIndex < 0 || lines.length === 0 || loading) {
+      return;
+    }
 
     const fromIndex = prevActiveIndexRef.current;
+    const indexChanged = activeIndex !== fromIndex;
+    const needsInitialCenter = fromIndex < 0 || Math.abs(translateYRef.current) < 0.5;
+
+    if (!indexChanged && !needsInitialCenter) return;
+
     applyAutoFollow(activeIndex, {
-      animate: fromIndex >= 0,
+      animate: indexChanged && fromIndex >= 0,
       fromIndex,
     });
-  }, [activeIndex, isActiveTrack, synced, userLocked, applyAutoFollow]);
+  }, [
+    activeIndex,
+    currentTime,
+    isActiveTrack,
+    synced,
+    userLocked,
+    lines.length,
+    loading,
+    applyAutoFollow,
+  ]);
 
   const handleUserScroll = () => {
     if (!userLockedRef.current) enterManualScroll();
@@ -266,8 +287,6 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
 
   return (
     <div className="ps-lyrics" aria-label="歌词">
-      <div className="ps-lyrics__guide" aria-hidden />
-
       {!isActiveTrack && synced && (
         <p className="ps-lyrics__hint">播放当前歌曲后，歌词将自动同步</p>
       )}
@@ -293,7 +312,7 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
                 ref={(el) => {
                   lineRefs.current[index] = el;
                 }}
-                className={`ps-lyric-row ${lyricDistanceClass(activeIndex, index)}${canSeek ? " ps-lyric-row--seekable" : ""}`}
+                className={`ps-lyric-row ${lyricLineClass(activeIndex, index)}${canSeek ? " ps-lyric-row--seekable" : ""}`}
                 onClick={() => handleLineClick(line)}
                 role={canSeek ? "button" : undefined}
                 tabIndex={canSeek ? 0 : undefined}

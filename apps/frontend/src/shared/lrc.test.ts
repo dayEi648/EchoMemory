@@ -7,6 +7,7 @@ import {
   computeScrollTopForLineCenter,
   easeOutCubic,
   getActiveLyricIndex,
+  getDisplayLyricIndex,
   getInterpolatedLyricIndex,
   LYRIC_LINE_TRANSITION_MS,
   parseLrc,
@@ -151,5 +152,20 @@ describe("getActiveLyricIndex", () => {
     expect(getActiveLyricIndex(lines, 10)).toBe(0);
     expect(getActiveLyricIndex(lines, 25)).toBe(1);
     expect(getActiveLyricIndex(lines, 30)).toBe(2);
+  });
+});
+
+describe("getDisplayLyricIndex", () => {
+  const { lines } = parseLrc(`[00:10.00]A
+[00:20.00]B`);
+
+  it("targets the first line before its timestamp", () => {
+    expect(getDisplayLyricIndex(lines, 0)).toBe(0);
+    expect(getDisplayLyricIndex(lines, 5)).toBe(0);
+  });
+
+  it("matches active index once playback reaches timestamps", () => {
+    expect(getDisplayLyricIndex(lines, 10)).toBe(0);
+    expect(getDisplayLyricIndex(lines, 20)).toBe(1);
   });
 });
