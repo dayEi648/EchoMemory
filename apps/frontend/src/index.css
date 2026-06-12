@@ -3074,6 +3074,345 @@ textarea {
   background: var(--color-muted);
 }
 
+/* ========== Hero Carousel ========== */
+.hero-carousel {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: 28px;
+  aspect-ratio: 3 / 1;
+  min-height: 200px;
+  max-height: 360px;
+  background: var(--color-surface-card);
+}
+
+.hero-carousel-track {
+  width: 100%;
+  height: 100%;
+}
+
+.hero-carousel-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 40px 56px;
+  overflow: hidden;
+}
+
+.hero-carousel-content {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+}
+
+.hero-carousel-title {
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 700;
+  color: white;
+  margin: 0 0 12px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.hero-carousel-subtitle {
+  font-size: clamp(13px, 1.5vw, 16px);
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 20px;
+  line-height: 1.5;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hero-carousel-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.hero-carousel-action:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* decorative circles */
+.hero-carousel-deco {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero-carousel-deco-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* arrows */
+.hero-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+  z-index: 2;
+}
+
+.hero-carousel:hover .hero-carousel-arrow {
+  opacity: 1;
+}
+
+.hero-carousel-arrow:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hero-carousel-arrow--left { left: 12px; }
+.hero-carousel-arrow--right { right: 12px; }
+
+/* dots */
+.hero-carousel-dots {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.hero-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-out);
+  padding: 0;
+}
+
+.hero-carousel-dot.active {
+  background: white;
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* ========== Discover Daily Section ========== */
+.discover-daily-section {
+  margin-bottom: 28px;
+}
+
+.discover-daily-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.discover-daily-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.discover-daily-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.discover-daily-card-text {
+  min-width: 0;
+}
+
+.discover-daily-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  line-height: 1.3;
+}
+
+.discover-daily-card-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+/* ========== Discover Sections ========== */
+.discover-section {
+  margin-bottom: 28px;
+}
+
+/* ========== Chart Grid ========== */
+.discover-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+/* ========== Chart Column ========== */
+.chart-column {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.chart-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+
+.chart-column-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-column-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chart-column-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.chart-column-view-all {
+  font-size: 12px;
+  color: var(--color-muted);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.chart-column-view-all:hover {
+  color: var(--color-accent);
+}
+
+.chart-column-list {
+  padding: 8px 0;
+}
+
+.chart-column-loading,
+.chart-column-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted-soft);
+}
+
+.chart-song-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.chart-song-item:hover {
+  background: var(--color-surface-soft);
+}
+
+.chart-song-index {
+  width: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.chart-song-index--top {
+  color: var(--color-brand-coral);
+}
+
+.chart-song-info {
+  min-width: 0;
+}
+
+.chart-song-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-song-artist {
+  font-size: 11px;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 960px) {
+  .hero-carousel-slide {
+    padding: 24px 32px;
+  }
+
+  .hero-carousel {
+    aspect-ratio: 16 / 9;
+    max-height: 240px;
+  }
+
+  .discover-daily-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

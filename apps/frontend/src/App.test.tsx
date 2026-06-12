@@ -101,7 +101,7 @@ describe("App", () => {
 
     renderApp({ tokenStore });
 
-    expect(await screen.findByText("欢迎回来，Admin")).toBeInTheDocument();
+    expect(await screen.findByText("发现你的音乐记忆")).toBeInTheDocument();
     expect(screen.getByText("发现音乐")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "个人中心" })).not.toBeInTheDocument();
   });
@@ -118,34 +118,17 @@ describe("App", () => {
     expect(screen.queryByText("发现音乐")).not.toBeInTheDocument();
   });
 
-  it("renders discover page when play history music uses the backend compact shape", async () => {
+  it("renders discover page with carousel and sections", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    const fetchMock = mockDiscoverApis(adminUser, [
-      {
-        id: 100,
-        played_at: "2026-06-10T14:00:00Z",
-        music: {
-          id: 9,
-          title: "No Author History Song",
-          cover_icon_url: null,
-        },
-      },
-    ]);
+    mockDiscoverApis(adminUser);
 
     renderApp({ tokenStore });
 
-    expect(await screen.findByText("欢迎回来，Admin")).toBeInTheDocument();
-    await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([input]) => {
-          const url = input instanceof Request ? input.url : String(input);
-          return url.includes("/play-history/");
-        }),
-      ).toBe(true);
-    });
-    expect(await screen.findByText("No Author History Song")).toBeInTheDocument();
-    expect(screen.getByText("未知艺人")).toBeInTheDocument();
+    expect(await screen.findByText("发现你的音乐记忆")).toBeInTheDocument();
+    expect(screen.getByText("每日推荐")).toBeInTheDocument();
+    expect(screen.getByText("私人雷达")).toBeInTheDocument();
+    expect(screen.getByText("推荐歌单")).toBeInTheDocument();
   });
 
   it.each([
@@ -161,7 +144,7 @@ describe("App", () => {
     renderApp({ tokenStore, initialEntries: ["/admin"] });
 
     // 非管理员应被重定向到首页
-    expect(await screen.findByText(`欢迎回来，${nickname}`)).toBeInTheDocument();
+    expect(await screen.findByText("发现你的音乐记忆")).toBeInTheDocument();
 
     // 管理后台不应显示
     expect(screen.queryByText("管理概览")).not.toBeInTheDocument();
