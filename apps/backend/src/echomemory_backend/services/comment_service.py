@@ -186,9 +186,8 @@ async def create_comment(
         )
 
     comment_id = comment.id
-    await db.commit()
 
-    # 通知触发：评论被回复 / 空间动态被评论
+    # 通知触发：评论被回复 / 空间动态被评论（与业务操作同一事务提交）
     if parent_id is not None:
         parent = await db.get(Comment, parent_id)
         if parent is not None and not parent.is_deleted:
@@ -201,7 +200,6 @@ async def create_comment(
                 target_id=parent_id,
                 extra={"reply_comment_id": comment_id, "content": content[:100]},
             )
-            await db.commit()
     elif target_type == "space_post":
         space_post = await db.get(SpacePost, target_id)
         if space_post is not None and not space_post.is_deleted:
@@ -214,7 +212,8 @@ async def create_comment(
                 target_id=target_id,
                 extra={"comment_id": comment_id, "content": content[:100]},
             )
-            await db.commit()
+
+    await db.commit()
 
     return await _get_comment_with_user(db, comment_id)
 
@@ -390,7 +389,6 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
         .where(Comment.id == comment_id)
         .values(like_count=Comment.like_count + 1)
     )
-    await db.commit()
 
     if comment.user_id != user_id:
         await create_notification(
@@ -402,7 +400,8 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
             target_id=comment_id,
             extra={"content": comment.content[:100]},
         )
-        await db.commit()
+
+    await db.commit()
 
 
 async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:

@@ -403,6 +403,51 @@ async def total_unread_messages(db: AsyncSession, user_id: int) -> int:
     return int(user1_total) + int(user2_total)
 
 
+async def get_block_states_batch(
+    db: AsyncSession, *, viewer_id: int, peer_ids: list[int]
+) -> dict[int, tuple[bool, bool]]:
+    """批量获取 viewer 与多个对端用户的双向屏蔽状态。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        viewer_id: 当前用户主键。
+        peer_ids: 对端用户主键列表。
+
+    Returns:
+        映射 peer_id -> (is_blocked_by_me, is_blocking_me)。
+    """
+    unique_peers = {peer_id for peer_id in peer_ids if peer_id != viewer_id}
+    if not unique_peers:
+        return {}
+
+    rows = (
+        await db.execute(
+            select(UserBlock.blocker_id, UserBlock.blocked_id).where(
+                or_(
+                    and_(
+                        UserBlock.blocker_id == viewer_id,
+                        UserBlock.blocked_id.in_(unique_peers),
+                    ),
+                    and_(
+                        UserBlock.blocker_id.in_(unique_peers),
+                        UserBlock.blocked_id == viewer_id,
+                    ),
+                )
+            )
+        )
+    ).all()
+
+    states = {peer_id: (False, False) for peer_id in unique_peers}
+    for row in rows:
+        if row.blocker_id == viewer_id:
+            blocked_by_me, blocking_me = states[row.blocked_id]
+            states[row.blocked_id] = (True, blocking_me)
+        else:
+            blocked_by_me, blocking_me = states[row.blocker_id]
+            states[row.blocker_id] = (blocked_by_me, True)
+    return states
+
+
 async def get_block_state(
     db: AsyncSession, *, viewer_id: int, peer_id: int
 ) -> tuple[bool, bool]:
@@ -416,22 +461,7 @@ async def get_block_state(
     Returns:
         (is_blocked_by_me, is_blocking_me) 元组。
     """
-    rows = (
-        await db.execute(
-            select(UserBlock.blocker_id, UserBlock.blocked_id).where(
-                or_(
-                    and_(
-                        UserBlock.blocker_id == viewer_id,
-                        UserBlock.blocked_id == peer_id,
-                    ),
-                    and_(
-                        UserBlock.blocker_id == peer_id,
-                        UserBlock.blocked_id == viewer_id,
-                    ),
-                )
-            )
-        )
-    ).all()
-    is_blocked_by_me = any(r.blocker_id == viewer_id for r in rows)
-    is_blocking_me = any(r.blocker_id == peer_id for r in rows)
-    return is_blocked_by_me, is_blocking_me
+    states = await get_block_states_batch(
+        db, viewer_id=viewer_id, peer_ids=[peer_id]
+    )
+    return states.get(peer_id, (False, False))

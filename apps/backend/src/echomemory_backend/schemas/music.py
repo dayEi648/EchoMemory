@@ -4,6 +4,12 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from echomemory_backend.schemas.mixins import (
+    EmotionTagValidatorMixin,
+    InterestTagValidatorMixin,
+    JoinedAuthorValidatorMixin,
+)
+
 
 # ---------------------------------------------------------------------------
 # 嵌套输出模型
@@ -52,7 +58,12 @@ class TagOut(BaseModel):
 # 音乐输出模型
 # ---------------------------------------------------------------------------
 
-class MusicOut(BaseModel):
+class MusicOut(
+    JoinedAuthorValidatorMixin,
+    EmotionTagValidatorMixin,
+    InterestTagValidatorMixin,
+    BaseModel,
+):
     """音乐详情输出。"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -82,23 +93,6 @@ class MusicOut(BaseModel):
     updated_at: datetime
     is_collected_by_me: bool = False
 
-    @field_validator("authors", mode="before")
-    @classmethod
-    def _flatten_authors(cls, v):
-        """将关联模型列表展平为作者输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {
-                "id": a.author.id,
-                "username": a.author.username,
-                "nickname": a.author.nickname,
-                "avatar_url": a.author.avatar_url,
-                "ordinal": a.ordinal,
-            }
-            for a in v
-        ]
-
     @field_validator("instruments", mode="before")
     @classmethod
     def _flatten_instruments(cls, v):
@@ -110,30 +104,8 @@ class MusicOut(BaseModel):
             for mi in v
         ]
 
-    @field_validator("emotion_tags", mode="before")
-    @classmethod
-    def _flatten_emotion_tags(cls, v):
-        """将关联模型列表展平为情绪标签输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {"id": et.emotion_tag.id, "name": et.emotion_tag.name}
-            for et in v
-        ]
 
-    @field_validator("interest_tags", mode="before")
-    @classmethod
-    def _flatten_interest_tags(cls, v):
-        """将关联模型列表展平为兴趣标签输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {"id": it.interest_tag.id, "name": it.interest_tag.name}
-            for it in v
-        ]
-
-
-class MusicListOut(BaseModel):
+class MusicListOut(JoinedAuthorValidatorMixin, BaseModel):
     """音乐列表项输出（精简）。"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -147,25 +119,13 @@ class MusicListOut(BaseModel):
     authors: list[AuthorOut] = []
     created_at: datetime
 
-    @field_validator("authors", mode="before")
-    @classmethod
-    def _flatten_authors(cls, v):
-        """将关联模型列表展平为作者输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {
-                "id": a.author.id,
-                "username": a.author.username,
-                "nickname": a.author.nickname,
-                "avatar_url": a.author.avatar_url,
-                "ordinal": a.ordinal,
-            }
-            for a in v
-        ]
 
-
-class AdminMusicListOut(BaseModel):
+class AdminMusicListOut(
+    JoinedAuthorValidatorMixin,
+    EmotionTagValidatorMixin,
+    InterestTagValidatorMixin,
+    BaseModel,
+):
     """管理员音乐列表项输出（含上架状态及风格/语言/标签/专辑）。"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -184,45 +144,6 @@ class AdminMusicListOut(BaseModel):
     interest_tags: list[TagOut] = []
     albums: list[AlbumBriefOut] = []
     created_at: datetime
-
-    @field_validator("authors", mode="before")
-    @classmethod
-    def _flatten_authors(cls, v):
-        """将关联模型列表展平为作者输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {
-                "id": a.author.id,
-                "username": a.author.username,
-                "nickname": a.author.nickname,
-                "avatar_url": a.author.avatar_url,
-                "ordinal": a.ordinal,
-            }
-            for a in v
-        ]
-
-    @field_validator("emotion_tags", mode="before")
-    @classmethod
-    def _flatten_emotion_tags(cls, v):
-        """将关联模型列表展平为情绪标签输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {"id": et.emotion_tag.id, "name": et.emotion_tag.name}
-            for et in v
-        ]
-
-    @field_validator("interest_tags", mode="before")
-    @classmethod
-    def _flatten_interest_tags(cls, v):
-        """将关联模型列表展平为兴趣标签输出字典列表。"""
-        if not v:
-            return []
-        return [
-            {"id": it.interest_tag.id, "name": it.interest_tag.name}
-            for it in v
-        ]
 
     @field_validator("albums", mode="before")
     @classmethod

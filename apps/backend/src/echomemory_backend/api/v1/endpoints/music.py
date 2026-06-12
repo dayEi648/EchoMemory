@@ -5,7 +5,6 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
@@ -154,7 +153,7 @@ async def import_music(
             db,
             title=title,
             is_vip=is_vip,
-            source=source or None,
+            source=source,
             style_id=style_id,
             language_id=language_id,
             release_date=release_date_parsed,
@@ -172,8 +171,8 @@ async def import_music(
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise
-    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
-        # 任何其他异常（OSS 上传失败或数据库失败），清理已上传的 OSS 文件
+    except Exception:
+        # 任何其他异常（含 BusinessError、OSS 上传失败或数据库失败），清理已上传的 OSS 文件
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise
@@ -286,29 +285,41 @@ async def admin_update_music(
         raise
 
     # ----- 更新数据库 -----
-    music = await music_service.update_music(
-        db,
-        music,
-        title=title,
-        is_vip=is_vip,
-        source=source or None,
-        style_id=style_id,
-        language_id=language_id,
-        release_date=release_date_parsed,
-        author_ids=author_ids or None,
-        instrument_ids=instrument_ids or None,
-        emotion_tag_ids=emotion_tag_ids or None,
-        interest_tag_ids=interest_tag_ids or None,
-        file_url=new_file_url,
-        lyrics_url=new_lyrics_url,
-        cover_icon_url=new_cover_icon_url,
-        cover_home_url=new_cover_home_url,
-        cover_play_url=new_cover_play_url,
-    )
+    try:
+        music = await music_service.update_music(
+            db,
+            music,
+            title=title,
+            is_vip=is_vip,
+            source=source,
+            style_id=style_id,
+            language_id=language_id,
+            release_date=release_date_parsed,
+            author_ids=author_ids or None,
+            instrument_ids=instrument_ids or None,
+            emotion_tag_ids=emotion_tag_ids or None,
+            interest_tag_ids=interest_tag_ids or None,
+            file_url=new_file_url,
+            lyrics_url=new_lyrics_url,
+            cover_icon_url=new_cover_icon_url,
+            cover_home_url=new_cover_home_url,
+            cover_play_url=new_cover_play_url,
+        )
 
-    # 更新成功后删除旧文件
-    for url in old_urls_to_delete:
-        await oss_client.delete_object_by_url(url)
+        # 更新成功后删除旧文件
+        for url in old_urls_to_delete:
+            await oss_client.delete_object_by_url(url)
+    except Exception:
+        for url in [
+            new_file_url,
+            new_cover_icon_url,
+            new_cover_home_url,
+            new_cover_play_url,
+            new_lyrics_url,
+        ]:
+            if url:
+                await oss_client.delete_object_by_url(url)
+        raise
 
     # 重新加载完整关联数据以匹配 MusicOut
     music = await music_service.get_music_by_id(db, music.id)

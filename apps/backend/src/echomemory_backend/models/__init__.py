@@ -9,7 +9,6 @@ from echomemory_backend.models.album import (
 )
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
-    UserMusicCollection,
     UserMusicRelease,
     UserPlaylistCollection,
 )
@@ -99,7 +98,6 @@ __all__ = [
     "UserEmotionTag",
     "UserFollow",
     "UserInterestTag",
-    "UserMusicCollection",
     "UserMusicRelease",
     "UserPlaylistCollection",
     "UserRole",

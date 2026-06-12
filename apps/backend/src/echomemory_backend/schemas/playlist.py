@@ -4,6 +4,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from echomemory_backend.schemas.mixins import (
+    EmotionTagValidatorMixin,
+    InterestTagValidatorMixin,
+)
 from echomemory_backend.schemas.music import MusicListOut, TagOut
 
 
@@ -43,7 +47,11 @@ class PlaylistMusicOut(BaseModel):
         }
 
 
-class PlaylistOut(BaseModel):
+class PlaylistOut(
+    EmotionTagValidatorMixin,
+    InterestTagValidatorMixin,
+    BaseModel,
+):
     """歌单详情输出。"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -90,26 +98,6 @@ class PlaylistOut(BaseModel):
                 "ordinal": pm.ordinal,
             }
             for pm in v
-        ]
-
-    @field_validator("emotion_tags", mode="before")
-    @classmethod
-    def _flatten_emotion_tags(cls, v):
-        if not v:
-            return []
-        return [
-            {"id": et.emotion_tag.id, "name": et.emotion_tag.name}
-            for et in v
-        ]
-
-    @field_validator("interest_tags", mode="before")
-    @classmethod
-    def _flatten_interest_tags(cls, v):
-        if not v:
-            return []
-        return [
-            {"id": it.interest_tag.id, "name": it.interest_tag.name}
-            for it in v
         ]
 
 

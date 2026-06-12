@@ -50,7 +50,11 @@ def _unread_for(conversation: Conversation, viewer_id: int) -> int:
 
 
 async def _build_conversation_out(
-    db, conversation: Conversation, viewer_id: int
+    db,
+    conversation: Conversation,
+    viewer_id: int,
+    *,
+    block_states: dict[int, tuple[bool, bool]] | None = None,
 ) -> ConversationOut:
     """将会话 ORM 实例转换为含对端信息、未读数、屏蔽态的 ConversationOut。
 
@@ -58,14 +62,18 @@ async def _build_conversation_out(
         db: SQLAlchemy 异步 Session。
         conversation: 已 selectinload 关联的会话实例。
         viewer_id: 当前用户主键。
+        block_states: 可选的批量屏蔽状态缓存；未提供时单独查询。
 
     Returns:
         ConversationOut 实例。
     """
     peer = _peer_user(conversation, viewer_id)
-    is_blocked_by_me, is_blocking_me = await message_service.get_block_state(
-        db, viewer_id=viewer_id, peer_id=peer.id
-    )
+    if block_states is None:
+        is_blocked_by_me, is_blocking_me = await message_service.get_block_state(
+            db, viewer_id=viewer_id, peer_id=peer.id
+        )
+    else:
+        is_blocked_by_me, is_blocking_me = block_states.get(peer.id, (False, False))
     last_message = (
         DirectMessageOut.model_validate(conversation.last_message)
         if conversation.last_message is not None
@@ -93,8 +101,15 @@ async def list_conversations(
     result = await message_service.list_conversations(
         db, user_id=current_user.id, limit=limit, offset=offset
     )
+    peer_ids = [_peer_user(conv, current_user.id).id for conv in result["items"]]
+    block_states = await message_service.get_block_states_batch(
+        db, viewer_id=current_user.id, peer_ids=peer_ids
+    )
     items = [
-        await _build_conversation_out(db, conv, current_user.id) for conv in result["items"]
+        await _build_conversation_out(
+            db, conv, current_user.id, block_states=block_states
+        )
+        for conv in result["items"]
     ]
     return PaginatedConversationOut(items=items, total=result["total"])
 

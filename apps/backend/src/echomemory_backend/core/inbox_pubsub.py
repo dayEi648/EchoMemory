@@ -7,7 +7,7 @@ WebSocket 监听端通过订阅 ``inbox:user:{id}`` 频道实时收到推送。
 import json
 from typing import Any
 
-from echomemory_backend.core.redis_client import redis_client
+from echomemory_backend.core.redis_client import redis_client, with_redis_retry
 
 INBOX_CHANNEL_PREFIX = "inbox:user"
 
@@ -35,4 +35,10 @@ async def publish_inbox_event(user_id: int, event: dict[str, Any]) -> None:
         None。Redis 发布失败会抛出异常，由调用方决定是否吞掉以避免影响主业务。
     """
     payload = json.dumps(event, ensure_ascii=False, default=str)
-    await redis_client.publish(inbox_channel(user_id), payload)
+    await _publish(inbox_channel(user_id), payload)
+
+
+@with_redis_retry
+async def _publish(channel: str, payload: str) -> None:
+    """向 Redis Pub/Sub 频道发布消息（含重试）。"""
+    await redis_client.publish(channel, payload)

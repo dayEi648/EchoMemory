@@ -3,7 +3,7 @@
 提供歌单的创建、查询、更新、删除，以及歌曲在歌单中的添加与移除等操作。
 """
 
-from sqlalchemy import delete, desc, exists, func, select, update
+from sqlalchemy import delete, desc, exists, func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -456,8 +456,8 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     if playlist.is_like:
         raise BusinessError("系统歌单不可删除", 403)
 
-    # 若 musics 已被加载到 session（如通过 selectinload），显式删除以避免 ORM 级联冲突
-    if hasattr(playlist, "musics") and playlist.musics:
+    # 若 musics 关系已预加载，显式删除关联条目以避免 ORM 级联冲突
+    if "musics" not in sa_inspect(playlist).unloaded:
         for pm in list(playlist.musics):
             await db.delete(pm)
 

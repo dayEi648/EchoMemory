@@ -269,8 +269,11 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
 
     user.status = action.status
     user.banned_at = func.now()
-    if action.ban_duration is not None:
-        user.ban_duration = parse_iso8601_duration(action.ban_duration)
+    user.ban_duration = (
+        parse_iso8601_duration(action.ban_duration)
+        if action.ban_duration is not None
+        else None
+    )
 
     try:
         await db.commit()

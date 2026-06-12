@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ws"])
 
 WS_CLOSE_AUTH_FAILED = status.WS_1008_POLICY_VIOLATION
+WS_HEARTBEAT_INTERVAL_SECONDS = 30
+WS_HEARTBEAT_TIMEOUT_SECONDS = 10
 
 
 async def _resolve_user_from_token(token: str | None) -> User | None:
@@ -106,16 +108,49 @@ async def inbox_websocket(
                 return
 
     forward_task = asyncio.create_task(_forward())
-    try:
-        # 主循环：仅用于检测客户端关闭事件，本端不处理客户端发来的内容
+
+    async def _client_loop() -> None:
+        """检测客户端断线；定期发送心跳并在超时无响应时关闭连接。"""
         while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pass
+            try:
+                await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=WS_HEARTBEAT_INTERVAL_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    return
+                try:
+                    await asyncio.wait_for(
+                        websocket.receive_text(),
+                        timeout=WS_HEARTBEAT_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    return
+            except WebSocketDisconnect:
+                return
+            except Exception:
+                logger.exception("Unexpected error in inbox websocket receive loop")
+                return
+
+    client_task = asyncio.create_task(_client_loop())
+    try:
+        await client_task
     except Exception:
         logger.exception("Unexpected error in inbox websocket loop")
     finally:
         forward_task.cancel()
+        client_task.cancel()
+        try:
+            await forward_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await client_task
+        except asyncio.CancelledError:
+            pass
         try:
             await pubsub.unsubscribe(inbox_channel(user.id))
         except Exception:

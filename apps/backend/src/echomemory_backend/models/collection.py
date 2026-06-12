@@ -37,28 +37,6 @@ class UserMusicRelease(Base):
     music: Mapped["Music"] = relationship("Music")
 
 
-class UserMusicCollection(Base):
-    """用户音乐收藏模型，记录用户收藏的单曲。"""
-    __tablename__ = "user_music_collections"
-
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    music_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("musics.id", ondelete="CASCADE"), primary_key=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-
-    __table_args__ = (
-        Index("idx_user_music_collections_user_time", "user_id", desc("created_at")),
-    )
-
-    user: Mapped["User"] = relationship("User")
-    music: Mapped["Music"] = relationship("Music")
-
-
 class UserAlbumCollection(Base):
     """用户专辑收藏模型，记录用户收藏的专辑。"""
     __tablename__ = "user_album_collections"

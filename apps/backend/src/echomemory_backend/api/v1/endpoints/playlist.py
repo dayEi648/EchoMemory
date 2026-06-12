@@ -4,14 +4,12 @@
 """
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PaginatedPlaylistMembershipOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import collection_service, playlist_service
-from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
 
@@ -58,11 +56,7 @@ async def create_playlist(
         )
     except HTTPException:
         raise
-    except BusinessError:
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
-    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
+    except Exception:
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise

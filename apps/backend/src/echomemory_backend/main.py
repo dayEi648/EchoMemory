@@ -104,6 +104,8 @@ async def _seed_dictionary_tables() -> None:
     """若字典表为空，则灌入种子数据。"""
     async with AsyncSessionLocal() as db:
         for table_name, items in _SEED_DATA.items():
+            if not items:
+                continue
             model_cls = items[0].__class__
             result = await db.execute(select(model_cls))
             if result.scalars().first() is None:

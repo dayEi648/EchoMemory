@@ -1,19 +1,18 @@
 """专辑相关 API 端点，提供管理员专辑管理接口与公开查询接口。"""
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import upload_optional_image
 from echomemory_backend.core import oss_client
 from echomemory_backend.schemas.album import (
+    AdminAlbumListItem,
     AlbumOut,
     AlbumUpdate,
     PaginatedAdminAlbumListOut,
     PaginatedAlbumListOut,
 )
 from echomemory_backend.services import album_service, collection_service
-from echomemory_backend.core.exceptions import BusinessError
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -73,12 +72,8 @@ async def create_album(
         )
     except HTTPException:
         raise
-    except BusinessError:
-        # 业务校验失败时清理已上传 OSS 文件
-        for url in uploaded_urls:
-            await oss_client.delete_object_by_url(url)
-        raise
-    except (RuntimeError, ValueError, IntegrityError, SQLAlchemyError):
+    except Exception:
+        # 业务校验失败或数据库失败时清理已上传 OSS 文件
         for url in uploaded_urls:
             await oss_client.delete_object_by_url(url)
         raise
@@ -100,30 +95,12 @@ async def admin_list_albums(
     result = await album_service.admin_search_albums(
         db, q=q, limit=limit, offset=offset
     )
-    items: list[dict[str, object]] = []
-    for album in result["items"]:
-        items.append(
-            {
-                "id": album.id,
-                "title": album.title,
-                "hot": album.hot,
-                "play_count": album.play_count,
-                "cover_icon_url": album.cover_icon_url,
-                "created_at": album.created_at,
-                "collect_count": album.collect_count,
-                "authors": [
-                    {
-                        "id": aa.author.id,
-                        "username": aa.author.username,
-                        "nickname": aa.author.nickname,
-                        "avatar_url": aa.author.avatar_url,
-                        "ordinal": aa.ordinal,
-                    }
-                    for aa in album.authors
-                ],
-                "music_count": len(album.musics),
-            }
+    items = [
+        AdminAlbumListItem.model_validate(album).model_copy(
+            update={"music_count": len(album.musics)}
         )
+        for album in result["items"]
+    ]
     return {"items": items, "total": result["total"]}
 
 

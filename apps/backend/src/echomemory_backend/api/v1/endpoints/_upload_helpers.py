@@ -1,8 +1,12 @@
 """上传辅助模块，提供文件上传至 OSS 的公共函数。"""
 
+import logging
+
 from fastapi import HTTPException, UploadFile, status
 
 from echomemory_backend.core import oss_client
+
+logger = logging.getLogger(__name__)
 
 
 async def upload_optional_image(
@@ -38,12 +42,14 @@ async def upload_optional_image(
             file.file, folder=folder, filename_prefix=prefix
         )
     except ValueError as exc:
+        logger.warning("Invalid image upload for %s: %s", name, exc)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(exc),
+            detail="Invalid image file",
         ) from exc
     except RuntimeError as exc:
+        logger.warning("OSS upload failed for %s: %s", name, exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
+            detail="File upload failed",
         ) from exc

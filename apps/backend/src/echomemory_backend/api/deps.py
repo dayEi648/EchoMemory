@@ -100,11 +100,11 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 async def get_current_active_user(current_user: CurrentUser) -> User:
-    """确保当前用户账号处于活跃状态（未被封禁）。"""
-    if current_user.status == UserStatus.BANNED:
+    """确保当前用户账号处于活跃状态（未被封禁或暂停）。"""
+    if current_user.status != UserStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is banned",
+            detail="User account is not active",
         )
     return current_user
 

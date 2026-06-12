@@ -188,11 +188,10 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
     if existing is not None:
         return
 
+    post = await db.get(SpacePost, post_id)
     like = SpacePostLike(post_id=post_id, user_id=user_id)
     db.add(like)
-    await db.commit()
 
-    post = await db.get(SpacePost, post_id)
     if post is not None and post.user_id != user_id:
         await create_notification(
             db,
@@ -203,7 +202,8 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
             target_id=post_id,
             extra={"content": (post.content or "")[:100]},
         )
-        await db.commit()
+
+    await db.commit()
 
 
 async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:

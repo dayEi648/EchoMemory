@@ -4,16 +4,32 @@ import json
 import uuid
 import logging
 
+from redis.exceptions import WatchError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import redis_client
+from echomemory_backend.core.redis_client import redis_client, with_redis_retry
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.album import Album
 
 logger = logging.getLogger(__name__)
 
 CAROUSEL_KEY = "echomemory:carousel"
+
+
+@with_redis_retry
+async def _redis_lrange(key: str, start: int, end: int) -> list[str]:
+    return await redis_client.lrange(key, start, end)
+
+
+@with_redis_retry
+async def _redis_rpush(key: str, *values: str) -> int:
+    return await redis_client.rpush(key, *values)
+
+
+@with_redis_retry
+async def _redis_lrem(key: str, count: int, value: str) -> int:
+    return await redis_client.lrem(key, count, value)
 
 
 async def _resolve_image_url(db: AsyncSession, item_type: str, target_id: int) -> str | None:
@@ -40,7 +56,7 @@ async def _resolve_image_url(db: AsyncSession, item_type: str, target_id: int) -
 
 async def list_carousel_items(db: AsyncSession) -> list[dict]:
     """列出所有轮播推图（按 sort_order 排序），附带解析后的封面 URL。"""
-    raw = await redis_client.lrange(CAROUSEL_KEY, 0, -1)
+    raw = await _redis_lrange(CAROUSEL_KEY, 0, -1)
     items = []
     for r in raw:
         try:
@@ -65,7 +81,7 @@ async def create_carousel_item(
     description: str,
 ) -> dict:
     """创建轮播推图项并追加到列表末尾。"""
-    items_raw = await redis_client.lrange(CAROUSEL_KEY, 0, -1)
+    items_raw = await _redis_lrange(CAROUSEL_KEY, 0, -1)
     max_order = 0
     for r in items_raw:
         try:
@@ -83,7 +99,7 @@ async def create_carousel_item(
         "description": description,
         "sort_order": max_order + 1,
     }
-    await redis_client.rpush(CAROUSEL_KEY, json.dumps(new_item, ensure_ascii=False))
+    await _redis_rpush(CAROUSEL_KEY, json.dumps(new_item, ensure_ascii=False))
     new_item["image_url"] = await _resolve_image_url(db, item_type, target_id)
     return new_item
 
@@ -95,79 +111,89 @@ async def update_carousel_item(
     description: str | None = None,
 ) -> dict | None:
     """更新指定推图的标题/描述。返回更新后的项，不存在时返回 None。"""
-    items_raw = await redis_client.lrange(CAROUSEL_KEY, 0, -1)
-    updated = None
-    new_list = []
-    for r in items_raw:
+    while True:
         try:
-            item = json.loads(r)
-        except json.JSONDecodeError:
+            await redis_client.watch(CAROUSEL_KEY)
+            items_raw = await _redis_lrange(CAROUSEL_KEY, 0, -1)
+            updated = None
+            new_list = []
+            for r in items_raw:
+                try:
+                    item = json.loads(r)
+                except json.JSONDecodeError:
+                    continue
+                if item.get("id") == item_id:
+                    if title is not None:
+                        item["title"] = title
+                    if description is not None:
+                        item["description"] = description
+                    updated = item
+                new_list.append(json.dumps(item, ensure_ascii=False))
+
+            if updated is None:
+                await redis_client.unwatch()
+                return None
+
+            async with redis_client.pipeline(transaction=True) as pipe:
+                pipe.delete(CAROUSEL_KEY)
+                if new_list:
+                    pipe.rpush(CAROUSEL_KEY, *new_list)
+                await pipe.execute()
+            break
+        except WatchError:
             continue
-        if item.get("id") == item_id:
-            if title is not None:
-                item["title"] = title
-            if description is not None:
-                item["description"] = description
-            updated = item
-        new_list.append(json.dumps(item, ensure_ascii=False))
 
-    if updated is None:
-        return None
-
-    await redis_client.delete(CAROUSEL_KEY)
-    if new_list:
-        await redis_client.rpush(CAROUSEL_KEY, *new_list)
     updated["image_url"] = await _resolve_image_url(db, updated["type"], updated["target_id"])
     return updated
 
 
 async def delete_carousel_item(item_id: str) -> bool:
     """删除指定推图。返回是否成功删除。"""
-    items_raw = await redis_client.lrange(CAROUSEL_KEY, 0, -1)
-    found = False
-    new_list = []
+    items_raw = await _redis_lrange(CAROUSEL_KEY, 0, -1)
     for r in items_raw:
         try:
             item = json.loads(r)
         except json.JSONDecodeError:
             continue
         if item.get("id") == item_id:
-            found = True
-            continue
-        new_list.append(json.dumps(item, ensure_ascii=False))
-
-    if not found:
-        return False
-
-    await redis_client.delete(CAROUSEL_KEY)
-    if new_list:
-        await redis_client.rpush(CAROUSEL_KEY, *new_list)
-    return True
+            removed = await _redis_lrem(CAROUSEL_KEY, 1, r)
+            return removed > 0
+    return False
 
 
 async def reorder_carousel_items(item_ids: list[str]) -> bool:
     """按给定 ID 顺序重新排列推图。返回是否全部 ID 有效。"""
-    items_raw = await redis_client.lrange(CAROUSEL_KEY, 0, -1)
-    item_map: dict[str, dict] = {}
-    for r in items_raw:
+    while True:
         try:
-            item = json.loads(r)
-            item_map[item["id"]] = item
-        except json.JSONDecodeError:
-            pass
+            await redis_client.watch(CAROUSEL_KEY)
+            items_raw = await _redis_lrange(CAROUSEL_KEY, 0, -1)
+            item_map: dict[str, dict] = {}
+            for r in items_raw:
+                try:
+                    item = json.loads(r)
+                    item_map[item["id"]] = item
+                except json.JSONDecodeError:
+                    pass
 
-    if len(item_ids) != len(item_map):
-        return False
+            if len(item_ids) != len(item_map):
+                await redis_client.unwatch()
+                return False
 
-    new_list = []
-    for i, item_id in enumerate(item_ids):
-        if item_id not in item_map:
-            return False
-        item = item_map[item_id]
-        item["sort_order"] = i
-        new_list.append(json.dumps(item, ensure_ascii=False))
+            new_list = []
+            for i, ordered_id in enumerate(item_ids):
+                if ordered_id not in item_map:
+                    await redis_client.unwatch()
+                    return False
+                item = item_map[ordered_id]
+                item["sort_order"] = i
+                new_list.append(json.dumps(item, ensure_ascii=False))
 
-    await redis_client.delete(CAROUSEL_KEY)
-    if new_list:
-        await redis_client.rpush(CAROUSEL_KEY, *new_list)
+            async with redis_client.pipeline(transaction=True) as pipe:
+                pipe.delete(CAROUSEL_KEY)
+                if new_list:
+                    pipe.rpush(CAROUSEL_KEY, *new_list)
+                await pipe.execute()
+            break
+        except WatchError:
+            continue
     return True

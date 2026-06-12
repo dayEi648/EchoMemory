@@ -184,12 +184,6 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
 
     follow = UserFollow(follower_id=follower_id, followee_id=followee_id)
     db.add(follow)
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise BusinessError("已关注该用户", 409)
-
     await create_notification(
         db,
         recipient_id=followee_id,
@@ -198,7 +192,11 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
         target_type="user",
         target_id=followee_id,
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise BusinessError("已关注该用户", 409)
 
 
 async def is_following(db: AsyncSession, follower_id: int, followee_id: int) -> bool:
