@@ -130,6 +130,10 @@ export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, ban_duration: banDuration }),
       }),
+    adminGetStats: () =>
+      request<{ users: number; music: number; albums: number; playlists: number; comments: number; space_posts: number }>(
+        "/users/admin/stats",
+      ),
     adminUnbanUser: (userId: number) => request<UserMe>(`/users/${userId}/unban`, { method: "POST" }),
     adminGetUserFull: (userId: number) => request<UserMe>(`/users/${userId}/admin`),
     adminDeleteUser: (userId: number) =>

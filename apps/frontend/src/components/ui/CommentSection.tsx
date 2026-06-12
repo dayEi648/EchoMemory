@@ -36,6 +36,7 @@ export const CommentSection = ({
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [countLoading, setCountLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("recommended");
 
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -79,6 +80,7 @@ export const CommentSection = ({
       const res = await commentApi.listRootComments(targetType, targetId, {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
+        sort_by: sortBy,
       });
       setComments(res.items);
       setTotal(res.total);
@@ -87,7 +89,7 @@ export const CommentSection = ({
     } finally {
       setLoading(false);
     }
-  }, [targetType, targetId, page, expanded]);
+  }, [targetType, targetId, page, expanded, sortBy]);
 
   useEffect(() => {
     loadComments();
@@ -142,6 +144,33 @@ export const CommentSection = ({
 
   const renderBody = () => (
     <>
+      {comments.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          {[
+            { key: "recommended", label: "综合" },
+            { key: "latest", label: "最新" },
+            { key: "likes", label: "最热" },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => { setSortBy(opt.key); setPage(0); }}
+              style={{
+                padding: "4px 12px",
+                borderRadius: 6,
+                border: sortBy === opt.key ? "1px solid var(--color-ink)" : "1px solid var(--color-hairline)",
+                background: sortBy === opt.key ? "var(--color-ink)" : "transparent",
+                color: sortBy === opt.key ? "white" : "var(--color-muted)",
+                fontSize: 12,
+                fontWeight: sortBy === opt.key ? 600 : 400,
+                cursor: "pointer",
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
       {user && (
         <div style={{ marginTop: 16, marginBottom: 20 }}>
           <AnimatePresence>

@@ -216,6 +216,17 @@ async def get_followers(
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------
+@router.get("/admin/stats")
+async def admin_dashboard_stats(
+    db: SessionDep,
+    _: AdminUser,
+):
+    """获取管理仪表盘统计数据。"""
+    from echomemory_backend.services.stats_service import get_dashboard_stats
+
+    return await get_dashboard_stats(db)
+
+
 @router.get("/admin/list", response_model=PaginatedUserAdminOut)
 async def admin_list_users(
     db: SessionDep,

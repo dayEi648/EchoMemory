@@ -1,11 +1,14 @@
 """空间动态（SpacePost）业务服务模块，提供动态的创建、查询、列表、删除及点赞等功能。"""
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from echomemory_backend.db.pagination import paginate
+from echomemory_backend.models.album import Album
 from echomemory_backend.models.enums import NotificationType
+from echomemory_backend.models.music import Music
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
@@ -169,6 +172,96 @@ async def hard_delete_space_post(db: AsyncSession, post_id: int) -> list[str]:
     return image_urls
 
 
+_VALID_FORWARD_TYPES = ("space_post", "music", "album", "playlist")
+
+
+async def forward_to_space(
+    db: AsyncSession,
+    user_id: int,
+    *,
+    source_type: str,
+    source_id: int,
+    content: str | None = None,
+) -> SpacePost:
+    """转发内容到自己的空间动态。
+
+    支持的 source_type：space_post / music / album / playlist。
+    转发时递增源实体的 forward_count。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 转发者主键。
+        source_type: 源实体类型。
+        source_id: 源实体主键。
+        content: 转发附言，可选。
+
+    Returns:
+        创建后的 SpacePost 实例。
+
+    Raises:
+        BusinessError: source_type 非法或源实体不存在/不可访问时抛出。
+    """
+    if source_type not in _VALID_FORWARD_TYPES:
+        raise BusinessError(f"Invalid source_type: {source_type}", 400)
+
+    # 校验源实体存在且可访问
+    source_title = ""
+    if source_type == "space_post":
+        source_post = await db.get(SpacePost, source_id)
+        if source_post is None or source_post.is_deleted or source_post.is_private:
+            raise BusinessError("Source post not found or not accessible", 404)
+        source_title = source_post.content or ""
+        await db.execute(
+            update(SpacePost)
+            .where(SpacePost.id == source_id)
+            .values(forward_count=SpacePost.forward_count + 1)
+        )
+    elif source_type == "music":
+        music = await db.get(Music, source_id)
+        if music is None or not music.is_published:
+            raise BusinessError("Music not found", 404)
+        source_title = music.title
+        await db.execute(
+            update(Music)
+            .where(Music.id == source_id)
+            .values(forward_count=Music.forward_count + 1)
+        )
+    elif source_type == "album":
+        album = await db.get(Album, source_id)
+        if album is None or album.is_deleted:
+            raise BusinessError("Album not found", 404)
+        source_title = album.title
+        await db.execute(
+            update(Album)
+            .where(Album.id == source_id)
+            .values(forward_count=Album.forward_count + 1)
+        )
+    elif source_type == "playlist":
+        playlist = await db.get(Playlist, source_id)
+        if playlist is None:
+            raise BusinessError("Playlist not found", 404)
+        source_title = playlist.title
+        await db.execute(
+            update(Playlist)
+            .where(Playlist.id == source_id)
+            .values(forward_count=Playlist.forward_count + 1)
+        )
+
+    post = SpacePost(
+        user_id=user_id,
+        content=content or None,
+        is_private=False,
+        post_type="forward",
+        source_id=source_id,
+        source_type=source_type,
+        extra={"source_title": source_title[:100]} if source_title else {},
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return post
+
+
 async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
     """点赞动态（幂等）。
 
@@ -187,6 +280,15 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
     post = await db.get(SpacePost, post_id)
     like = SpacePostLike(post_id=post_id, user_id=user_id)
     db.add(like)
+
+    # 维护动态作者的 like_count
+    if post is not None:
+        from echomemory_backend.models.user import User
+        await db.execute(
+            update(User)
+            .where(User.id == post.user_id)
+            .values(like_count=User.like_count + 1)
+        )
 
     if post is not None and post.user_id != user_id:
         await create_notification(
@@ -222,6 +324,15 @@ async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> Non
     like = result.scalar_one_or_none()
     if like is not None:
         await db.delete(like)
+        # 维护动态作者的 like_count（防负保护）
+        post = await db.get(SpacePost, post_id)
+        if post is not None:
+            from echomemory_backend.models.user import User
+            await db.execute(
+                update(User)
+                .where(User.id == post.user_id, User.like_count > 0)
+                .values(like_count=User.like_count - 1)
+            )
         await db.commit()
 
 

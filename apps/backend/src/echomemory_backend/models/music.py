@@ -43,6 +43,7 @@ class Music(Base):
     hot: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     comment_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     play_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    forward_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     release_date: Mapped[date | None] = mapped_column(Date)
     file_url: Mapped[str | None] = mapped_column(String(500))
@@ -66,6 +67,7 @@ class Music(Base):
             "comment_count >= 0", name="chk_musics_comment_count_nonnegative"
         ),
         CheckConstraint("play_count >= 0", name="chk_musics_play_count_nonnegative"),
+        CheckConstraint("forward_count >= 0", name="chk_musics_forward_count_nonnegative"),
         Index("idx_musics_release_date", desc("release_date")),
         Index("idx_musics_hot", desc("hot")),
         Index("idx_musics_play_count", desc("play_count")),

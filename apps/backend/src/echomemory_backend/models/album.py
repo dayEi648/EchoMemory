@@ -37,6 +37,7 @@ class Album(Base):
     source: Mapped[str | None] = mapped_column(String(50))
     collect_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     play_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    forward_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     hot: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     cover_icon_url: Mapped[str | None] = mapped_column(String(500))
     cover_url: Mapped[str | None] = mapped_column(String(500))
@@ -53,6 +54,7 @@ class Album(Base):
             "collect_count >= 0", name="chk_albums_collect_count_nonnegative"
         ),
         CheckConstraint("play_count >= 0", name="chk_albums_play_count_nonnegative"),
+        CheckConstraint("forward_count >= 0", name="chk_albums_forward_count_nonnegative"),
         CheckConstraint("hot >= 0 AND hot <= 1000", name="chk_albums_hot"),
         Index("idx_albums_hot", desc("hot"), postgresql_where=is_deleted.is_(False)),
         Index(

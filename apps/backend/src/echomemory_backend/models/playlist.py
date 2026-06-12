@@ -41,6 +41,7 @@ class Playlist(Base):
     description: Mapped[str | None] = mapped_column(Text)
     collect_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     play_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    forward_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     hot: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     comment_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     is_like: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -58,6 +59,7 @@ class Playlist(Base):
             "collect_count >= 0", name="chk_playlists_collect_count_nonnegative"
         ),
         CheckConstraint("play_count >= 0", name="chk_playlists_play_count_nonnegative"),
+        CheckConstraint("forward_count >= 0", name="chk_playlists_forward_count_nonnegative"),
         CheckConstraint("hot >= 0 AND hot <= 1000", name="chk_playlists_hot"),
         CheckConstraint(
             "comment_count >= 0", name="chk_playlists_comment_count_nonnegative"

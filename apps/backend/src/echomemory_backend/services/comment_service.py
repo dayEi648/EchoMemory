@@ -230,6 +230,7 @@ async def list_comments(
     target_type: str,
     target_id: int,
     viewer_user_id: int | None = None,
+    sort_by: str = "recommended",
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
@@ -240,6 +241,7 @@ async def list_comments(
         target_type: 目标类型（music / playlist / space_post）。
         target_id: 目标主键。
         viewer_user_id: 查看者用户主键，用于校验 space_post 的私密权限。
+        sort_by: 排序方式：recommended（综合=精选优先→最新）、latest（最新）、likes（点赞最多）。
         limit: 返回数量上限，默认 20。
         offset: 偏移量，默认 0。
 
@@ -273,10 +275,17 @@ async def list_comments(
         Comment.is_deleted.is_(False),
     ]
 
+    _COMMENT_SORT = {
+        "recommended": [desc(Comment.is_recommended), desc(Comment.created_at)],
+        "latest": [desc(Comment.created_at)],
+        "likes": [desc(Comment.like_count), desc(Comment.created_at)],
+    }
+    sort_columns = _COMMENT_SORT.get(sort_by, _COMMENT_SORT["recommended"])
+
     stmt = (
         select(Comment)
         .where(*where_clause)
-        .order_by(desc(Comment.created_at))
+        .order_by(*sort_columns)
         .options(selectinload(Comment.user))
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
@@ -391,6 +400,13 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
         .where(Comment.id == comment_id)
         .values(like_count=Comment.like_count + 1)
     )
+    # 维护评论作者的 like_count
+    from echomemory_backend.models.user import User
+    await db.execute(
+        update(User)
+        .where(User.id == comment.user_id)
+        .values(like_count=User.like_count + 1)
+    )
 
     if comment.user_id != user_id:
         await create_notification(
@@ -425,6 +441,15 @@ async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
             .where(Comment.id == comment_id, Comment.like_count > 0)
             .values(like_count=Comment.like_count - 1)
         )
+        # 维护评论作者的 like_count（防负保护）
+        comment = await db.get(Comment, comment_id)
+        if comment is not None:
+            from echomemory_backend.models.user import User
+            await db.execute(
+                update(User)
+                .where(User.id == comment.user_id, User.like_count > 0)
+                .values(like_count=User.like_count - 1)
+            )
         await db.commit()
 
 

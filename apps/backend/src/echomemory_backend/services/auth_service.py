@@ -1,5 +1,7 @@
 """用户认证相关服务，涵盖注册、登录、token 签发与刷新、登出等核心流程。"""
 
+from datetime import datetime, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.redis_client import (
@@ -69,6 +71,8 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> T
         raise BusinessError("账号已被删除", 401)
     if user.status == UserStatus.BANNED:
         raise BusinessError("账号已被封禁", 401)
+    user.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
     return await _issue_tokens(user.id)
 
 

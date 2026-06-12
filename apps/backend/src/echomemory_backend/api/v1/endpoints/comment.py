@@ -44,17 +44,19 @@ async def list_comments(
     db: SessionDep,
     target_type: str,
     target_id: int,
+    sort_by: str = Query("recommended", description="排序: recommended / latest / likes"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: OptionalUser = None,
 ):
-    """获取指定目标的 root 评论列表（排除已删除，按时间倒序）。公开接口，无需登录。"""
+    """获取指定目标的 root 评论列表。公开接口，无需登录。"""
     viewer_id = current_user.id if current_user is not None else None
     result = await comment_service.list_comments(
         db,
         target_type=target_type,
         target_id=target_id,
         viewer_user_id=viewer_id,
+        sort_by=sort_by,
         limit=limit,
         offset=offset,
     )

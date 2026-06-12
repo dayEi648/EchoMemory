@@ -157,6 +157,25 @@ async def unlike_space_post(
     return None
 
 
+@router.post("/forward", response_model=SpacePostOut, status_code=status.HTTP_201_CREATED)
+async def forward_to_space(
+    db: SessionDep,
+    current_user: ActiveUser,
+    source_type: str = Form(..., description="space_post / music / album / playlist"),
+    source_id: int = Form(..., gt=0),
+    content: str | None = Form(None, max_length=2000),
+):
+    """转发内容到自己的空间动态。"""
+    post = await space_post_service.forward_to_space(
+        db,
+        current_user.id,
+        source_type=source_type,
+        source_id=source_id,
+        content=content,
+    )
+    return (await space_post_service.build_space_post_outs(db, [post], current_user.id))[0]
+
+
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------

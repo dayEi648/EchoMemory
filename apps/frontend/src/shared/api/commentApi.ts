@@ -8,11 +8,12 @@ export const createCommentApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) =
   const listRootComments = (
     targetType: string,
     targetId: number,
-    params: { limit?: number; offset?: number } = {},
+    params: { limit?: number; offset?: number; sort_by?: string } = {},
   ) => {
     const query = new URLSearchParams();
     query.set("limit", String(params.limit ?? 20));
     query.set("offset", String(params.offset ?? 0));
+    if (params.sort_by) query.set("sort_by", params.sort_by);
     return request<PaginatedCommentList>(
       `/comments/${targetType}/${targetId}?${query.toString()}`,
       {},
