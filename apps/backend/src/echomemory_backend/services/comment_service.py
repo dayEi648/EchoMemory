@@ -214,6 +214,12 @@ async def create_comment(
                 extra={"comment_id": comment_id, "content": content[:100]},
             )
 
+    # 仅 music 类型评论触发热度重算
+    if target_type == "music":
+        from echomemory_backend.services.hotness_service import recalculate_music_hot
+
+        await recalculate_music_hot(db, target_id)
+
     await db.commit()
 
     return await _get_comment_with_user(db, comment_id)

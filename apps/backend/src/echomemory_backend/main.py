@@ -150,7 +150,39 @@ async def lifespan(app: FastAPI):
         )
 
     await _seed_dictionary_tables()
+
+    # 启动热度定时维护任务（每 4 小时全量重算，实现时间衰减）
+    async def _hotness_maintenance_loop():
+        # 启动时立即执行一次，避免冷启动热度全为 0
+        try:
+            async with AsyncSessionLocal() as db:
+                from echomemory_backend.services.hotness_service import (
+                    recalculate_all_hot,
+                )
+                await recalculate_all_hot(db)
+        except Exception:
+            logger.exception("Initial hotness calculation failed")
+
+        while True:
+            await asyncio.sleep(4 * 3600)
+            try:
+                async with AsyncSessionLocal() as db:
+                    from echomemory_backend.services.hotness_service import (
+                        recalculate_all_hot,
+                    )
+                    await recalculate_all_hot(db)
+            except Exception:
+                logger.exception("Hotness maintenance failed")
+
+    hotness_task = asyncio.create_task(_hotness_maintenance_loop())
+
     yield
+
+    hotness_task.cancel()
+    try:
+        await hotness_task
+    except asyncio.CancelledError:
+        pass
     await async_engine.dispose()
     await redis_client.close()
 

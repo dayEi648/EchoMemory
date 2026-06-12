@@ -52,6 +52,7 @@ export const AdminMusicPage = () => {
   const [instrumentFilter, setInstrumentFilter] = useState<string>("");
   const [emotionTagFilter, setEmotionTagFilter] = useState<string>("");
   const [interestTagFilter, setInterestTagFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("id");
   const [styles, setStyles] = useState<DictionaryItem[]>([]);
   const [languages, setLanguages] = useState<DictionaryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -103,6 +104,7 @@ export const AdminMusicPage = () => {
         instrument_id: instrumentFilter ? Number(instrumentFilter) : undefined,
         emotion_tag_id: emotionTagFilter ? Number(emotionTagFilter) : undefined,
         interest_tag_id: interestTagFilter ? Number(interestTagFilter) : undefined,
+        sort_by: sortBy,
         limit: pageSize,
         offset: page * pageSize,
       });
@@ -122,6 +124,7 @@ export const AdminMusicPage = () => {
     instrumentFilter,
     emotionTagFilter,
     interestTagFilter,
+    sortBy,
     page,
     pageSize,
   ]);
@@ -291,7 +294,18 @@ export const AdminMusicPage = () => {
           </motion.button>
         </div>
 
-        {/* 筛选栏 */}
+        {/* 排序 + 筛选栏 */}
+        <div className="admin-search-row" style={{ marginTop: 10 }}>
+          <div className="admin-filter-field" style={{ maxWidth: 160 }}>
+            <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(0); }}>
+              <option value="id">默认排序</option>
+              <option value="hot">按热度 ↓</option>
+              <option value="play_count">按播放量 ↓</option>
+              <option value="created_at">按创建时间 ↓</option>
+            </select>
+          </div>
+        </div>
+
         <div className="admin-filter-bar">
           <div className="admin-filter-field">
             <select
@@ -406,7 +420,7 @@ export const AdminMusicPage = () => {
           <div className="admin-table-container" style={{ overflowX: "auto" }}>
             <div
               className="admin-table-header"
-              style={{ gridTemplateColumns: "50px 50px 1.5fr 1fr 0.8fr 0.8fr 0.8fr 60px 0.7fr 0.7fr 100px", minWidth: 900 }}
+              style={{ gridTemplateColumns: "50px 50px 1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 50px 0.6fr 0.6fr 60px 100px", minWidth: 960 }}
             >
               <span>ID</span>
               <span>图标</span>
@@ -418,6 +432,7 @@ export const AdminMusicPage = () => {
               <span>VIP</span>
               <span>风格</span>
               <span>语言</span>
+              <span>热度</span>
               <span>操作</span>
             </div>
             <StaggerContainer staggerDelay={0.03}>
@@ -425,7 +440,7 @@ export const AdminMusicPage = () => {
                 <StaggerItem key={item.id}>
                   <motion.div
                     className="admin-table-row"
-                    style={{ gridTemplateColumns: "50px 50px 1.5fr 1fr 0.8fr 0.8fr 0.8fr 60px 0.7fr 0.7fr 100px", alignItems: "center", minWidth: 900 }}
+                    style={{ gridTemplateColumns: "50px 50px 1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 50px 0.6fr 0.6fr 60px 100px", alignItems: "center", minWidth: 960 }}
                     whileHover={{ backgroundColor: "var(--color-surface-soft)" }}
                   >
                     <span style={{ fontSize: 12, color: "var(--color-muted)" }}>{item.id}</span>
@@ -473,6 +488,9 @@ export const AdminMusicPage = () => {
                     </span>
                     <span style={{ fontSize: 13 }}>{item.style?.name ?? "—"}</span>
                     <span style={{ fontSize: 13 }}>{item.language?.name ?? "—"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: item.hot > 0 ? "var(--color-brand-coral)" : "var(--color-muted)" }}>
+                      {item.hot > 0 ? item.hot.toLocaleString() : "—"}
+                    </span>
                     <div style={{ display: "flex", gap: 6 }}>
                       <motion.button
                         className="ghost-button"

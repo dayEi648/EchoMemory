@@ -94,6 +94,11 @@ async def create_play_history(
 
     await _prune_user_play_history(db, user_id)
 
+    # 自动重新计算热度（与主业务同事务提交）
+    from echomemory_backend.services.hotness_service import recalculate_music_hot
+
+    await recalculate_music_hot(db, music_id)
+
     # 自动重新计算用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 

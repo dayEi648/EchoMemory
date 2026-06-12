@@ -410,6 +410,9 @@ async def add_music_to_album(
     try:
         await db.flush()
         await _sync_album_tags_from_musics(db, album_id)
+        # 自动重新计算专辑热度
+        from echomemory_backend.services.hotness_service import recalculate_album_hot
+        await recalculate_album_hot(db, album_id)
         await db.commit()
     except IntegrityError:
         await db.rollback()
@@ -445,6 +448,9 @@ async def remove_music_from_album(
     await db.delete(album_music)
     await db.flush()
     await _sync_album_tags_from_musics(db, album_id)
+    # 自动重新计算专辑热度
+    from echomemory_backend.services.hotness_service import recalculate_album_hot
+    await recalculate_album_hot(db, album_id)
     await db.commit()
 
 

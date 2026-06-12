@@ -380,10 +380,11 @@ async def admin_search_musics(
     instrument_id: int | None = None,
     emotion_tag_id: int | None = None,
     interest_tag_id: int | None = None,
+    sort_by: str = "id",
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
-    """管理员查询所有音乐（含未上架），支持搜索和多条件筛选。
+    """管理员查询所有音乐（含未上架），支持搜索、多条件筛选与排序。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -395,6 +396,7 @@ async def admin_search_musics(
         instrument_id: 按乐器 ID 筛选，默认 None 表示不筛选。
         emotion_tag_id: 按情感标签 ID 筛选，默认 None 表示不筛选。
         interest_tag_id: 按兴趣标签 ID 筛选，默认 None 表示不筛选。
+        sort_by: 排序字段，支持 id / hot / play_count / created_at，默认 id。
         limit: 每页返回的最大记录数，默认 20。
         offset: 分页偏移量，默认 0。
 
@@ -436,7 +438,14 @@ async def admin_search_musics(
             )
         )
 
-    stmt = select(Music).order_by(Music.id).limit(limit).offset(offset)
+    _ADMIN_SORT_COLUMNS = {
+        "id": Music.id,
+        "hot": Music.hot,
+        "play_count": Music.play_count,
+        "created_at": Music.created_at,
+    }
+    sort_column = _ADMIN_SORT_COLUMNS.get(sort_by, Music.id)
+    stmt = select(Music).order_by(desc(sort_column)).limit(limit).offset(offset)
     count_stmt = select(func.count()).select_from(Music)
 
     if where_clause:

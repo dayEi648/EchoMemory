@@ -353,10 +353,11 @@ async def admin_list_music(
     instrument_id: int | None = Query(None),
     emotion_tag_id: int | None = Query(None),
     interest_tag_id: int | None = Query(None),
+    sort_by: str = Query("id", description="排序字段: id / hot / play_count / created_at"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """管理员列出所有音乐（含未上架），支持搜索和多条件筛选。"""
+    """管理员列出所有音乐（含未上架），支持搜索、多条件筛选与排序。"""
     return await music_service.admin_search_musics(
         db,
         q=q,
@@ -367,6 +368,7 @@ async def admin_list_music(
         instrument_id=instrument_id,
         emotion_tag_id=emotion_tag_id,
         interest_tag_id=interest_tag_id,
+        sort_by=sort_by,
         limit=limit,
         offset=offset,
     )
@@ -385,6 +387,18 @@ async def admin_get_music(
         music_id,
         detail="Music not found",
     )
+
+
+@router.post("/admin/recalculate-hot")
+async def admin_recalculate_hot(
+    db: SessionDep,
+    _: AdminUser,
+):
+    """管理员手动触发全量热度重算。"""
+    from echomemory_backend.services.hotness_service import recalculate_all_hot
+
+    result = await recalculate_all_hot(db)
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -125,6 +125,7 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       instrument_id?: number;
       emotion_tag_id?: number;
       interest_tag_id?: number;
+      sort_by?: string;
       limit?: number;
       offset?: number;
     } = {}) => {
@@ -132,6 +133,7 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.q) query.set("q", params.q);
+      if (params.sort_by) query.set("sort_by", params.sort_by);
       if (params.style_id !== undefined) query.set("style_id", String(params.style_id));
       if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
       if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));
@@ -144,5 +146,7 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
     adminGetMusicDetail: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}`),
     adminPublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/publish`, { method: "POST" }),
     adminUnpublishMusic: (musicId: number) => request<MusicDetail>(`/music/admin/${musicId}/unpublish`, { method: "POST" }),
+    adminRecalculateHot: () =>
+      request<{ music: number; album: number; playlist: number }>("/music/admin/recalculate-hot", { method: "POST" }),
   };
 };

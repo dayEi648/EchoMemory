@@ -23,6 +23,7 @@ import { AdminMusicImportPage } from "./pages/admin/AdminMusicImportPage";
 import { DictionaryPage } from "./pages/admin/DictionaryPage";
 import { AdminAlbumPage } from "./pages/admin/AdminAlbumPage";
 import { AdminCarouselPage } from "./pages/admin/AdminCarouselPage";
+import { AdminHotnessPage } from "./pages/admin/AdminHotnessPage";
 import { MusicRouteOpener } from "./pages/MusicRouteOpener";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
@@ -172,6 +173,7 @@ export default function App() {
             <Route path="/admin/dict" element={<DictionaryPage />} />
             <Route path="/admin/albums" element={<AdminAlbumPage />} />
             <Route path="/admin/carousel" element={<AdminCarouselPage />} />
+            <Route path="/admin/hotness" element={<AdminHotnessPage />} />
           </Route>
         </Route>
       </Route>

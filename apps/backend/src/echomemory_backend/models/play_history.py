@@ -31,6 +31,7 @@ class PlayHistory(Base):
     __table_args__ = (
         Index("uq_play_history_user_music", "user_id", "music_id", unique=True),
         Index("idx_play_history_user_time", "user_id", desc("played_at")),
+        Index("idx_play_history_music_time", "music_id", desc("played_at")),
     )
 
     user: Mapped["User"] = relationship("User", back_populates="play_history")

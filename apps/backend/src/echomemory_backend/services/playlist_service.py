@@ -491,6 +491,15 @@ async def add_music_to_playlist(
     if playlist is not None:
         await recalculate_user_tags(db, playlist.user_id, commit=False)
 
+    # 自动重新计算热度
+    from echomemory_backend.services.hotness_service import (
+        recalculate_music_hot,
+        recalculate_playlist_hot,
+    )
+
+    await recalculate_music_hot(db, music_id)
+    await recalculate_playlist_hot(db, playlist_id)
+
     await db.commit()
     await db.refresh(playlist_music)
     return playlist_music
@@ -528,5 +537,10 @@ async def remove_music_from_playlist(
     playlist = await db.get(Playlist, playlist_id)
     if playlist is not None:
         await recalculate_user_tags(db, playlist.user_id, commit=False)
+
+    # 自动重新计算歌单热度
+    from echomemory_backend.services.hotness_service import recalculate_playlist_hot
+
+    await recalculate_playlist_hot(db, playlist_id)
 
     await db.commit()

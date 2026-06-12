@@ -91,7 +91,6 @@ export const DiscoverPage = () => {
 
   const [hotSongs, setHotSongs] = useState<MusicListItem[]>([]);
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
-  const [recommendSongs, setRecommendSongs] = useState<MusicListItem[]>([]);
   const [albums, setAlbums] = useState<AlbumListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(FALLBACK_SLIDES);
@@ -100,18 +99,20 @@ export const DiscoverPage = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [hotRes, newRes, recRes, albumRes, carouselRes] = await Promise.all([
-          musicApi.listMusic({ limit: 5, sort_by: "play_count" }),
-          musicApi.listMusic({ limit: 8, sort_by: "created_at" }),
-          musicApi.listMusic({ limit: 5, sort_by: "hot" }),
-          albumApi.listAlbums({ limit: 6 }),
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const dateFrom = thirtyDaysAgo.toISOString().slice(0, 10);
+
+        const [hotRes, newRes, albumRes, carouselRes] = await Promise.all([
+          musicApi.listMusic({ limit: 5, sort_by: "hot" }).catch(() => ({ items: [], total: 0 })),
+          musicApi.listMusic({ limit: 8, sort_by: "hot", release_date_from: dateFrom }).catch(() => ({ items: [], total: 0 })),
+          albumApi.listAlbums({ limit: 6 }).catch(() => ({ items: [], total: 0 })),
           carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
         ]);
         if (cancelled) return;
-        setHotSongs(hotRes.items ?? []);
-        setNewSongs(newRes.items ?? []);
-        setRecommendSongs(recRes.items ?? []);
-        setAlbums(albumRes.items ?? []);
+        setHotSongs(hotRes.items);
+        setNewSongs(newRes.items);
+        setAlbums(albumRes.items);
 
         const items = carouselRes as CarouselItem[];
         if (items.length > 0) {
@@ -219,14 +220,6 @@ export const DiscoverPage = () => {
               loading={loading}
               onPlay={(song) => playMusicListItem(song)}
               onViewAll={() => navigate("/browse?tab=music")}
-            />
-            <ChartColumn
-              title="推荐榜"
-              icon={Sparkles}
-              accent="lavender"
-              songs={recommendSongs}
-              loading={loading}
-              onPlay={(song) => playMusicListItem(song)}
             />
           </div>
         </section>
