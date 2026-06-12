@@ -77,33 +77,26 @@ export const BrowsePage = () => {
     async (tab: BrowseTab, f: BrowseFilters, p: number) => {
       setLoading(true);
       try {
+        const baseParams: Record<string, unknown> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
+        if (f.q) baseParams.q = f.q;
+        if (f.emotion_tag_ids.length === 1) baseParams.emotion_tag_id = f.emotion_tag_ids[0];
+        if (f.interest_tag_ids.length === 1) baseParams.interest_tag_id = f.interest_tag_ids[0];
+
         if (tab === "music") {
-          const params: Record<string, unknown> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
-          if (f.q) params.q = f.q;
-          if (f.style_id != null) params.style_id = f.style_id;
-          if (f.language_id != null) params.language_id = f.language_id;
-          if (f.instrument_ids.length === 1) params.instrument_id = f.instrument_ids[0];
-          if (f.emotion_tag_ids.length === 1) params.emotion_tag_id = f.emotion_tag_ids[0];
-          if (f.interest_tag_ids.length === 1) params.interest_tag_id = f.interest_tag_ids[0];
-          if (f.release_date_from) params.release_date_from = f.release_date_from;
-          if (f.release_date_to) params.release_date_to = f.release_date_to;
-          const res = await musicApi.listMusic(params as Parameters<typeof musicApi.listMusic>[0]);
+          if (f.style_id != null) baseParams.style_id = f.style_id;
+          if (f.language_id != null) baseParams.language_id = f.language_id;
+          if (f.instrument_ids.length === 1) baseParams.instrument_id = f.instrument_ids[0];
+          if (f.release_date_from) baseParams.release_date_from = f.release_date_from;
+          if (f.release_date_to) baseParams.release_date_to = f.release_date_to;
+          const res = await musicApi.listMusic(baseParams as Parameters<typeof musicApi.listMusic>[0]);
           setMusicItems(res.items);
           setMusicTotal(res.total);
         } else if (tab === "albums") {
-          const params: Record<string, unknown> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
-          if (f.q) params.q = f.q;
-          if (f.emotion_tag_ids.length === 1) params.emotion_tag_id = f.emotion_tag_ids[0];
-          if (f.interest_tag_ids.length === 1) params.interest_tag_id = f.interest_tag_ids[0];
-          const res = await albumApi.listAlbums(params as Parameters<typeof albumApi.listAlbums>[0]);
+          const res = await albumApi.listAlbums(baseParams as Parameters<typeof albumApi.listAlbums>[0]);
           setAlbumItems(res.items);
           setAlbumTotal(res.total);
         } else {
-          const params: Record<string, unknown> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
-          if (f.q) params.q = f.q;
-          if (f.emotion_tag_ids.length === 1) params.emotion_tag_id = f.emotion_tag_ids[0];
-          if (f.interest_tag_ids.length === 1) params.interest_tag_id = f.interest_tag_ids[0];
-          const res = await playlistApi.searchPlaylists(params as Parameters<typeof playlistApi.searchPlaylists>[0]);
+          const res = await playlistApi.searchPlaylists(baseParams as Parameters<typeof playlistApi.searchPlaylists>[0]);
           setPlaylistItems(res.items);
           setPlaylistTotal(res.total);
         }

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
-import { playlistApi, collectionApi, playHistoryApi, spacePostApi } from "../shared/api/instances";
+import { playlistApi, collectionApi, playHistoryApi } from "../shared/api/instances";
 import { usePlayMusic } from "../shared/usePlayMusic";
 import type { UserPublic, PlaylistListItem, AlbumCollectionItem, PlayHistoryItem } from "../shared/api/types";
 import { Avatar } from "../components/ui/Avatar";
@@ -31,7 +31,6 @@ export const ProfilePage = () => {
   const [myPlaylists, setMyPlaylists] = useState<PlaylistListItem[]>([]);
   const [myAlbums, setMyAlbums] = useState<AlbumCollectionItem[]>([]);
   const [myHistory, setMyHistory] = useState<PlayHistoryItem[]>([]);
-  const [, setPostTotal] = useState(0);
   const [dashLoading, setDashLoading] = useState(false);
   const [publicPlaylists, setPublicPlaylists] = useState<PlaylistListItem[]>([]);
   const [publicPlaylistsLoading, setPublicPlaylistsLoading] = useState(false);
@@ -64,12 +63,10 @@ export const ProfilePage = () => {
       playlistApi.listPlaylists({ limit: 4 }),
       collectionApi.listAlbumCollections({ limit: 4 }),
       playHistoryApi.listPlayHistory({ limit: 5 }),
-      spacePostApi.listPosts({ limit: 1 }),
-    ]).then(([pl, al, hi, sp]) => {
+    ]).then(([pl, al, hi]) => {
       setMyPlaylists(pl.items);
       setMyAlbums(al.items);
       setMyHistory(hi.items);
-      setPostTotal(sp.total);
     }).catch(() => {}).finally(() => setDashLoading(false));
   }, [isOwnProfile]);
 

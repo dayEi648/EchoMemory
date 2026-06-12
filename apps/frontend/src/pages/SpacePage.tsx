@@ -52,7 +52,7 @@ export const SpacePage = () => {
   useEffect(() => {
     if (targetUserId && targetUserId !== currentUser?.id) {
       api.getPublicUser(targetUserId)
-        .then((u: UserPublic) => setTargetAuthor({ id: u.id, nickname: u.nickname, username: u.username, avatar_url: u.avatar_url }))
+        .then((u: UserPublic) => setTargetAuthor({ id: u.id, nickname: u.nickname, username: u.username, avatar_url: u.avatar_url, like_count: u.like_count }))
         .catch(() => setTargetAuthor(null));
     } else {
       setTargetAuthor(null);
@@ -63,7 +63,7 @@ export const SpacePage = () => {
 
   const author: PostAuthor =
     targetAuthor ??
-    (currentUser ? { id: currentUser.id, nickname: currentUser.nickname, username: currentUser.username, avatar_url: currentUser.avatar_url } : { id: 0, nickname: "未知", username: "unknown", avatar_url: null });
+    (currentUser ? { id: currentUser.id, nickname: currentUser.nickname, username: currentUser.username, avatar_url: currentUser.avatar_url, like_count: currentUser.like_count } : { id: 0, nickname: "未知", username: "unknown", avatar_url: null, like_count: 0 });
 
   const handleCreated = (post: SpacePostListItem) => {
     setPosts((prev) => [post, ...prev]);
@@ -148,7 +148,7 @@ export const SpacePage = () => {
           </motion.div>
           <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>
             <div className="stat-card-icon icon-accent-bg icon-accent-bg--coral"><Heart size={20} /></div>
-            <div className="stat-card-value">{author.id === currentUser?.id ? currentUser?.like_count ?? 0 : "—"}</div>
+            <div className="stat-card-value">{author.like_count}</div>
             <div className="stat-card-label">获赞总数</div>
           </motion.div>
           <motion.div className="profile-stat-card" whileHover={{ y: -3 }} transition={{ duration: 0.2 }}>

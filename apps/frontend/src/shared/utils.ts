@@ -81,13 +81,7 @@ export function formatAlbumTitle(
 }
 
 /**
- * 将音乐详情转换为播放器曲目。
- *
- * @param detail 音乐详情接口返回值。
- * @returns 播放器可消费的曲目对象。
- */
-/**
- * 将 ISO 日期字符串格式化为相对时间（如"3 分钟前"、""2 小时前"、""3 天前"），
+ * 将 ISO 日期字符串格式化为相对时间（如"3 分钟前"、"2 小时前"、"3 天前"），
  * 超过 7 天则返回 YYYY-MM-DD 格式。
  */
 export function formatRelativeTime(dateStr: string): string {
@@ -104,6 +98,12 @@ export function formatRelativeTime(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * 将音乐详情转换为播放器曲目。
+ *
+ * @param detail 音乐详情接口返回值。
+ * @returns 播放器可消费的曲目对象。
+ */
 export function toPlayerTrack(detail: MusicDetail): PlayerTrack {
   return {
     id: detail.id,

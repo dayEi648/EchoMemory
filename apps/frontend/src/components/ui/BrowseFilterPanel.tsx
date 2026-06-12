@@ -74,6 +74,7 @@ export const BrowseFilterPanel = ({
 
   // 加载快速筛选标签
   useEffect(() => {
+    let cancelled = false;
     const configs = QUICK_CHIP_CONFIG[tab];
     const typeSet = new Set(configs.map((c) => c.type));
     const result: Record<string, DictionaryItem[]> = {};
@@ -89,7 +90,10 @@ export const BrowseFilterPanel = ({
             result[type] = [];
           }),
       ),
-    ).then(() => setQuickTags(result));
+    ).then(() => {
+      if (!cancelled) setQuickTags(result);
+    });
+    return () => { cancelled = true; };
   }, [tab]);
 
   // 统计激活的筛选数量

@@ -14,6 +14,7 @@ export interface PostAuthor {
   nickname: string;
   username: string;
   avatar_url: string | null;
+  like_count: number;
 }
 
 interface SpacePostCardProps {

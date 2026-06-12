@@ -37,7 +37,6 @@ export const CommentItem = ({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [likeCount, setLikeCount] = useState(comment.like_count);
-  const [, setDislikeCount] = useState(comment.dislike_count);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState<CommentItemType[]>([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
@@ -84,7 +83,6 @@ export const CommentItem = ({
         setLikeCount((count) => count + 1);
         if (disliked) {
           setDisliked(false);
-          setDislikeCount((count) => Math.max(0, count - 1));
         }
       }
     } catch { toast.error("操作失败"); }
@@ -95,11 +93,9 @@ export const CommentItem = ({
       if (disliked) {
         await commentApi.undislikeComment(comment.id);
         setDisliked(false);
-        setDislikeCount((count) => Math.max(0, count - 1));
       } else {
         await commentApi.dislikeComment(comment.id);
         setDisliked(true);
-        setDislikeCount((count) => count + 1);
         if (liked) {
           setLiked(false);
           setLikeCount((count) => Math.max(0, count - 1));

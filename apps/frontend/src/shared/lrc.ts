@@ -76,15 +76,22 @@ export function parseLrc(content: string): ParsedLrc {
 export function getActiveLyricIndex(lines: LyricLine[], currentTime: number): number {
   if (lines.length === 0 || currentTime < 0) return -1;
 
-  let index = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].time <= currentTime + 0.05) {
-      index = i;
+  const target = currentTime + 0.05;
+  let lo = 0;
+  let hi = lines.length - 1;
+  let result = -1;
+
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (lines[mid].time <= target) {
+      result = mid;
+      lo = mid + 1;
     } else {
-      break;
+      hi = mid - 1;
     }
   }
-  return index;
+
+  return result;
 }
 
 /**

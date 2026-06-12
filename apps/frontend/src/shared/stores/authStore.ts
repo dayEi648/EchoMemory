@@ -1,22 +1,9 @@
 import { create } from "zustand";
 
 import { createUserApi, type ApiError } from "../api/userApi";
-import { replaceApiTokenStore } from "../api/instances";
+import { replaceApiTokenStore, API_BASE_URL } from "../api/instances";
 import type { UpdateMeInput, UserMe } from "../api/types";
 import { createLocalStorageTokenStore, type TokenStore } from "../auth/tokenStore";
-
-const isDev = import.meta.env.DEV;
-const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-if (!isDev && !envBaseUrl) {
-  throw new Error(
-    "生产环境必须配置 VITE_API_BASE_URL。" +
-    "请在 apps/frontend/.env.production 中设置后端 API 地址，" +
-    "例如：VITE_API_BASE_URL=https://api.echomemory.com/api/v1",
-  );
-}
-
-const API_BASE_URL = envBaseUrl ?? "/api/v1";
 
 export type RegisterFormData = {
   username: string;
@@ -81,8 +68,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (username, password) => {
     await currentApi.login({ username, password });
-    const user = await currentApi.getMe();
-    set({ user });
+    try {
+      const user = await currentApi.getMe();
+      set({ user });
+    } catch {
+      currentTokenStore.clear();
+      throw new Error("登录后获取用户信息失败，请重试");
+    }
   },
 
   register: async (data) => {
@@ -94,8 +86,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       gender: data.gender ?? 0,
       city: data.city,
     });
-    const user = await currentApi.getMe();
-    set({ user });
+    try {
+      const user = await currentApi.getMe();
+      set({ user });
+    } catch {
+      currentTokenStore.clear();
+      throw new Error("注册后获取用户信息失败，请重试");
+    }
   },
 
   logout: async () => {

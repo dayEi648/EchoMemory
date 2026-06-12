@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -14,15 +14,20 @@ export type ModalProps = {
 };
 
 export const Modal = ({ open, onClose, title, children, footer, maxWidth = 520 }: ModalProps) => {
+  const openRef = useRef(open);
+  openRef.current = open;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        onClose();
+      if (e.key === "Escape" && openRef.current) {
+        onCloseRef.current();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;

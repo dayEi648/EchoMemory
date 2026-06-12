@@ -52,19 +52,32 @@ export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     return data as T;
   };
 
+  /** 互斥锁：防止并发 401 同时刷新 token */
+  let refreshPromise: Promise<{ access_token: string; refresh_token: string; token_type: string }> | null = null;
+
   const refresh = async () => {
-    const tokens = tokenStore.get();
-    if (!tokens) {
-      throw new ApiError("未登录", 401);
+    if (refreshPromise) return refreshPromise;
+
+    refreshPromise = (async () => {
+      const tokens = tokenStore.get();
+      if (!tokens) {
+        throw new ApiError("未登录", 401);
+      }
+      const response = await requestFetcher()(`${baseUrl}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: tokens.refreshToken }),
+      });
+      const token = await parseResponse<{ access_token: string; refresh_token: string; token_type: string }>(response);
+      tokenStore.set({ accessToken: token.access_token, refreshToken: token.refresh_token });
+      return token;
+    })();
+
+    try {
+      return await refreshPromise;
+    } finally {
+      refreshPromise = null;
     }
-    const response = await requestFetcher()(`${baseUrl}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: tokens.refreshToken }),
-    });
-    const token = await parseResponse<{ access_token: string; refresh_token: string; token_type: string }>(response);
-    tokenStore.set({ accessToken: token.access_token, refreshToken: token.refresh_token });
-    return token;
   };
 
   const request = async <T>(path: string, init: RequestInit = {}, retry = true): Promise<T> => {
@@ -92,7 +105,10 @@ export const createBaseApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
           false,
         );
       } catch (error) {
-        tokenStore.clear();
+        // 仅当 refresh 本身返回 401 时才清 token（网络故障保留 token）
+        if (error instanceof ApiError && error.status === 401) {
+          tokenStore.clear();
+        }
         throw error;
       }
     }

@@ -24,12 +24,14 @@ function lyricLineClass(activeIndex: number, index: number): string {
 }
 
 /**
- * 播放页歌词：自动跟拍用 CSS transform 过渡（固定时长缓动）；
+ * 播放页歌词：自动跟拍用 CSS transform 过渡。
  * 用户手动浏览时切换为原生 scroll。
+ *
+ * 性能优化：使用 rAF 节流计算 activeIndex，仅在索引变化时触发重渲染和自动跟随，
+ * 避免每帧 ~60 次的无效 React 调度。
  */
 export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsProps) => {
   const currentTrackId = usePlayerStore((s) => s.currentTrack?.id);
-  const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const seek = usePlayerStore((s) => s.seek);
   const isActiveTrack = currentTrackId === musicId;
@@ -41,6 +43,7 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
   const [userLocked, setUserLocked] = useState(false);
   const [translateY, setTranslateY] = useState(0);
   const [transitionMs, setTransitionMs] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -49,9 +52,30 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
   const prevActiveIndexRef = useRef(-1);
   const activeIndexRef = useRef(-1);
   const translateYRef = useRef(0);
+  const rafIdRef = useRef(0);
 
-  const activeIndex =
-    isActiveTrack && synced ? getDisplayLyricIndex(lines, currentTime) : -1;
+  // rAF 节流：仅在 activeIndex 实际变化时更新 state
+  useEffect(() => {
+    if (!isActiveTrack || !synced || lines.length === 0) {
+      setActiveIndex(-1);
+      return;
+    }
+
+    const tick = () => {
+      const ct = usePlayerStore.getState().currentTime;
+      const idx = getDisplayLyricIndex(lines, ct);
+      setActiveIndex((prev) => {
+        if (prev !== idx) {
+          activeIndexRef.current = idx;
+          return idx;
+        }
+        return prev;
+      });
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+    rafIdRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafIdRef.current);
+  }, [isActiveTrack, synced, lines]);
 
   activeIndexRef.current = activeIndex;
   translateYRef.current = translateY;
@@ -211,7 +235,6 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
     });
   }, [
     activeIndex,
-    currentTime,
     isActiveTrack,
     synced,
     userLocked,

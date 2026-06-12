@@ -222,17 +222,7 @@ export const SearchPage = () => {
     albumResults.length === 0 &&
     userResults.length === 0;
 
-  if (!query.trim()) {
-    return (
-      <FadeIn>
-        <EmptyState
-          icon={Search}
-          title="请输入搜索关键词"
-          description="在顶部搜索框输入内容，即可搜索歌曲、歌单、专辑和用户。"
-        />
-      </FadeIn>
-    );
-  }
+  const emptyQuery = !query.trim();
 
   const paginationFooter =
     activeTab === "songs" && (songTotalPages > 1 || songTotal > 0) ? (
@@ -250,7 +240,9 @@ export const SearchPage = () => {
       header={(
         <>
           <FadeIn>
-            <h1 className="page-title">「{query}」的搜索结果</h1>
+            <h1 className="page-title">
+              {emptyQuery ? "搜索" : `「${query}」的搜索结果`}
+            </h1>
           </FadeIn>
           <FadeIn delay={0.06}>
             <div className="category-tabs">
@@ -278,7 +270,15 @@ export const SearchPage = () => {
       )}
       footer={paginationFooter}
     >
-      {loading ? (
+      {emptyQuery ? (
+        <FadeIn>
+          <EmptyState
+            icon={Search}
+            title="请输入搜索关键词"
+            description="在顶部搜索框输入内容，即可搜索歌曲、歌单、专辑和用户。"
+          />
+        </FadeIn>
+      ) : loading ? (
         <FadeIn delay={0.12}>
           <div className="empty-state">
             <p>搜索中...</p>

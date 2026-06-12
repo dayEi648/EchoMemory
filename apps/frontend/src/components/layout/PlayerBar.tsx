@@ -54,6 +54,7 @@ export const PlayerBar = () => {
     setVolume,
     toggleShuffle,
     toggleRepeat,
+    playQueue,
   } = usePlayerStore();
   const openCurrentPlayer = usePlayerViewStore((s) => s.openCurrent);
 
@@ -398,7 +399,7 @@ export const PlayerBar = () => {
                 queue.map((track, i) => (
                   <div
                     key={`${track.id}-${i}`}
-                    onClick={() => usePlayerStore.getState().playQueue(queue, i, queueContext)}
+                    onClick={() => playQueue(queue, i, queueContext)}
                     style={{
                       display: "flex",
                       alignItems: "center",

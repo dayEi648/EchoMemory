@@ -40,7 +40,7 @@ interface PlayerState {
     context: NonNullable<QueueContext>,
   ) => void;
   /** 独立播放模式：将单曲加入当前临时播放列表 */
-  playStandalone: (track: PlayerTrack) => Promise<void>;
+  playStandalone: (track: PlayerTrack) => void;
   /** 设置队列并开始播放（底层方法） */
   playQueue: (queue: PlayerTrack[], startIndex?: number, context?: QueueContext) => void;
   togglePlay: () => void;
@@ -235,28 +235,35 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     playInContext: (track, contextTracks, context) => {
-      if (!track.file_url) return;
+      void (async () => {
+        let resolved = track;
+        if (!resolved.file_url) {
+          const loaded = await _ensureFileUrl(resolved);
+          if (loaded?.file_url) resolved = loaded;
+        }
+        if (!resolved.file_url) return;
 
-      const idx = contextTracks.findIndex((t) => t.id === track.id);
-      const startIndex = idx >= 0 ? idx : 0;
+        const idx = contextTracks.findIndex((t) => t.id === resolved.id);
+        const startIndex = idx >= 0 ? idx : 0;
 
-      audio.src = track.file_url;
-      audio.load();
-      audio.play().catch(() => {});
-      set({
-        queue: contextTracks,
-        queueIndex: startIndex,
-        queueContext: context,
-        currentTrack: track,
-        isPlaying: true,
-        progress: 0,
-        currentTime: 0,
-        duration: 0,
-        recorded: false,
-      });
+        audio.src = resolved.file_url;
+        audio.load();
+        audio.play().catch(() => {});
+        set({
+          queue: contextTracks.map((t) => (t.id === resolved.id ? resolved : t)),
+          queueIndex: startIndex,
+          queueContext: context,
+          currentTrack: resolved,
+          isPlaying: true,
+          progress: 0,
+          currentTime: 0,
+          duration: 0,
+          recorded: false,
+        });
+      })();
     },
 
-    playStandalone: async (track) => {
+    playStandalone: (track) => {
       _playTemporaryTrack(track);
     },
 

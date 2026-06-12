@@ -13,7 +13,18 @@ import { createSpacePostApi } from "./spacePostApi";
 import { createDictionaryApi } from "./dictionaryApi";
 import { createUserApi } from "./userApi";
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api/v1";
+const isDev = import.meta.env.DEV;
+const envBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
+if (!isDev && !envBaseUrl) {
+  throw new Error(
+    "生产环境必须配置 VITE_API_BASE_URL。" +
+    "请在 apps/frontend/.env.production 中设置后端 API 地址，" +
+    "例如：VITE_API_BASE_URL=https://api.echomemory.com/api/v1",
+  );
+}
+
+export const API_BASE_URL: string = envBaseUrl ?? "/api/v1";
 
 export type ApiRegistry = {
   userApi: ReturnType<typeof createUserApi>;
@@ -28,7 +39,7 @@ export type ApiRegistry = {
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
-  const options = { baseUrl: BASE_URL, tokenStore };
+  const options = { baseUrl: API_BASE_URL, tokenStore };
   return {
     userApi: createUserApi(options),
     musicApi: createMusicApi(options),
