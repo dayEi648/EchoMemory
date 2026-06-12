@@ -32,6 +32,7 @@ import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
+import { formatAlbumTitle, formatAuthors } from "../shared/utils";
 
 const tabs = [
   { key: "all", label: "综合", icon: Search },
@@ -205,6 +206,22 @@ export const SearchPage = () => {
   const playlistTotalPages = Math.ceil(playlistTotal / PAGE_SIZE);
   const userTotalPages = Math.ceil(userTotal / PAGE_SIZE);
 
+  const showSongSection =
+    activeTab === "songs" || (activeTab === "all" && songResults.length > 0);
+  const showPlaylistSection =
+    activeTab === "playlists" ||
+    (activeTab === "all" && playlistResults.length > 0);
+  const showAlbumSection =
+    activeTab === "albums" || (activeTab === "all" && albumResults.length > 0);
+  const showUserSection =
+    activeTab === "users" || (activeTab === "all" && userResults.length > 0);
+  const allTabEmpty =
+    activeTab === "all" &&
+    songResults.length === 0 &&
+    playlistResults.length === 0 &&
+    albumResults.length === 0 &&
+    userResults.length === 0;
+
   if (!query.trim()) {
     return (
       <FadeIn>
@@ -269,8 +286,14 @@ export const SearchPage = () => {
         </FadeIn>
       ) : (
         <>
+          {allTabEmpty && (
+            <FadeIn delay={0.12}>
+              <EmptyState icon={Search} title="未找到相关内容" compact />
+            </FadeIn>
+          )}
+
           {/* Songs */}
-          {(activeTab === "all" || activeTab === "songs") && (
+          {showSongSection && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
                 <div className="section-header">
@@ -313,12 +336,10 @@ export const SearchPage = () => {
                     ).map((song, i) => (
                       <StaggerItem key={song.id}>
                         <SongRow
-                          index={i + songPage * PAGE_SIZE}
                           name={song.title}
-                          artist={
-                            song.authors.map((a) => a.nickname).join(", ") ||
-                            "未知艺人"
-                          }
+                          artist={formatAuthors(song.authors)}
+                          album={formatAlbumTitle(song.albums)}
+                          playCount={song.play_count}
                           musicId={song.id}
                           coverUrl={song.cover_icon_url ?? undefined}
                           onPlay={() => playMusicListItem(song)}
@@ -332,7 +353,7 @@ export const SearchPage = () => {
           )}
 
           {/* Playlists */}
-          {(activeTab === "all" || activeTab === "playlists") && (
+          {showPlaylistSection && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
                 <div className="section-header">
@@ -388,7 +409,7 @@ export const SearchPage = () => {
           )}
 
           {/* Albums */}
-          {(activeTab === "all" || activeTab === "albums") && (
+          {showAlbumSection && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
                 <div className="section-header">
@@ -449,7 +470,7 @@ export const SearchPage = () => {
           )}
 
           {/* Users */}
-          {(activeTab === "all" || activeTab === "users") && (
+          {showUserSection && (
             <section style={{ marginBottom: 28 }}>
               <FadeIn delay={0.1}>
                 <div className="section-header">

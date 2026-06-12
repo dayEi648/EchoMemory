@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ListMusic, Plus } from "lucide-react";
+import { ListMusic, Plus, Pencil, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { playlistApi } from "../shared/api/instances";
@@ -13,6 +13,7 @@ import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { CreatePlaylistModal } from "../components/ui/CreatePlaylistModal";
+import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { PageTitle } from "../components/ui/PageTitle";
 
@@ -39,6 +40,9 @@ export const PlaylistsPage = () => {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editPlaylist, setEditPlaylist] = useState<PlaylistListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PlaylistListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadPlaylists = useCallback(async () => {
     setLoading(true);
@@ -78,6 +82,35 @@ export const PlaylistsPage = () => {
       return;
     }
     setPage(0);
+  };
+
+  const handleUpdated = (updated: PlaylistListItem) => {
+    setPlaylists((prev) =>
+      prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+    );
+    setEditPlaylist(null);
+  };
+
+  const handleEditDeleted = (deletedId: number) => {
+    setPlaylists((prev) => prev.filter((item) => item.id !== deletedId));
+    setTotal((prev) => prev - 1);
+    setEditPlaylist(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await playlistApi.deletePlaylist(deleteTarget.id);
+      toast.success("歌单已删除");
+      setPlaylists((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setTotal((prev) => prev - 1);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const formatPlaylistSubtitle = (playlist: PlaylistListItem) => {
@@ -139,13 +172,45 @@ export const PlaylistsPage = () => {
             <StaggerContainer className="playlist-rail">
               {playlists.map((p) => (
                 <StaggerItem key={p.id}>
-                  <CoverCard
-                    id={p.id}
-                    title={p.title}
-                    subtitle={formatPlaylistSubtitle(p)}
-                    coverUrl={p.cover_icon_url ?? undefined}
-                    onClick={() => navigate(`/playlist/${p.id}`)}
-                  />
+                  <div className="playlist-card-wrapper">
+                    <CoverCard
+                      id={p.id}
+                      title={p.title}
+                      subtitle={formatPlaylistSubtitle(p)}
+                      coverUrl={p.cover_icon_url ?? undefined}
+                      onClick={() => navigate(`/playlist/${p.id}`)}
+                    />
+                    {!p.is_like && (
+                      <div className="playlist-card-actions">
+                        <motion.button
+                          type="button"
+                          className="playlist-card-action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditPlaylist(p);
+                          }}
+                          whileTap={{ scale: 0.93 }}
+                          title="编辑歌单"
+                        >
+                          <Pencil size={13} />
+                          编辑
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          className="playlist-card-action-btn playlist-card-action-btn--danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(p);
+                          }}
+                          whileTap={{ scale: 0.93 }}
+                          title="删除歌单"
+                        >
+                          <Trash2 size={13} />
+                          删除
+                        </motion.button>
+                      </div>
+                    )}
+                  </div>
                 </StaggerItem>
               ))}
             </StaggerContainer>
@@ -157,6 +222,28 @@ export const PlaylistsPage = () => {
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onCreated={handlePlaylistCreated}
+      />
+
+      <CreatePlaylistModal
+        open={editPlaylist != null}
+        onClose={() => setEditPlaylist(null)}
+        edit={
+          editPlaylist
+            ? { id: editPlaylist.id, title: editPlaylist.title, description: null, is_private: editPlaylist.is_private }
+            : undefined
+        }
+        onUpdated={handleUpdated}
+        onDeleted={handleEditDeleted}
+      />
+
+      <ConfirmDeleteModal
+        open={deleteTarget != null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDeleteConfirm()}
+        itemType="歌单"
+        itemName={deleteTarget?.title ?? ""}
+        description="删除后无法恢复，歌单中的歌曲不会被删除。"
+        loading={deleting}
       />
     </>
   );

@@ -1,20 +1,22 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Play, ListMusic, ArrowLeft, Music, Lock, Heart } from "lucide-react";
+import { Play, ListMusic, ArrowLeft, Music, Lock, Heart, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePlayerStore } from "../shared/stores/playerStore";
 import { useAuthStore } from "../shared/stores/authStore";
 import { playlistApi, musicApi, collectionApi } from "../shared/api/instances";
-import type { PlaylistDetail as PlaylistDetailType } from "../shared/api/types";
-import { formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
+import type { PlaylistDetail as PlaylistDetailType, PlaylistListItem } from "../shared/api/types";
+import { formatAlbumTitle, formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
 import { Avatar } from "../components/ui/Avatar";
 import { SongRow } from "../components/ui/SongRow";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { CommentSection } from "../components/ui/CommentSection";
+import { CreatePlaylistModal } from "../components/ui/CreatePlaylistModal";
+import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
 
 export const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
@@ -25,6 +27,9 @@ export const PlaylistDetailPage = () => {
   const [playlist, setPlaylist] = useState<PlaylistDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [collected, setCollected] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -122,6 +127,32 @@ export const PlaylistDetailPage = () => {
     });
   };
 
+  const handleUpdated = (updated: PlaylistListItem) => {
+    if (playlist) {
+      setPlaylist({
+        ...playlist,
+        title: updated.title,
+        is_private: updated.is_private,
+        cover_icon_url: updated.cover_icon_url,
+      });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!playlist) return;
+    setDeleting(true);
+    try {
+      await playlistApi.deletePlaylist(playlist.id);
+      toast.success("歌单已删除");
+      setDeleteModalOpen(false);
+      navigate("/playlists", { replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-screen" style={{ height: "60vh" }}>
@@ -210,49 +241,79 @@ export const PlaylistDetailPage = () => {
                 <span>{playlist.collect_count} 次收藏</span>
               </div>
 
-              <motion.button
-                className="btn-primary"
-                onClick={handlePlayAll}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                type="button"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-              >
-                <Play size={18} fill="white" />
-                播放全部
-              </motion.button>
-              {canCollectPlaylist && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <motion.button
-                  onClick={handleToggleCollect}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.92 }}
+                  className="btn-primary"
+                  onClick={handlePlayAll}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   type="button"
-                  title={collected ? "取消收藏" : "收藏"}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginLeft: 10,
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    border: "1px solid var(--color-border)",
-                    background: collected ? "var(--color-accent)" : "transparent",
-                    color: collected ? "white" : "var(--color-muted)",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
                 >
-                  <Heart size={16} fill={collected ? "white" : "none"} />
-                  {collected ? "已收藏" : "收藏"}
+                  <Play size={18} fill="white" />
+                  播放全部
                 </motion.button>
-              )}
 
-              {!isOwner && (
-                <span style={{ fontSize: 12, color: "var(--color-muted)", marginLeft: 12 }}>
-                  仅歌单创建者可编辑
-                </span>
-              )}
+                {canCollectPlaylist && (
+                  <motion.button
+                    onClick={handleToggleCollect}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.92 }}
+                    type="button"
+                    title={collected ? "取消收藏" : "收藏"}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "10px 16px",
+                      borderRadius: 10,
+                      border: "1px solid var(--color-border)",
+                      background: collected ? "var(--color-accent)" : "transparent",
+                      color: collected ? "white" : "var(--color-muted)",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Heart size={16} fill={collected ? "white" : "none"} />
+                    {collected ? "已收藏" : "收藏"}
+                  </motion.button>
+                )}
+
+                {/* 所有者操作按钮 */}
+                {isOwner && (
+                  <>
+                    <motion.button
+                      className="btn-secondary"
+                      onClick={() => setEditModalOpen(true)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      type="button"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                    >
+                      <Pencil size={14} />
+                      编辑
+                    </motion.button>
+                    <motion.button
+                      className="btn-secondary"
+                      onClick={() => setDeleteModalOpen(true)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      type="button"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--color-error)",
+                        borderColor: "var(--color-error)",
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      删除
+                    </motion.button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -268,9 +329,10 @@ export const PlaylistDetailPage = () => {
             {sortedMusics.map((pm, i) => (
               <StaggerItem key={`${pm.music.id}-${pm.ordinal}`}>
                 <SongRow
-                  index={i}
                   name={pm.music.title}
                   artist={formatAuthors(pm.music.authors)}
+                  album={formatAlbumTitle(pm.music.albums)}
+                  playCount={pm.music.play_count}
                   musicId={pm.music.id}
                   coverUrl={pm.music.cover_icon_url ?? undefined}
                   onPlay={() => handlePlayMusic(pm)}
@@ -293,6 +355,38 @@ export const PlaylistDetailPage = () => {
           </section>
         </FadeIn>
       )}
+
+      {/* 编辑弹窗 */}
+      <CreatePlaylistModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        edit={
+          playlist
+            ? {
+                id: playlist.id,
+                title: playlist.title,
+                description: playlist.description,
+                is_private: playlist.is_private,
+              }
+            : undefined
+        }
+        onUpdated={handleUpdated}
+        onDeleted={() => {
+          setEditModalOpen(false);
+          navigate("/playlists", { replace: true });
+        }}
+      />
+
+      {/* 删除确认弹窗 */}
+      <ConfirmDeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={() => void handleDeleteConfirm()}
+        itemType="歌单"
+        itemName={playlist?.title ?? ""}
+        description="删除后无法恢复，歌单中的歌曲不会被删除。"
+        loading={deleting}
+      />
     </div>
   );
 };

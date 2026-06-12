@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Music2, Disc, ListMusic, ListPlus, X } from "lucide-react";
+import { Music2, Disc, ListMusic, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -12,13 +12,12 @@ import type {
   AlbumCollectionItem,
   PlaylistCollectionItem,
 } from "../shared/api/types";
-import { formatAuthors } from "../shared/utils";
+import { formatAlbumTitle, formatAuthors } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
-import { AddToPlaylistModal } from "../components/ui/AddToPlaylistModal";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 
@@ -56,9 +55,6 @@ export const LibraryPage = () => {
   const [playlistsTotal, setPlaylistsTotal] = useState(0);
   const [playlistsPage, setPlaylistsPage] = useState(0);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
-
-  const [manageMusicId, setManageMusicId] = useState<number | null>(null);
-  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
   const loadSongs = useCallback(async () => {
     setSongsLoading(true);
@@ -104,27 +100,6 @@ export const LibraryPage = () => {
     else if (activeTab === "albums") loadAlbums();
     else loadPlaylists();
   }, [activeTab, loadSongs, loadAlbums, loadPlaylists]);
-
-  /** 管理歌曲所属歌单（收藏 = 歌单归属关系） */
-  const handleManageSong = (musicId: number) => {
-    setManageMusicId(musicId);
-    setPlaylistModalOpen(true);
-  };
-
-  const handleSongMembershipChange = (collected: boolean) => {
-    if (!collected && manageMusicId != null) {
-      setSongs((prev) => prev.filter((s) => s.music.id !== manageMusicId));
-      setSongsTotal((t) => Math.max(0, t - 1));
-    }
-  };
-
-  const handleClosePlaylistModal = () => {
-    setPlaylistModalOpen(false);
-    setManageMusicId(null);
-    if (activeTab === "songs") {
-      void loadSongs();
-    }
-  };
 
   /** 取消收藏专辑 */
   const handleUncollectAlbum = async (item: AlbumCollectionItem) => {
@@ -217,29 +192,22 @@ export const LibraryPage = () => {
               <StaggerContainer staggerDelay={0.03}>
                 {songs.map((item, i) => (
                   <StaggerItem key={item.music.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <SongRow
-                          index={i}
-                          name={item.music.title}
-                          artist={formatAuthors(item.music.authors)}
-                          musicId={item.music.id}
-                          coverUrl={item.music.cover_icon_url ?? undefined}
-                          onPlay={() => playMusicListItem(item.music)}
-                        />
-                      </div>
-                      <motion.button
-                        className="ghost-button"
-                        onClick={() => handleManageSong(item.music.id)}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        type="button"
-                        title="管理歌单"
-                        style={{ padding: "6px 8px", minHeight: "auto", color: "var(--color-muted)", flexShrink: 0 }}
-                      >
-                        <ListPlus size={16} />
-                      </motion.button>
-                    </div>
+                    <SongRow
+                      name={item.music.title}
+                      artist={formatAuthors(item.music.authors)}
+                      album={formatAlbumTitle(item.music.albums)}
+                      playCount={item.music.play_count}
+                      isCollected
+                      musicId={item.music.id}
+                      coverUrl={item.music.cover_icon_url ?? undefined}
+                      onPlay={() => playMusicListItem(item.music)}
+                      onCollectedChange={(collected) => {
+                        if (!collected) {
+                          setSongs((prev) => prev.filter((s) => s.music.id !== item.music.id));
+                          setSongsTotal((t) => Math.max(0, t - 1));
+                        }
+                      }}
+                    />
                   </StaggerItem>
                 ))}
               </StaggerContainer>
@@ -357,12 +325,6 @@ export const LibraryPage = () => {
           )}
         </>
       )}
-      <AddToPlaylistModal
-        open={playlistModalOpen}
-        musicId={manageMusicId}
-        onClose={handleClosePlaylistModal}
-        onCollectedChange={handleSongMembershipChange}
-      />
     </PaginatedPageLayout>
   );
 };

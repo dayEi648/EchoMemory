@@ -7,6 +7,7 @@ import { commentApi } from "../../shared/api/instances";
 import type { CommentItem as CommentItemType } from "../../shared/api/types";
 import { formatRelativeTime } from "../../shared/utils";
 import { Avatar } from "./Avatar";
+import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
 interface CommentItemProps {
   comment: CommentItemType;
@@ -33,6 +34,8 @@ export const CommentItem = ({
 }: CommentItemProps) => {
   const [liked, setLiked] = useState(comment.liked_by_me ?? false);
   const [disliked, setDisliked] = useState(comment.disliked_by_me ?? false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [likeCount, setLikeCount] = useState(comment.like_count);
   const [, setDislikeCount] = useState(comment.dislike_count);
   const [showReplies, setShowReplies] = useState(false);
@@ -106,12 +109,14 @@ export const CommentItem = ({
   };
 
   const handleDelete = async () => {
-    if (!confirm("确定删除这条评论吗？")) return;
+    setDeleting(true);
     try {
       await commentApi.deleteComment(comment.id);
       onDeleted(comment.id);
       toast.success("已删除");
+      setDeleteOpen(false);
     } catch { toast.error("删除失败"); }
+    finally { setDeleting(false); }
   };
 
   const loadReplies = async () => {
@@ -130,8 +135,9 @@ export const CommentItem = ({
   };
 
   return (
-    <div className={isRoot ? "comment-item" : "comment-item comment-item--reply"}>
-      <div style={{ display: "flex", gap: 10 }}>
+    <>
+      <div className={isRoot ? "comment-item" : "comment-item comment-item--reply"}>
+        <div style={{ display: "flex", gap: 10 }}>
         <Avatar user={comment.user} size="sm" />
         <div className="comment-item-body">
           <div className="comment-item-meta">
@@ -158,7 +164,7 @@ export const CommentItem = ({
               <MessageCircle size={13} /> 回复
             </button>
             {isOwner && (
-              <button type="button" onClick={handleDelete} className="comment-action-btn">
+              <button type="button" onClick={() => setDeleteOpen(true)} className="comment-action-btn">
                 <Trash2 size={13} />
               </button>
             )}
@@ -202,5 +208,15 @@ export const CommentItem = ({
         </div>
       </div>
     </div>
+
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => void handleDelete()}
+        itemType="评论"
+        itemName={comment.content.length > 30 ? comment.content.slice(0, 30) + "..." : comment.content}
+        loading={deleting}
+      />
+    </>
   );
 };

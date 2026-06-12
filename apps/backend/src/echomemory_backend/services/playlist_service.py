@@ -3,7 +3,7 @@
 提供歌单的创建、查询、更新、删除，以及歌曲在歌单中的添加与移除等操作。
 """
 
-from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy import delete, desc, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -230,24 +230,45 @@ async def search_playlists(
     db: AsyncSession,
     *,
     q: str | None = None,
+    emotion_tag_id: int | None = None,
+    interest_tag_id: int | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
-    """按标题模糊搜索公开歌单。
+    """按标题模糊搜索公开歌单，支持标签筛选。
 
     Args:
         db: SQLAlchemy 异步 Session。
         q: 搜索关键词，可选。
+        emotion_tag_id: 按情绪标签 ID 筛选，可选。
+        interest_tag_id: 按兴趣标签 ID 筛选，可选。
         limit: 返回数量上限，默认 20。
         offset: 分页偏移量，默认 0。
 
     Returns:
         {"items": 匹配的歌单实例列表, "total": 总记录数}。
     """
-    where_clause = _public_playlist_where()
+    where_clause = [
+        *_public_playlist_where(),
+        exists().where(PlaylistMusic.playlist_id == Playlist.id),  # 排除空歌单
+    ]
     if q:
         escaped_q = q.replace("%", "\\%").replace("_", "\\_")
         where_clause.append(Playlist.title.ilike(f"%{escaped_q}%", escape="\\"))
+    if emotion_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (PlaylistEmotionTag.playlist_id == Playlist.id)
+                & (PlaylistEmotionTag.emotion_tag_id == emotion_tag_id)
+            )
+        )
+    if interest_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (PlaylistInterestTag.playlist_id == Playlist.id)
+                & (PlaylistInterestTag.interest_tag_id == interest_tag_id)
+            )
+        )
 
     stmt = (
         select(Playlist)

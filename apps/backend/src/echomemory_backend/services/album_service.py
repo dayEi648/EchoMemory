@@ -5,7 +5,7 @@
 
 import logging
 
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -239,23 +239,31 @@ async def list_albums(
     *,
     emotion_tag_id: int | None = None,
     interest_tag_id: int | None = None,
+    q: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
-    """分页列出未删除专辑，支持标签筛选。
+    """分页列出未删除专辑，支持标签筛选和标题搜索。
 
     Args:
         db: SQLAlchemy 异步 Session。
         emotion_tag_id: 按情感标签筛选的标签 ID，可选。
         interest_tag_id: 按兴趣标签筛选的标签 ID，可选。
+        q: 标题模糊搜索关键词，可选。
         limit: 返回数量上限，默认 20。
         offset: 分页偏移量，默认 0。
 
     Returns:
         {"items": 专辑实例列表, "total": 总记录数}。
     """
-    where_clause: list = [Album.is_deleted == False]
+    where_clause: list = [
+        Album.is_deleted == False,
+        exists().where(AlbumMusic.album_id == Album.id),  # 排除空专辑
+    ]
 
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))
     if emotion_tag_id is not None:
         where_clause.append(
             Album.id.in_(
@@ -305,7 +313,10 @@ async def search_albums(
     Returns:
         {"items": 匹配的专辑实例列表, "total": 总记录数}。
     """
-    where_clause = [Album.is_deleted == False]
+    where_clause = [
+        Album.is_deleted == False,
+        exists().where(AlbumMusic.album_id == Album.id),  # 排除空专辑
+    ]
     if q:
         escaped_q = q.replace("%", "\\%").replace("_", "\\_")
         where_clause.append(Album.title.ilike(f"%{escaped_q}%", escape="\\"))

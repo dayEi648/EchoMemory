@@ -10,7 +10,7 @@ import { musicApi } from "../shared/api/instances";
 import { albumApi } from "../shared/api/instances";
 import { playHistoryApi } from "../shared/api/instances";
 import type { MusicListItem, AlbumListItem, PlayHistoryItem } from "../shared/api/types";
-import { calcLevelProgress, formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
+import { calcLevelProgress, formatAlbumTitle, formatAuthors, toPlayerTrackFromListItem } from "../shared/utils";
 import { usePlayMusic } from "../shared/usePlayMusic";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
@@ -262,9 +262,10 @@ export const DiscoverPage = () => {
           {newSongs.map((song, i) => (
             <StaggerItem key={song.id}>
               <SongRow
-                index={i}
                 name={song.title}
                 artist={formatAuthors(song.authors)}
+                album={formatAlbumTitle(song.albums)}
+                playCount={song.play_count}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
                 onPlay={() => playMusicListItem(song)}
@@ -289,8 +290,11 @@ export const DiscoverPage = () => {
             <StaggerItem key={song.id}>
               <SongRow
                 index={i}
+                showIndex
                 name={song.title}
                 artist={formatAuthors(song.authors)}
+                album={formatAlbumTitle(song.albums)}
+                playCount={song.play_count}
                 musicId={song.id}
                 coverUrl={song.cover_icon_url ?? undefined}
                 onPlay={() => playMusicListItem(song)}

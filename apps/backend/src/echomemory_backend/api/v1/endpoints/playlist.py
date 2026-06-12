@@ -90,12 +90,19 @@ async def list_playlists(
 async def search_playlists(
     db: SessionDep,
     q: str | None = Query(None, description="按标题模糊搜索"),
+    emotion_tag_id: int | None = Query(None, description="按情绪标签 ID 筛选"),
+    interest_tag_id: int | None = Query(None, description="按兴趣标签 ID 筛选"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """按标题模糊搜索公开歌单。"""
+    """按标题模糊搜索公开歌单，支持标签筛选。"""
     return await playlist_service.search_playlists(
-        db, q=q, limit=limit, offset=offset
+        db,
+        q=q,
+        emotion_tag_id=emotion_tag_id,
+        interest_tag_id=interest_tag_id,
+        limit=limit,
+        offset=offset,
     )
 
 

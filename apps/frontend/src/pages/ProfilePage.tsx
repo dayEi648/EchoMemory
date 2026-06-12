@@ -220,7 +220,11 @@ export const ProfilePage = () => {
                     <StaggerContainer staggerDelay={0.04}>
                       {myHistory.map((item, i) => (
                         <StaggerItem key={item.id}>
-                          <SongRow index={i} name={item.music.title} artist="未知艺人" musicId={item.music.id} coverUrl={item.music.cover_icon_url ?? undefined}
+                          <SongRow
+                            name={item.music.title}
+                            artist="未知艺人"
+                            musicId={item.music.id}
+                            coverUrl={item.music.cover_icon_url ?? undefined}
                             onPlay={() => playMusicById(item.music.id)}
                           />
                         </StaggerItem>

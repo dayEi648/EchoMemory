@@ -71,7 +71,14 @@ async def _create_playlist_directly(
     is_private: bool = False,
     cover_icon_url: str | None = None,
     is_like: bool = False,
+    *,
+    empty: bool = True,
 ) -> Playlist:
+    """创建测试歌单。默认不添加歌曲（保持向后兼容）。
+
+    Args:
+        empty: 设为 False 则自动创建一首歌曲加入歌单（用于搜索等需要非空歌单的测试）。
+    """
     playlist = Playlist(
         title=title,
         user_id=user_id,
@@ -82,6 +89,20 @@ async def _create_playlist_directly(
     db.add(playlist)
     await db.commit()
     await db.refresh(playlist)
+
+    if not empty:
+        music = Music(
+            title=f"{title}_Song",
+            is_published=True,
+            file_url="https://oss.example.com/musics/test.mp3",
+            cover_icon_url="https://oss.example.com/covers/icon.jpg",
+        )
+        db.add(music)
+        await db.commit()
+        await db.refresh(music)
+        db.add(PlaylistMusic(playlist_id=playlist.id, music_id=music.id, ordinal=0))
+        await db.commit()
+        await db.refresh(playlist)
     return playlist
 
 
@@ -719,10 +740,10 @@ class TestSearchPlaylists:
         """测试按标题关键词搜索公开歌单。"""
         owner = await _create_user(db_session, "search_pl_owner")
         await _create_playlist_directly(
-            db_session, owner.id, title="Summer Vibes", is_private=False
+            db_session, owner.id, title="Summer Vibes", is_private=False, empty=False,
         )
         await _create_playlist_directly(
-            db_session, owner.id, title="Winter Chill", is_private=False
+            db_session, owner.id, title="Winter Chill", is_private=False, empty=False,
         )
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Summer"})
@@ -738,10 +759,10 @@ class TestSearchPlaylists:
         """测试搜索结果不包含私密歌单。"""
         owner = await _create_user(db_session, "search_private_owner")
         await _create_playlist_directly(
-            db_session, owner.id, title="Hidden Mix", is_private=True
+            db_session, owner.id, title="Hidden Mix", is_private=True, empty=False,
         )
         await _create_playlist_directly(
-            db_session, owner.id, title="Hidden Public", is_private=False
+            db_session, owner.id, title="Hidden Public", is_private=False, empty=False,
         )
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Hidden"})

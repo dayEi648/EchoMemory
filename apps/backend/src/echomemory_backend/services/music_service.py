@@ -236,10 +236,16 @@ async def list_musics(
     language_id: int | None = None,
     is_vip: bool | None = None,
     is_published: bool = True,
+    instrument_id: int | None = None,
+    emotion_tag_id: int | None = None,
+    interest_tag_id: int | None = None,
+    release_date_from: date | None = None,
+    release_date_to: date | None = None,
+    q: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, object]:
-    """分页列出音乐，支持筛选条件。默认只返回已上架音乐。
+    """分页列出音乐，支持多条件筛选。默认只返回已上架音乐。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -247,6 +253,12 @@ async def list_musics(
         language_id: 按语言 ID 筛选，默认 None 表示不筛选。
         is_vip: 按是否 VIP 筛选，默认 None 表示不筛选。
         is_published: 按是否上架筛选，默认 True 只返回已上架音乐。
+        instrument_id: 按乐器 ID 筛选，默认 None 表示不筛选。
+        emotion_tag_id: 按情绪标签 ID 筛选，默认 None 表示不筛选。
+        interest_tag_id: 按兴趣标签 ID 筛选，默认 None 表示不筛选。
+        release_date_from: 发行日期起始（含），默认 None 表示不限制。
+        release_date_to: 发行日期截止（含），默认 None 表示不限制。
+        q: 标题模糊搜索关键词，默认 None 表示不搜索。
         limit: 每页返回的最大记录数，默认 20。
         offset: 分页偏移量，默认 0。
 
@@ -260,6 +272,34 @@ async def list_musics(
         where_clause.append(Music.language_id == language_id)
     if is_vip is not None:
         where_clause.append(Music.is_vip == is_vip)
+    if q:
+        escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+        where_clause.append(Music.title.ilike(f"%{escaped_q}%", escape="\\"))
+    if instrument_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicInstrument.music_id == Music.id)
+                & (MusicInstrument.instrument_id == instrument_id)
+            )
+        )
+    if emotion_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicEmotionTag.music_id == Music.id)
+                & (MusicEmotionTag.emotion_tag_id == emotion_tag_id)
+            )
+        )
+    if interest_tag_id is not None:
+        where_clause.append(
+            exists().where(
+                (MusicInterestTag.music_id == Music.id)
+                & (MusicInterestTag.interest_tag_id == interest_tag_id)
+            )
+        )
+    if release_date_from is not None:
+        where_clause.append(Music.release_date >= release_date_from)
+    if release_date_to is not None:
+        where_clause.append(Music.release_date <= release_date_to)
 
     stmt = (
         select(Music)

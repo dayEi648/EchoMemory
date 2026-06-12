@@ -420,15 +420,46 @@ async def list_musics(
     style_id: int | None = Query(None),
     language_id: int | None = Query(None),
     is_vip: bool | None = Query(None),
+    instrument_id: int | None = Query(None, description="按乐器 ID 筛选"),
+    emotion_tag_id: int | None = Query(None, description="按情绪标签 ID 筛选"),
+    interest_tag_id: int | None = Query(None, description="按兴趣标签 ID 筛选"),
+    release_date_from: str | None = Query(None, description="发行日期起始 (YYYY-MM-DD)"),
+    release_date_to: str | None = Query(None, description="发行日期截止 (YYYY-MM-DD)"),
+    q: str | None = Query(None, description="按标题模糊搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """分页列出已上架音乐，支持筛选。"""
+    """分页列出已上架音乐，支持多条件筛选。"""
+    release_date_from_parsed: date | None = None
+    release_date_to_parsed: date | None = None
+    if release_date_from:
+        try:
+            release_date_from_parsed = date.fromisoformat(release_date_from)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="release_date_from must be in YYYY-MM-DD format",
+            ) from exc
+    if release_date_to:
+        try:
+            release_date_to_parsed = date.fromisoformat(release_date_to)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="release_date_to must be in YYYY-MM-DD format",
+            ) from exc
+
     return await music_service.list_musics(
         db,
         style_id=style_id,
         language_id=language_id,
         is_vip=is_vip,
+        instrument_id=instrument_id,
+        emotion_tag_id=emotion_tag_id,
+        interest_tag_id=interest_tag_id,
+        release_date_from=release_date_from_parsed,
+        release_date_to=release_date_to_parsed,
+        q=q,
         limit=limit,
         offset=offset,
     )

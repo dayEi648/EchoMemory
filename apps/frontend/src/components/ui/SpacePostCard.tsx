@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Avatar } from "./Avatar";
 import { CommentSection } from "./CommentSection";
+import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import type { SpacePostListItem } from "../../shared/api/types";
 import { formatRelativeTime } from "../../shared/utils";
 
@@ -34,6 +35,7 @@ export const SpacePostCard = ({
 }: SpacePostCardProps) => {
   const [liked, setLiked] = useState(post.liked_by_me ?? false);
   const [likeCount, setLikeCount] = useState(post.like_count ?? 0);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
@@ -57,12 +59,11 @@ export const SpacePostCard = ({
   };
 
   const handleDelete = async () => {
-    if (!confirm("确定删除这条说说吗？")) return;
     setDeleting(true);
     try {
       await onDelete(post.id);
-      // parent handles removal from list
       toast.success("已删除");
+      setDeleteOpen(false);
     } catch {
       toast.error("删除失败");
     } finally {
@@ -74,9 +75,10 @@ export const SpacePostCard = ({
     sortedImages.length === 1 ? 1 : sortedImages.length <= 4 ? 2 : 3;
 
   return (
-    <motion.div
-      className="space-post-card"
-      initial={{ opacity: 0, y: 12 }}
+    <>
+      <motion.div
+        className="space-post-card"
+        initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       whileHover={{ y: -2 }}
@@ -192,7 +194,7 @@ export const SpacePostCard = ({
         {isOwner && (
           <motion.button
             className="ghost-button"
-            onClick={handleDelete}
+            onClick={() => setDeleteOpen(true)}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             type="button"
@@ -226,5 +228,15 @@ export const SpacePostCard = ({
         </div>
       )}
     </motion.div>
+
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => void handleDelete()}
+        itemType="说说"
+        itemName={post.content ? (post.content.length > 30 ? post.content.slice(0, 30) + "..." : post.content) : "无内容"}
+        loading={deleting}
+      />
+    </>
   );
 };

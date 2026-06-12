@@ -224,9 +224,10 @@ export const AlbumDetailPage = () => {
             {album.musics.map((music, i) => (
               <StaggerItem key={music.id}>
                 <SongRow
-                  index={i}
                   name={music.title}
                   artist={album.authors.map((a) => a.nickname).join(", ") || "未知艺人"}
+                  showAlbum={false}
+                  playCount={music.play_count}
                   musicId={music.id}
                   coverUrl={music.cover_icon_url ?? undefined}
                   onPlay={() => handlePlayMusic(music)}

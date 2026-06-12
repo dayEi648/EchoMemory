@@ -23,6 +23,7 @@ import { MusicRouteOpener } from "./pages/MusicRouteOpener";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
 import { SpacePage } from "./pages/SpacePage";
+import { BrowsePage } from "./pages/BrowsePage";
 
 /** 未登录时重定向到登录页 */
 const RequireAuth = () => {
@@ -129,6 +130,7 @@ export default function App() {
           <Route path="/music/:musicId" element={<MusicRouteOpener />} />
           <Route path="/album/:albumId" element={<AlbumDetailPage />} />
           <Route path="/playlist/:playlistId" element={<PlaylistDetailPage />} />
+          <Route path="/browse" element={<BrowsePage />} />
           <Route path="/space" element={<SpacePage />} />
           <Route path="/space/:userId" element={<SpacePage />} />
         </Route>

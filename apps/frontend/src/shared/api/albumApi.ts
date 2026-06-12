@@ -14,12 +14,19 @@ export const createAlbumApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       if (params.q) query.set("q", params.q);
       return request<PaginatedAlbumList>(`/albums/search?${query.toString()}`, {}, false);
     },
-    listAlbums: (params: { emotion_tag_id?: number; interest_tag_id?: number; limit?: number; offset?: number } = {}) => {
+    listAlbums: (params: {
+      emotion_tag_id?: number;
+      interest_tag_id?: number;
+      q?: string;
+      limit?: number;
+      offset?: number;
+    } = {}) => {
       const query = new URLSearchParams();
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.emotion_tag_id !== undefined) query.set("emotion_tag_id", String(params.emotion_tag_id));
       if (params.interest_tag_id !== undefined) query.set("interest_tag_id", String(params.interest_tag_id));
+      if (params.q) query.set("q", params.q);
       return request<PaginatedAlbumList>(`/albums/?${query.toString()}`, {}, false);
     },
     getAlbumDetail: (albumId: number) => request<AlbumDetail>(`/albums/${albumId}`, {}, false),

@@ -323,14 +323,16 @@ async def list_albums(
     db: SessionDep,
     emotion_tag_id: int | None = Query(None),
     interest_tag_id: int | None = Query(None),
+    q: str | None = Query(None, description="按标题模糊搜索"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """分页列出未删除专辑，支持标签筛选。"""
+    """分页列出未删除专辑，支持标签筛选和标题搜索。"""
     return await album_service.list_albums(
         db,
         emotion_tag_id=emotion_tag_id,
         interest_tag_id=interest_tag_id,
+        q=q,
         limit=limit,
         offset=offset,
     )

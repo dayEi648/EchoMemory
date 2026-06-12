@@ -72,6 +72,14 @@ export function formatAuthors(authors: Author[] | null | undefined, fallback = "
   return names.join(", ") || fallback;
 }
 
+/** 取音乐关联的首张专辑标题，无专辑时返回 undefined。 */
+export function formatAlbumTitle(
+  albums: { title: string }[] | null | undefined,
+): string | undefined {
+  const title = albums?.[0]?.title?.trim();
+  return title || undefined;
+}
+
 /**
  * 将音乐详情转换为播放器曲目。
  *

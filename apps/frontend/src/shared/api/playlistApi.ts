@@ -14,12 +14,20 @@ export const createPlaylistApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) 
       return request<PaginatedPlaylistList>(`/playlists/?${query.toString()}`);
     },
 
-    /** 按标题搜索公开歌单（公开接口）。 */
-    searchPlaylists: (params: { q?: string; limit?: number; offset?: number } = {}) => {
+    /** 按标题搜索公开歌单（公开接口），支持标签筛选。 */
+    searchPlaylists: (params: {
+      q?: string;
+      emotion_tag_id?: number;
+      interest_tag_id?: number;
+      limit?: number;
+      offset?: number;
+    } = {}) => {
       const query = new URLSearchParams();
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.q) query.set("q", params.q);
+      if (params.emotion_tag_id !== undefined) query.set("emotion_tag_id", String(params.emotion_tag_id));
+      if (params.interest_tag_id !== undefined) query.set("interest_tag_id", String(params.interest_tag_id));
       return request<PaginatedPlaylistList>(`/playlists/search?${query.toString()}`, {}, false);
     },
 

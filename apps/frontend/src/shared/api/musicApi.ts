@@ -14,13 +14,31 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
       if (params.q) query.set("q", params.q);
       return request<PaginatedMusicList>(`/music/search?${query.toString()}`, {}, false);
     },
-    listMusic: (params: { style_id?: number; language_id?: number; is_vip?: boolean; limit?: number; offset?: number } = {}) => {
+    listMusic: (params: {
+      style_id?: number;
+      language_id?: number;
+      is_vip?: boolean;
+      instrument_id?: number;
+      emotion_tag_id?: number;
+      interest_tag_id?: number;
+      release_date_from?: string;
+      release_date_to?: string;
+      q?: string;
+      limit?: number;
+      offset?: number;
+    } = {}) => {
       const query = new URLSearchParams();
       query.set("limit", String(params.limit ?? 20));
       query.set("offset", String(params.offset ?? 0));
       if (params.style_id !== undefined) query.set("style_id", String(params.style_id));
       if (params.language_id !== undefined) query.set("language_id", String(params.language_id));
       if (params.is_vip !== undefined) query.set("is_vip", String(params.is_vip));
+      if (params.instrument_id !== undefined) query.set("instrument_id", String(params.instrument_id));
+      if (params.emotion_tag_id !== undefined) query.set("emotion_tag_id", String(params.emotion_tag_id));
+      if (params.interest_tag_id !== undefined) query.set("interest_tag_id", String(params.interest_tag_id));
+      if (params.release_date_from) query.set("release_date_from", params.release_date_from);
+      if (params.release_date_to) query.set("release_date_to", params.release_date_to);
+      if (params.q) query.set("q", params.q);
       return request<PaginatedMusicList>(`/music/?${query.toString()}`, {}, false);
     },
     getMusicDetail: (musicId: number) => request<MusicDetail>(`/music/${musicId}`, {}, false),

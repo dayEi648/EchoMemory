@@ -1,7 +1,7 @@
 import { Music2, Bell, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 import { AvatarMenu } from "./AvatarMenu";
 
@@ -56,7 +56,7 @@ export const TopBar = () => {
       </div>
 
       <motion.form
-        className="global-search"
+        className={`global-search${focused ? " focused" : ""}`}
         onSubmit={handleSearch}
         animate={{
           boxShadow: focused
@@ -64,7 +64,6 @@ export const TopBar = () => {
             : "0 0 0 0px rgba(22, 21, 20, 0)",
         }}
         transition={{ duration: 0.2 }}
-        style={{ borderRadius: 10 }}
       >
         <Search size={16} className="search-icon" />
         <input
@@ -74,33 +73,9 @@ export const TopBar = () => {
           onBlur={() => setFocused(false)}
           placeholder="搜索歌曲、歌单、专辑、用户..."
         />
-        <AnimatePresence>
-          {searchQuery.trim() && (
-            <motion.button
-              type="submit"
-              initial={{ opacity: 0, scale: 0.8, x: 4 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.8, x: 4 }}
-              transition={{ duration: 0.15 }}
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "var(--color-brand-coral)",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                padding: "3px 10px",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              搜索
-            </motion.button>
-          )}
-        </AnimatePresence>
+        <button type="submit" className="global-search-submit">
+          搜索
+        </button>
       </motion.form>
 
       <div className="top-bar-actions">
