@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     oss_bucket_name: str | None = None
     oss_avatar_prefix: str = "avatars"
 
+    # LLM（DeepSeek）
+    deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_pro_model: str = "deepseek-v4-pro"
+    deepseek_flash_model: str = "deepseek-v4-flash"
+
+    # DeepSeek 调用默认参数
+    deepseek_default_temperature: float = 0.6
+    deepseek_default_timeout: float = 60.0
+    deepseek_reasoning_effort: str = "high"
+    deepseek_thinking_type: str = "enabled"
+
     model_config = SettingsConfigDict(env_file=str(_DEFAULT_ENV_FILE))
 
     @property

@@ -26,6 +26,7 @@ dependencies = [
     "oss2",
     "Pillow",
     "python-multipart",
+    "openai>=2.41.1",
 ]
 
 [project.scripts]
