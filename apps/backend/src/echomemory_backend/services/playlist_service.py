@@ -27,6 +27,7 @@ from echomemory_backend.services.association_helpers import (
 )
 from echomemory_backend.services.cache_service import (
     invalidate_dashboard_stats,
+    invalidate_music_detail,
     invalidate_playlist_detail,
 )
 from echomemory_backend.services.dictionary_reference_service import (
@@ -510,6 +511,7 @@ async def add_music_to_playlist(
 
     await db.commit()
     await db.refresh(playlist_music)
+    await invalidate_music_detail(music_id)
     await invalidate_playlist_detail(playlist_id)
     return playlist_music
 

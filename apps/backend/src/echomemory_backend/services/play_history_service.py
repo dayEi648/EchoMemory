@@ -8,12 +8,13 @@ from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.cache_service import invalidate_music_detail
 
 
 MAX_PLAY_HISTORY_ITEMS = 100
@@ -106,6 +107,7 @@ async def create_play_history(
 
     await db.commit()
     await db.refresh(history)
+    await invalidate_music_detail(music_id)
     return history
 
 

@@ -11,6 +11,10 @@ from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import UserAdminCreate, UserAdminUpdate, UserBanAction
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.cache_service import (
+    invalidate_dashboard_stats,
+    invalidate_user_public,
+)
 from echomemory_backend.services.playlist_service import create_default_like_playlist
 from echomemory_backend.services.user_service import (
     create_user,
@@ -156,6 +160,7 @@ async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdmin
         await db.rollback()
         raise BusinessError("用户名、邮箱或手机号已被注册", 409)
     await db.refresh(user)
+    await invalidate_dashboard_stats()
     return user
 
 
@@ -192,10 +197,13 @@ async def update_user_as_admin(
 
     # 记录是否修改了影响账户可用性的字段
     should_invalidate_tokens = False
+    # 记录是否修改了公开资料字段（需要失效 Redis 缓存）
+    public_profile_changed = False
 
     # 基本资料字段
-    if user_in.nickname is not None:
+    if user_in.nickname is not None and user_in.nickname != user.nickname:
         user.nickname = user_in.nickname
+        public_profile_changed = True
     if user_in.email is not None and user_in.email != user.email:
         from echomemory_backend.services.user_service import get_user_by_email
         if await get_user_by_email(db, user_in.email):
@@ -206,28 +214,35 @@ async def update_user_as_admin(
         if await get_user_by_phone(db, user_in.phone):
             raise BusinessError("手机号已被注册", 409)
         user.phone = user_in.phone
-    if user_in.gender is not None:
+    if user_in.gender is not None and user_in.gender != user.gender:
         user.gender = user_in.gender
-    if user_in.birth is not None:
+        public_profile_changed = True
+    if user_in.birth is not None and user_in.birth != user.birth:
         user.birth = user_in.birth
-    if user_in.bio is not None:
+        public_profile_changed = True
+    if user_in.bio is not None and user_in.bio != user.bio:
         user.bio = user_in.bio
-    if user_in.city is not None:
+        public_profile_changed = True
+    if user_in.city is not None and user_in.city != user.city:
         user.city = user_in.city
+        public_profile_changed = True
 
     # 权限与状态字段
-    if user_in.role is not None:
+    if user_in.role is not None and user_in.role != user.role:
         user.role = user_in.role
         should_invalidate_tokens = True
+        public_profile_changed = True
     if user_in.status is not None:
         user.status = user_in.status
         should_invalidate_tokens = True
     if user_in.safety_score is not None:
         user.safety_score = user_in.safety_score
-    if user_in.is_verified is not None:
+    if user_in.is_verified is not None and user_in.is_verified != user.is_verified:
         user.is_verified = user_in.is_verified
-    if user_in.exp is not None:
+        public_profile_changed = True
+    if user_in.exp is not None and user_in.exp != user.exp:
         user.exp = user_in.exp
+        public_profile_changed = True
     if user_in.banned_at is not None:
         user.banned_at = user_in.banned_at
     if user_in.ban_duration is not None:
@@ -243,6 +258,10 @@ async def update_user_as_admin(
     # 若修改了 status 或 role，强制该用户所有 token 失效
     if should_invalidate_tokens:
         await increment_user_token_version(target_user_id)
+
+    # 若修改了公开资料字段，失效用户公开资料缓存
+    if public_profile_changed:
+        await invalidate_user_public(target_user_id)
 
     return user
 
@@ -360,3 +379,4 @@ async def hard_delete_user(db: AsyncSession, admin: User, target_user_id: int) -
 
     await db.delete(user)
     await db.commit()
+    await invalidate_dashboard_stats()

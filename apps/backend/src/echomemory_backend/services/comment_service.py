@@ -12,6 +12,7 @@ from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
 from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.services.cache_service import invalidate_music_detail
 from echomemory_backend.services.notification_service import create_notification
 from echomemory_backend.services.space_post_service import can_view_space_post
 
@@ -221,6 +222,10 @@ async def create_comment(
         await recalculate_music_hot(db, target_id)
 
     await db.commit()
+
+    # 在事务提交后失效音乐详情缓存，避免并发场景下旧数据被重新写回缓存
+    if target_type == "music":
+        await invalidate_music_detail(target_id)
 
     return await _get_comment_with_user(db, comment_id)
 
