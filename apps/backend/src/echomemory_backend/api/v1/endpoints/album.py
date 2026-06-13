@@ -3,9 +3,13 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
-from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.helpers import (
+    build_detail_response_from_schema,
+    require_entity,
+)
 from echomemory_backend.api.v1.endpoints._upload_helpers import UploadCollector
 from echomemory_backend.core import oss_client
+from echomemory_backend.models.album import Album
 from echomemory_backend.schemas.album import (
     AdminAlbumListItem,
     AlbumOut,
@@ -14,10 +18,16 @@ from echomemory_backend.schemas.album import (
     PaginatedAlbumListOut,
 )
 from echomemory_backend.services import album_service, collection_service
+from echomemory_backend.services.cache_service import (
+    get_cached_album_detail,
+    set_cached_album_detail,
+)
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
-_ALBUM_NOT_DELETED = lambda album: not album.is_deleted
+def _album_not_deleted(album: Album) -> bool:
+    """判断专辑是否未删除。"""
+    return not album.is_deleted
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +122,7 @@ async def admin_update_album(
         db,
         album_id,
         detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
+        predicate=_album_not_deleted,
     )
 
     album = await album_service.update_album(
@@ -146,7 +156,7 @@ async def admin_update_album_covers(
         db,
         album_id,
         detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
+        predicate=_album_not_deleted,
     )
 
     if cover_icon is None and cover is None:
@@ -217,7 +227,7 @@ async def admin_delete_album(
         db,
         album_id,
         detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
+        predicate=_album_not_deleted,
     )
 
     await album_service.soft_delete_album(db, album)
@@ -241,7 +251,7 @@ async def add_music_to_album(
         db,
         album_id,
         detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
+        predicate=_album_not_deleted,
     )
 
     await album_service.add_music_to_album(db, album_id, music_id)
@@ -266,7 +276,7 @@ async def remove_music_from_album(
         db,
         album_id,
         detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
+        predicate=_album_not_deleted,
     )
 
     await album_service.remove_music_from_album(db, album_id, music_id)
@@ -318,17 +328,21 @@ async def get_album(
     album_id: int,
     current_user: OptionalUser = None,
 ):
-    """获取未删除专辑的详情。"""
-    album = await require_entity(
-        album_service.get_album_by_id,
-        db,
-        album_id,
-        detail="Album not found",
-        predicate=_ALBUM_NOT_DELETED,
-    )
-    return await build_detail_response(
-        album,
-        AlbumOut,
+    """获取未删除专辑的详情（优先命中 Redis 缓存）。"""
+    album = await db.get(Album, album_id)
+    if album is None or not _album_not_deleted(album):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
+        )
+
+    cached = await get_cached_album_detail(album_id)
+    if cached is None:
+        album_full = await album_service.get_album_by_id(db, album_id)
+        cached = AlbumOut.model_validate(album_full)
+        await set_cached_album_detail(cached)
+
+    return await build_detail_response_from_schema(
+        cached,
         collection_service.is_album_collected,
         db,
         current_user,

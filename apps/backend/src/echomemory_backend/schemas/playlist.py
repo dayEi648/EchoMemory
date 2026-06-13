@@ -35,6 +35,8 @@ class PlaylistMusicOut(BaseModel):
     def _flatten_music(cls, v):
         if v is None:
             return None
+        if isinstance(v, dict):
+            return v
         return {
             "id": v.id,
             "title": v.title,
@@ -80,6 +82,8 @@ class PlaylistOut(
     def _flatten_user(cls, v):
         if v is None:
             return None
+        if isinstance(v, dict):
+            return v
         return {
             "id": v.id,
             "username": v.username,
@@ -92,6 +96,8 @@ class PlaylistOut(
     def _flatten_musics(cls, v):
         if not v:
             return []
+        if isinstance(v[0], dict):
+            return v
         return [
             {
                 "music": pm.music,
@@ -119,6 +125,8 @@ class PlaylistListOut(BaseModel):
     def _flatten_user(cls, v):
         if v is None:
             return None
+        if isinstance(v, dict):
+            return v
         return {
             "id": v.id,
             "username": v.username,

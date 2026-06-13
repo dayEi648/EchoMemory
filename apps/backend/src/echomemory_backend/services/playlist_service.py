@@ -25,6 +25,10 @@ from echomemory_backend.services.association_helpers import (
     rebuild_tag_association,
     sync_owner_tags_from_musics,
 )
+from echomemory_backend.services.cache_service import (
+    invalidate_dashboard_stats,
+    invalidate_playlist_detail,
+)
 from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_interest_tags_exist,
@@ -181,6 +185,7 @@ async def create_playlist(
     db.add(playlist)
     await db.commit()
     await db.refresh(playlist)
+    await invalidate_dashboard_stats()
     return playlist
 
 
@@ -411,6 +416,7 @@ async def update_playlist(
 
     await db.commit()
     await db.refresh(playlist)
+    await invalidate_playlist_detail(playlist.id)
     return playlist
 
 
@@ -439,6 +445,8 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
 
     await db.delete(playlist)
     await db.commit()
+    await invalidate_playlist_detail(playlist.id)
+    await invalidate_dashboard_stats()
 
 
 async def add_music_to_playlist(
@@ -502,6 +510,7 @@ async def add_music_to_playlist(
 
     await db.commit()
     await db.refresh(playlist_music)
+    await invalidate_playlist_detail(playlist_id)
     return playlist_music
 
 
@@ -544,3 +553,4 @@ async def remove_music_from_playlist(
     await recalculate_playlist_hot(db, playlist_id)
 
     await db.commit()
+    await invalidate_playlist_detail(playlist_id)

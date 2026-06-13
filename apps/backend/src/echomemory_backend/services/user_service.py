@@ -13,6 +13,10 @@ from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.user import User, UserFollow
 from echomemory_backend.schemas.user import UserCreate, UserUpdate
+from echomemory_backend.services.cache_service import (
+    invalidate_dashboard_stats,
+    invalidate_user_public,
+)
 from echomemory_backend.services.notification_service import create_notification
 from echomemory_backend.services.playlist_service import create_default_like_playlist
 
@@ -112,6 +116,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate, password_hash: str,
         await db.rollback()
         raise BusinessError("用户名、邮箱或手机号已被注册", 409)
     await db.refresh(user)
+    await invalidate_dashboard_stats()
     return user
 
 
@@ -161,6 +166,7 @@ async def update_user_profile(
         await db.rollback()
         raise BusinessError("邮箱或手机号已被注册", 409)
     await db.refresh(current_user)
+    await invalidate_user_public(current_user.id)
     return current_user
 
 

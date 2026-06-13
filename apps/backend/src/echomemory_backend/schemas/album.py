@@ -84,9 +84,14 @@ class AlbumOut(
     @field_validator("musics", mode="before")
     @classmethod
     def _flatten_musics(cls, v):
-        """将关联的音乐对象展平为字典列表。"""
+        """将关联的音乐对象展平为字典列表。
+
+        已展平的字典列表（如来自缓存）直接透传。
+        """
         if not v:
             return []
+        if isinstance(v[0], dict):
+            return v
         return [
             {
                 "id": am.music.id,

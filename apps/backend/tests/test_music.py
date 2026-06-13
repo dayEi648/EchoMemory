@@ -1,6 +1,8 @@
 """音乐模块测试 —— 严格遵循 TDD：先写测试，再写实现。"""
 
 import io
+import uuid
+from datetime import date, timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -8,6 +10,11 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.cache import (
+    CHART_HOT_SONGS_PREFIX,
+    CHART_NEW_SONGS_PREFIX,
+    build_cache_key,
+)
 from echomemory_backend.core.security import create_access_token, get_password_hash
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.dictionary import (
@@ -62,8 +69,6 @@ async def _create_user(
 def _auth_header(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(subject=user.id)}"}
 
-
-import uuid
 
 async def _create_style(db: AsyncSession, name: str) -> Style:
     unique_name = f"{name}_{uuid.uuid4().hex[:8]}"
@@ -506,6 +511,47 @@ class TestGetMusic:
         assert resp.status_code == 200
         assert resp.json()["is_collected_by_me"] is False
 
+    async def test_get_music_detail_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """音乐详情二次请求应命中缓存。"""
+        music = await _create_music_directly(db_session, title="CachedDetailSong")
+        resp = client.get(f"{BASE_URL}/{music.id}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedDetailSong"
+
+        # 直接修改 DB 标题，若缓存命中则第二次请求仍返回旧标题
+        music.title = "ModifiedSong"
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/{music.id}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedDetailSong"
+
+    async def test_get_music_detail_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """管理员更新音乐后详情缓存应被失效。"""
+        from echomemory_backend.core.cache import MUSIC_DETAIL_PREFIX, build_cache_key
+
+        admin = await _create_user(db_session, "admin_detail_cache", role=UserRole.ADMIN.value)
+        music = await _create_music_directly(db_session, title="OldDetailSong")
+
+        resp = client.get(f"{BASE_URL}/{music.id}")
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(MUSIC_DETAIL_PREFIX, music.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"{BASE_URL}/admin/{music.id}",
+            headers=_auth_header(admin),
+            data={"title": "NewDetailSong"},
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
 
 class TestGetMusicLyrics:
     """测试公开获取歌词文本功能。"""
@@ -550,6 +596,86 @@ class TestGetMusicLyrics:
         await db_session.commit()
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 404
+
+    async def test_get_lyrics_cache_hit(
+        self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
+    ):
+        """歌词二次请求应命中缓存，避免重复请求 OSS。"""
+        from echomemory_backend.core import oss_client
+        from echomemory_backend.core.cache import MUSIC_LYRICS_PREFIX, build_cache_key
+
+        music = await _create_music_directly(db_session, title="CachedLyrics")
+        music.lyrics_url = "https://fake-oss.example.com/lyrics/cached.lrc"
+        db_session.add(music)
+        await db_session.commit()
+
+        fetch_calls = []
+
+        async def fake_fetch(_url: str) -> str:
+            fetch_calls.append(_url)
+            return "[00:00.00]First lyrics"
+
+        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
+
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "[00:00.00]First lyrics"
+
+        cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "[00:00.00]First lyrics"
+        assert len(fetch_calls) == 1
+
+    async def test_get_lyrics_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
+    ):
+        """管理员更新歌词文件后缓存应被失效。"""
+        from echomemory_backend.core import oss_client
+        from echomemory_backend.core.cache import MUSIC_LYRICS_PREFIX, build_cache_key
+
+        admin = await _create_user(
+            db_session, "admin_lyrics_cache", role=UserRole.ADMIN.value
+        )
+        music = await _create_music_directly(db_session, title="OldLyricsSong")
+        music.lyrics_url = "https://fake-oss.example.com/lyrics/old.lrc"
+        db_session.add(music)
+        await db_session.commit()
+
+        async def fake_fetch(url: str) -> str:
+            if "old.lrc" in url:
+                return "[00:00.00]Old lyrics"
+            return "[00:00.00]New lyrics"
+
+        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
+        async def fake_upload_lyrics(*args, **kwargs) -> str:
+            return "https://fake-oss.example.com/lyrics/new.lrc"
+
+        monkeypatch.setattr(oss_client, "upload_lyrics_to_oss", fake_upload_lyrics)
+
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "[00:00.00]Old lyrics"
+
+        cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"{BASE_URL}/admin/{music.id}",
+            headers=_auth_header(admin),
+            files={
+                "lyrics_file": ("new.lrc", io.BytesIO(_make_lyrics_bytes()), "text/plain"),
+            },
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
+        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
+        assert resp.status_code == 200
+        assert resp.json()["content"] == "[00:00.00]New lyrics"
 
 
 class TestListMusics:
@@ -708,3 +834,105 @@ class TestMusicTagCascadeUpdate:
         assert new_etag.id in pl_etag_ids
         assert old_itag.id not in pl_itag_ids
         assert new_itag.id in pl_itag_ids
+
+
+# ---------------------------------------------------------------------------
+# 榜单缓存测试
+# ---------------------------------------------------------------------------
+
+
+class TestChartCache:
+    """测试热歌榜与新歌榜的 Redis 缓存行为。"""
+
+    async def test_hot_songs_cache_hit(self, client: TestClient, db_session: AsyncSession):
+        """热歌榜二次请求应命中缓存，返回与首次一致的数据。"""
+        m1 = await _create_music_directly(db_session, title="Hot10", is_published=True)
+        m2 = await _create_music_directly(db_session, title="Hot20", is_published=True)
+        m3 = await _create_music_directly(db_session, title="Hot30", is_published=True)
+        m1.hot = 10
+        m2.hot = 20
+        m3.hot = 30
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 2})
+        assert resp.status_code == 200
+        first_data = resp.json()
+        assert [m["title"] for m in first_data["items"]] == ["Hot30", "Hot20"]
+
+        # 直接修改 DB 热度，若第二次请求命中缓存则应返回旧数据
+        m3.hot = 5
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 2})
+        assert resp.status_code == 200
+        cached_data = resp.json()
+        assert [m["title"] for m in cached_data["items"]] == ["Hot30", "Hot20"]
+
+    async def test_hot_songs_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """音乐更新后热歌榜缓存应被失效。"""
+        admin = await _create_user(db_session, "admin_cache", role=UserRole.ADMIN.value)
+        m1 = await _create_music_directly(db_session, title="OldHot", is_published=True)
+        m1.hot = 100
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 1})
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["title"] == "OldHot"
+
+        # 管理员修改标题
+        resp = client.patch(
+            f"{BASE_URL}/admin/{m1.id}",
+            headers=_auth_header(admin),
+            data={"title": "NewHot"},
+        )
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(CHART_HOT_SONGS_PREFIX, 1)
+        assert await fake_redis.exists(cache_key) == 0
+
+    async def test_new_songs_cache_hit(self, client: TestClient, db_session: AsyncSession):
+        """新歌榜（近 30 天按热度）二次请求应命中缓存。"""
+        release_date = date.today() - timedelta(days=5)
+        m1 = await _create_music_directly(db_session, title="New10", is_published=True)
+        m2 = await _create_music_directly(db_session, title="New20", is_published=True)
+        m1.hot = 10
+        m2.hot = 20
+        m1.release_date = release_date
+        m2.release_date = release_date
+        await db_session.commit()
+
+        date_from = (date.today() - timedelta(days=30)).isoformat()
+        resp = client.get(
+            f"{BASE_URL}/",
+            params={"sort_by": "hot", "release_date_from": date_from, "limit": 2},
+        )
+        assert resp.status_code == 200
+        first_data = resp.json()
+        assert [m["title"] for m in first_data["items"]] == ["New20", "New10"]
+
+        m2.hot = 5
+        await db_session.commit()
+
+        resp = client.get(
+            f"{BASE_URL}/",
+            params={"sort_by": "hot", "release_date_from": date_from, "limit": 2},
+        )
+        assert resp.status_code == 200
+        assert [m["title"] for m in resp.json()["items"]] == ["New20", "New10"]
+
+    async def test_filtered_list_not_cached(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """带筛选条件的列表查询不应写入榜单缓存。"""
+        style = await _create_style(db_session, "Rock")
+        await _create_music_directly(db_session, title="RockSong", is_published=True, style_id=style.id)
+
+        resp = client.get(f"{BASE_URL}/", params={"style_id": style.id, "sort_by": "hot"})
+        assert resp.status_code == 200
+
+        hot_key = build_cache_key(CHART_HOT_SONGS_PREFIX, 20)
+        new_key = build_cache_key(CHART_NEW_SONGS_PREFIX, 30, 20)
+        assert await fake_redis.exists(hot_key) == 0
+        assert await fake_redis.exists(new_key) == 0

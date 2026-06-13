@@ -6,13 +6,21 @@
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
-from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.helpers import (
+    build_detail_response_from_schema,
+    require_entity,
+)
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
     upload_optional_image,
 )
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PaginatedPlaylistMembershipOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import collection_service, playlist_service
+from echomemory_backend.services.cache_service import (
+    get_cached_playlist_detail,
+    set_cached_playlist_detail,
+)
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
 
@@ -136,16 +144,15 @@ async def get_playlist(
     current_user: ActiveUser,
     playlist_id: int,
 ):
-    """获取歌单详情。
+    """获取歌单详情（优先命中 Redis 缓存）。
 
     仅允许查看自己的歌单或 `is_private=False` 的公开歌单。
     """
-    playlist = await require_entity(
-        playlist_service.get_playlist_by_id,
-        db,
-        playlist_id,
-        detail="Playlist not found",
-    )
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
+        )
 
     if playlist.is_private and playlist.user_id != current_user.id:
         raise HTTPException(
@@ -153,9 +160,14 @@ async def get_playlist(
             detail="You do not have permission to view this playlist",
         )
 
-    return await build_detail_response(
-        playlist,
-        PlaylistOut,
+    cached = await get_cached_playlist_detail(playlist_id)
+    if cached is None:
+        playlist_full = await playlist_service.get_playlist_by_id(db, playlist_id)
+        cached = PlaylistOut.model_validate(playlist_full)
+        await set_cached_playlist_detail(cached)
+
+    return await build_detail_response_from_schema(
+        cached,
         collection_service.is_playlist_collected,
         db,
         current_user,

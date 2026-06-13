@@ -344,6 +344,52 @@ class TestGetPlaylist:
         resp = client.get(f"{BASE_URL}/99999", headers=_auth_header(user))
         assert resp.status_code == 404
 
+    async def test_get_playlist_detail_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """歌单详情二次请求应命中缓存。"""
+        user = await _create_user(db_session, "get_cache_hit")
+        playlist = await _create_playlist_directly(
+            db_session, user.id, title="CachedPlaylist", is_private=False
+        )
+
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedPlaylist"
+
+        playlist.title = "ModifiedPlaylist"
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedPlaylist"
+
+    async def test_get_playlist_detail_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """歌单更新后详情缓存应被失效。"""
+        from echomemory_backend.core.cache import PLAYLIST_DETAIL_PREFIX, build_cache_key
+
+        user = await _create_user(db_session, "get_cache_inv")
+        playlist = await _create_playlist_directly(
+            db_session, user.id, title="OldPlaylistDetail", is_private=False
+        )
+
+        resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(PLAYLIST_DETAIL_PREFIX, playlist.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"{BASE_URL}/{playlist.id}",
+            headers=_auth_header(user),
+            json={"title": "NewPlaylistDetail"},
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
 
 # ---------------------------------------------------------------------------
 # 修改歌单测试

@@ -156,6 +156,17 @@ class UserPublicOut(UserOut):
     is_followed_by_me: bool = False
 
 
+class DashboardStatsOut(BaseModel):
+    """管理仪表盘统计输出 Schema。"""
+
+    users: int
+    music: int
+    albums: int
+    playlists: int
+    comments: int
+    space_posts: int
+
+
 class FollowCreate(BaseModel):
     """关注操作请求 Schema。"""
 

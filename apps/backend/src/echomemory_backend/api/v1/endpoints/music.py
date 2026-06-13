@@ -7,13 +7,17 @@ from datetime import date
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
-from echomemory_backend.api.helpers import build_detail_response, require_entity
+from echomemory_backend.api.helpers import (
+    build_detail_response_from_schema,
+    require_entity,
+)
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
     upload_optional_image,
 )
 from echomemory_backend.core import oss_client
 from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
+from echomemory_backend.models.music import Music
 from echomemory_backend.schemas.music import (
     LyricsOut,
     MusicOut,
@@ -22,10 +26,18 @@ from echomemory_backend.schemas.music import (
 )
 from echomemory_backend.core.redis_client import check_rate_limit
 from echomemory_backend.services import collection_service, music_service
+from echomemory_backend.services.cache_service import (
+    get_cached_lyrics,
+    get_cached_music_detail,
+    set_cached_lyrics,
+    set_cached_music_detail,
+)
 
 router = APIRouter(prefix="/music", tags=["music"])
 
-_MUSIC_PUBLISHED = lambda music: music.is_published
+def _music_published(music: Music) -> bool:
+    """判断音乐是否已上架。"""
+    return music.is_published
 
 
 _ALLOWED_FILE_EXTS = {"mp3", "flac", "wav", "ogg", "aac", "lrc", "jpg", "jpeg", "png"}
@@ -483,12 +495,16 @@ async def get_music_lyrics(
         db,
         music_id,
         detail="Music not found",
-        predicate=_MUSIC_PUBLISHED,
+        predicate=_music_published,
     )
     if not music.lyrics_url:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lyrics not found"
         )
+    cached = await get_cached_lyrics(music_id)
+    if cached is not None:
+        return LyricsOut(content=cached)
+
     try:
         content = await oss_client.fetch_text_by_url(music.lyrics_url)
     except (ValueError, RuntimeError) as exc:
@@ -496,6 +512,7 @@ async def get_music_lyrics(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to load lyrics",
         ) from exc
+    await set_cached_lyrics(music_id, content)
     return LyricsOut(content=content)
 
 
@@ -505,17 +522,21 @@ async def get_music(
     music_id: int,
     current_user: OptionalUser = None,
 ):
-    """获取已上架音乐的详情。"""
-    music = await require_entity(
-        music_service.get_music_by_id,
-        db,
-        music_id,
-        detail="Music not found",
-        predicate=_MUSIC_PUBLISHED,
-    )
-    return await build_detail_response(
-        music,
-        MusicOut,
+    """获取已上架音乐的详情（优先命中 Redis 缓存）。"""
+    music = await db.get(Music, music_id)
+    if music is None or not _music_published(music):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
+        )
+
+    cached = await get_cached_music_detail(music_id)
+    if cached is None:
+        music_full = await music_service.get_music_by_id(db, music_id)
+        cached = MusicOut.model_validate(music_full)
+        await set_cached_music_detail(cached)
+
+    return await build_detail_response_from_schema(
+        cached,
         collection_service.is_music_collected,
         db,
         current_user,

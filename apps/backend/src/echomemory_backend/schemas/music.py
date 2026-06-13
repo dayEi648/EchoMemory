@@ -96,9 +96,14 @@ class MusicOut(
     @field_validator("instruments", mode="before")
     @classmethod
     def _flatten_instruments(cls, v):
-        """将关联模型列表展平为乐器输出字典列表。"""
+        """将关联模型列表展平为乐器输出字典列表。
+
+        已展平的字典列表（如来自缓存）直接透传。
+        """
         if not v:
             return []
+        if isinstance(v[0], dict):
+            return v
         return [
             {"id": mi.instrument.id, "name": mi.instrument.name}
             for mi in v
@@ -148,9 +153,14 @@ class AdminMusicListOut(
     @field_validator("albums", mode="before")
     @classmethod
     def _flatten_albums(cls, v):
-        """将关联模型列表展平为专辑简要输出字典列表。"""
+        """将关联模型列表展平为专辑简要输出字典列表。
+
+        已展平的字典列表（如来自缓存）直接透传。
+        """
         if not v:
             return []
+        if isinstance(v[0], dict):
+            return v
         return [
             {"id": am.album.id, "title": am.album.title}
             for am in v

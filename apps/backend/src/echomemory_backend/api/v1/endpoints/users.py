@@ -13,6 +13,7 @@ from echomemory_backend.core import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
+    DashboardStatsOut,
     FollowCreate,
     FolloweeOut,
     FollowerOut,
@@ -33,6 +34,12 @@ from echomemory_backend.services import admin_service
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.services import message_service, user_service
 from echomemory_backend.services import user_tag_service
+from echomemory_backend.services.cache_service import (
+    get_cached_dashboard_stats,
+    get_cached_user_public,
+    set_cached_dashboard_stats,
+    set_cached_user_public,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -111,19 +118,23 @@ async def recalculate_my_tags(
 async def get_user(
     db: SessionDep, user_id: int, current_user: OptionalUser = None
 ) -> UserPublicOut:
-    """根据用户 ID 获取公开的个人资料。"""
+    """根据用户 ID 获取公开的个人资料（优先命中 Redis 缓存）。"""
     user = await user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+
+    cached = await get_cached_user_public(user_id)
+    if cached is None:
+        cached = UserPublicOut.model_validate(user)
+        await set_cached_user_public(cached)
+
     followed = False
     if current_user is not None and current_user.id != user_id:
         followed = await user_service.is_following(db, current_user.id, user_id)
-    return UserPublicOut.model_validate(user).model_copy(
-        update={"is_followed_by_me": followed}
-    )
+    return cached.model_copy(update={"is_followed_by_me": followed})
 
 
 @router.get("/", response_model=PaginatedUserSearchOut)
@@ -216,15 +227,21 @@ async def get_followers(
 # ---------------------------------------------------------------------------
 # 管理员接口
 # ---------------------------------------------------------------------------
-@router.get("/admin/stats")
+@router.get("/admin/stats", response_model=DashboardStatsOut)
 async def admin_dashboard_stats(
     db: SessionDep,
     _: AdminUser,
 ):
-    """获取管理仪表盘统计数据。"""
+    """获取管理仪表盘统计数据（优先命中 Redis 缓存）。"""
     from echomemory_backend.services.stats_service import get_dashboard_stats
 
-    return await get_dashboard_stats(db)
+    cached = await get_cached_dashboard_stats()
+    if cached is not None:
+        return cached
+
+    stats = await get_dashboard_stats(db)
+    await set_cached_dashboard_stats(stats)
+    return stats
 
 
 @router.get("/admin/list", response_model=PaginatedUserAdminOut)

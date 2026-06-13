@@ -8,8 +8,9 @@ from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.cache import HOME_RECOMMENDED_ALBUMS_PREFIX, build_cache_key
 from echomemory_backend.core.security import create_access_token, get_password_hash
-from echomemory_backend.models.album import Album, AlbumMusic
+from echomemory_backend.models.album import Album, AlbumEmotionTag, AlbumMusic
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
@@ -215,6 +216,46 @@ class TestPublicGetAlbum:
         assert resp.status_code == 200
         assert resp.json()["is_collected_by_me"] is True
 
+    async def test_get_album_detail_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """专辑详情二次请求应命中缓存。"""
+        album = await _create_album_directly(db_session, title="CachedAlbum")
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedAlbum"
+
+        album.title = "ModifiedAlbum"
+        await db_session.commit()
+
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "CachedAlbum"
+
+    async def test_get_album_detail_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """专辑更新后详情缓存应被失效。"""
+        from echomemory_backend.core.cache import ALBUM_DETAIL_PREFIX, build_cache_key
+
+        admin = await _create_user(db_session, "admin_album_detail", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="OldAlbumDetail")
+
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(ALBUM_DETAIL_PREFIX, album.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}",
+            headers=_auth_header(admin),
+            json={"title": "NewAlbumDetail"},
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
 
 class TestAdminSoftDeleteAlbum:
     """测试管理员软删除专辑接口。"""
@@ -408,6 +449,57 @@ class TestAlbumTagSync:
         assert len(data["emotion_tags"]) == 1
         assert data["emotion_tags"][0]["id"] == emotion_tag.id
         assert len(data["interest_tags"]) == 1
+
+    async def test_music_tag_change_invalidates_album_detail_cache(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """音乐标签变更后，所属专辑详情缓存应被失效。"""
+        from echomemory_backend.core.cache import ALBUM_DETAIL_PREFIX, build_cache_key
+
+        admin = await _create_user(
+            db_session, "admin_tag_cache_inv", role=UserRole.ADMIN.value
+        )
+        album = await _create_album_directly(db_session, title="TagCacheAlbum")
+        music = await _create_music_directly(db_session, title="TagCacheSong")
+
+        first_tag = await _get_first_emotion_tag(db_session)
+        second_tag = (
+            await db_session.execute(select(EmotionTag).offset(1).limit(1))
+        ).scalar_one()
+
+        db_session.add(
+            MusicEmotionTag(music_id=music.id, emotion_tag_id=first_tag.id)
+        )
+        await db_session.commit()
+
+        # 通过 API 加入专辑以触发标签同步
+        resp = client.post(
+            f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
+            headers=_auth_header(admin),
+        )
+        assert resp.status_code == 201
+
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        assert first_tag.id in {t["id"] for t in resp.json()["emotion_tags"]}
+
+        cache_key = build_cache_key(ALBUM_DETAIL_PREFIX, album.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"/api/v1/music/admin/{music.id}",
+            headers=_auth_header(admin),
+            data={"emotion_tag_ids": str(second_tag.id)},
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
+        resp = client.get(f"{BASE_URL}/{album.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert second_tag.id in {t["id"] for t in data["emotion_tags"]}
+        assert first_tag.id not in {t["id"] for t in data["emotion_tags"]}
 
 
 class TestAdminRemoveMusicFromAlbum:
@@ -782,3 +874,68 @@ class TestAdminUpdateAlbumCovers:
             },
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# 首页推荐专辑缓存测试
+# ---------------------------------------------------------------------------
+
+
+class TestHomeAlbumsCache:
+    """测试首页推荐专辑列表的 Redis 缓存行为。"""
+
+    async def test_home_albums_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """首页专辑列表二次请求应命中缓存。"""
+        album = await _create_album_directly(db_session, title="CachedAlbum")
+
+        resp = client.get(BASE_URL + "/", params={"limit": 10})
+        assert resp.status_code == 200
+        first_data = resp.json()
+        assert any(a["title"] == "CachedAlbum" for a in first_data["items"])
+
+        # 软删除该专辑，若缓存命中则第二次请求仍能看到
+        album.is_deleted = True
+        await db_session.commit()
+
+        resp = client.get(BASE_URL + "/", params={"limit": 10})
+        assert resp.status_code == 200
+        cached_data = resp.json()
+        assert any(a["title"] == "CachedAlbum" for a in cached_data["items"])
+
+    async def test_home_albums_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """专辑更新后首页推荐缓存应被失效。"""
+        admin = await _create_user(db_session, "admin_album_cache", role=UserRole.ADMIN.value)
+        album = await _create_album_directly(db_session, title="OldAlbumTitle")
+
+        resp = client.get(BASE_URL + "/", params={"limit": 10})
+        assert resp.status_code == 200
+
+        resp = client.patch(
+            f"{ADMIN_BASE_URL}/{album.id}",
+            headers=_auth_header(admin),
+            json={"title": "NewAlbumTitle"},
+        )
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(HOME_RECOMMENDED_ALBUMS_PREFIX, 10)
+        assert await fake_redis.exists(cache_key) == 0
+
+    async def test_filtered_album_list_not_cached(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """带筛选条件的专辑列表不应写入首页缓存。"""
+        tag = await _get_first_emotion_tag(db_session)
+        album = await _create_album_directly(db_session, title="TaggedAlbum")
+        # 给专辑打上情感标签
+        db_session.add(AlbumEmotionTag(album_id=album.id, emotion_tag_id=tag.id))
+        await db_session.commit()
+
+        resp = client.get(BASE_URL + "/", params={"emotion_tag_id": tag.id})
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(HOME_RECOMMENDED_ALBUMS_PREFIX, 20)
+        assert await fake_redis.exists(cache_key) == 0

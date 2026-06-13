@@ -14,6 +14,11 @@ from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
+from echomemory_backend.services.cache_service import (
+    invalidate_album_detail,
+    invalidate_music_detail,
+    invalidate_playlist_detail,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +86,7 @@ async def recalculate_music_hot(db: AsyncSession, music_id: int) -> None:
     hot = min(_MAX_HOT, int(engagement * 100 / (age_days ** _TIME_DECAY_EXPONENT)))
 
     await db.execute(update(Music).where(Music.id == music_id).values(hot=hot))
+    await invalidate_music_detail(music_id)
 
 
 async def recalculate_album_hot(db: AsyncSession, album_id: int) -> None:
@@ -101,6 +107,7 @@ async def recalculate_album_hot(db: AsyncSession, album_id: int) -> None:
     await db.execute(
         update(Album).where(Album.id == album_id).values(hot=int(avg))
     )
+    await invalidate_album_detail(album_id)
 
 
 async def recalculate_playlist_hot(db: AsyncSession, playlist_id: int) -> None:
@@ -121,6 +128,7 @@ async def recalculate_playlist_hot(db: AsyncSession, playlist_id: int) -> None:
     await db.execute(
         update(Playlist).where(Playlist.id == playlist_id).values(hot=int(avg))
     )
+    await invalidate_playlist_detail(playlist_id)
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +182,11 @@ async def recalculate_all_hot(db: AsyncSession) -> dict[str, int]:
         await recalculate_playlist_hot(db, pid)
         playlist_count += 1
     await db.commit()
+
+    # 热度重算完成后刷新榜单缓存，使首页榜单反映最新热度
+    from echomemory_backend.services.music_service import invalidate_chart_caches
+
+    await invalidate_chart_caches()
 
     logger.info(
         "Hot recalc complete: music=%d, albums=%d, playlists=%d",

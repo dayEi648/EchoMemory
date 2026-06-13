@@ -1,7 +1,7 @@
 """提供音乐记录的创建、查询、更新及关联关系管理服务。"""
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +10,15 @@ from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
+from echomemory_backend.core.cache import (
+    CACHE_MISS,
+    CHART_HOT_SONGS_PREFIX,
+    CHART_NEW_SONGS_PREFIX,
+    build_cache_key,
+    cache_delete_pattern,
+    cache_get,
+    cache_set,
+)
 from echomemory_backend.models.album import AlbumMusic
 from echomemory_backend.models.music import (
     Music,
@@ -22,13 +31,81 @@ from echomemory_backend.models.playlist import PlaylistMusic
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.core.utils import escape_like
 from echomemory_backend.db.pagination import paginate
+from echomemory_backend.schemas.music import PaginatedMusicListOut
 from echomemory_backend.services.association_helpers import rebuild_tag_association
 from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_instruments_exist,
     validate_interest_tags_exist,
 )
+from echomemory_backend.services.cache_service import (
+    invalidate_album_detail,
+    invalidate_dashboard_stats,
+    invalidate_lyrics,
+    invalidate_music_detail,
+    invalidate_playlist_detail,
+)
 from echomemory_backend.services.user_service import get_user_by_id
+
+
+# 榜单缓存 TTL：30 分钟
+_CHART_CACHE_TTL_SECONDS = 30 * 60
+
+
+def _is_chart_cacheable_query(
+    *,
+    is_published: bool,
+    style_id: int | None,
+    language_id: int | None,
+    is_vip: bool | None,
+    instrument_id: int | None,
+    emotion_tag_id: int | None,
+    interest_tag_id: int | None,
+    release_date_from: date | None,
+    release_date_to: date | None,
+    q: str | None,
+    sort_by: str,
+    limit: int,
+) -> tuple[bool, str | None]:
+    """判断当前查询是否可命中榜单缓存，并返回缓存键。
+
+    仅当无筛选条件、按热度排序、offset 为 0 时认为是首页榜单查询。
+    新歌榜判定为 release_date_from 等于当天往前推 30 天。
+
+    Returns:
+        (是否可缓存, 缓存键)。不可缓存时缓存键为 None。
+    """
+    if not is_published:
+        return False, None
+    if q is not None:
+        return False, None
+    if (
+        style_id is not None
+        or language_id is not None
+        or is_vip is not None
+        or instrument_id is not None
+        or emotion_tag_id is not None
+        or interest_tag_id is not None
+        or release_date_to is not None
+    ):
+        return False, None
+    if sort_by != "hot":
+        return False, None
+
+    if release_date_from is None:
+        return True, build_cache_key(CHART_HOT_SONGS_PREFIX, limit)
+
+    expected_new_songs_date = date.today() - timedelta(days=30)
+    if release_date_from == expected_new_songs_date:
+        return True, build_cache_key(CHART_NEW_SONGS_PREFIX, 30, limit)
+
+    return False, None
+
+
+async def invalidate_chart_caches() -> None:
+    """失效所有音乐榜单缓存（热歌榜、新歌榜）。"""
+    await cache_delete_pattern(f"{CHART_HOT_SONGS_PREFIX}:*")
+    await cache_delete_pattern(f"{CHART_NEW_SONGS_PREFIX}:*")
 
 
 async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[int]) -> None:
@@ -207,6 +284,7 @@ async def create_music(
         logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
         raise BusinessError("Invalid reference in music data", 400)
     await db.refresh(music)
+    await invalidate_dashboard_stats()
     return music
 
 
@@ -277,6 +355,25 @@ async def list_musics(
     Returns:
         {"items": 音乐实例列表, "total": 总记录数}。
     """
+    should_cache, cache_key = _is_chart_cacheable_query(
+        is_published=is_published,
+        style_id=style_id,
+        language_id=language_id,
+        is_vip=is_vip,
+        instrument_id=instrument_id,
+        emotion_tag_id=emotion_tag_id,
+        interest_tag_id=interest_tag_id,
+        release_date_from=release_date_from,
+        release_date_to=release_date_to,
+        q=q,
+        sort_by=sort_by,
+        limit=limit,
+    )
+    if should_cache and offset == 0:
+        cached = await cache_get(cache_key)
+        if cached is not CACHE_MISS:
+            return cached
+
     where_clause = [Music.is_published == is_published]
     if style_id is not None:
         where_clause.append(Music.style_id == style_id)
@@ -330,7 +427,13 @@ async def list_musics(
         )
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
-    return {"items": page.items, "total": page.total}
+    result = {"items": page.items, "total": page.total}
+
+    if should_cache and offset == 0:
+        serialized = PaginatedMusicListOut.model_validate(result).model_dump()
+        await cache_set(cache_key, serialized, _CHART_CACHE_TTL_SECONDS)
+
+    return result
 
 
 async def search_musics(
@@ -526,8 +629,9 @@ async def update_music(
         music.release_date = release_date
     if file_url is not None:
         music.file_url = file_url
-    if lyrics_url is not None:
+    if lyrics_url is not None and lyrics_url != music.lyrics_url:
         music.lyrics_url = lyrics_url
+        await invalidate_lyrics(music.id)
     if cover_icon_url is not None:
         music.cover_icon_url = cover_icon_url
     if cover_home_url is not None:
@@ -566,6 +670,7 @@ async def update_music(
         album_id = result.scalar_one_or_none()
         if album_id is not None:
             await _sync_album_tags_from_musics(db, album_id)
+            await invalidate_album_detail(album_id)
 
         # 同步所属歌单标签
         stmt = select(PlaylistMusic.playlist_id).where(
@@ -574,6 +679,7 @@ async def update_music(
         result = await db.execute(stmt)
         for pl_id in result.scalars().all():
             await _sync_playlist_tags_from_musics(db, pl_id)
+            await invalidate_playlist_detail(pl_id)
 
     try:
         await db.commit()
@@ -582,6 +688,8 @@ async def update_music(
         logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
         raise BusinessError("Invalid reference in music data", 400)
     await db.refresh(music)
+    await invalidate_chart_caches()
+    await invalidate_music_detail(music.id)
     return music
 
 
@@ -599,4 +707,7 @@ async def set_music_published(db: AsyncSession, music: Music, published: bool) -
     music.is_published = published
     await db.commit()
     await db.refresh(music)
+    await invalidate_chart_caches()
+    await invalidate_music_detail(music.id)
+    await invalidate_dashboard_stats()
     return music

@@ -133,6 +133,46 @@ class TestGetUser:
         resp = client.get(f"{BASE}/{user.id}")
         assert resp.status_code == 404
 
+    async def test_get_public_profile_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """用户公开资料二次请求应命中缓存。"""
+        user = await _create_user(db_session, "public_cache_hit")
+        resp = client.get(f"{BASE}/{user.id}")
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "public_cache_hit"
+        cached_nickname = resp.json()["nickname"]
+
+        user.nickname = "ModifiedNickname"
+        await db_session.commit()
+
+        resp = client.get(f"{BASE}/{user.id}")
+        assert resp.status_code == 200
+        assert resp.json()["nickname"] == cached_nickname
+
+    async def test_get_public_profile_cache_invalidated_on_update(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """用户更新资料后公开资料缓存应被失效。"""
+        from echomemory_backend.core.cache import USER_PUBLIC_PREFIX, build_cache_key
+
+        user = await _create_user(db_session, "public_cache_inv")
+
+        resp = client.get(f"{BASE}/{user.id}")
+        assert resp.status_code == 200
+
+        cache_key = build_cache_key(USER_PUBLIC_PREFIX, user.id)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.patch(
+            f"{BASE}/me",
+            headers=_auth_header(user),
+            json={"nickname": "NewNickname"},
+        )
+        assert resp.status_code == 200
+
+        assert await fake_redis.exists(cache_key) == 0
+
 
 class TestSearchUsers:
     """测试用户搜索功能。"""
@@ -593,3 +633,64 @@ class TestAdminDashboardStats:
         """测试未登录访问统计接口返回 401。"""
         resp = client.get(self.ADMIN_STATS_URL)
         assert resp.status_code == 401
+
+    async def test_stats_cache_hit(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """仪表盘统计二次请求应命中缓存。"""
+        admin = await _create_user(
+            db_session, "stats_cache_hit_admin", role=UserRole.ADMIN.value
+        )
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
+        assert resp.status_code == 200
+        first_count = resp.json()["users"]
+
+        # 绕过业务层直接写入用户，避免触发缓存失效
+        from echomemory_backend.core.security import get_password_hash
+
+        db_session.add(
+            User(
+                username="stats_cache_hit_user",
+                password_hash=get_password_hash("secret"),
+                nickname="stats_cache_hit_user",
+            )
+        )
+        await db_session.commit()
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
+        assert resp.status_code == 200
+        assert resp.json()["users"] == first_count
+
+    async def test_stats_cache_invalidated_on_user_register(
+        self, client: TestClient, db_session: AsyncSession, fake_redis
+    ):
+        """新用户注册后仪表盘统计缓存应被失效。"""
+        from echomemory_backend.core.cache import ADMIN_DASHBOARD_STATS_PREFIX, build_cache_key
+
+        admin = await _create_user(
+            db_session, "stats_cache_inv_admin", role=UserRole.ADMIN.value
+        )
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
+        assert resp.status_code == 200
+        first_count = resp.json()["users"]
+
+        cache_key = build_cache_key(ADMIN_DASHBOARD_STATS_PREFIX)
+        assert await fake_redis.exists(cache_key) == 1
+
+        resp = client.post(
+            "/api/v1/auth/register",
+            data={
+                "username": "stats_cache_inv_user",
+                "nickname": "stats_cache_inv_user",
+                "password": "secret123",
+            },
+        )
+        assert resp.status_code == 201
+
+        assert await fake_redis.exists(cache_key) == 0
+
+        resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
+        assert resp.status_code == 200
+        assert resp.json()["users"] == first_count + 1

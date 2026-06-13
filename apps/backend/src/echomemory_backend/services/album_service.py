@@ -12,6 +12,14 @@ from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
+from echomemory_backend.core.cache import (
+    CACHE_MISS,
+    HOME_RECOMMENDED_ALBUMS_PREFIX,
+    build_cache_key,
+    cache_delete_pattern,
+    cache_get,
+    cache_set,
+)
 from echomemory_backend.models.album import (
     Album,
     AlbumAuthor,
@@ -28,6 +36,7 @@ from echomemory_backend.models.user import User
 from echomemory_backend.core.exceptions import BusinessError
 from echomemory_backend.core.utils import escape_like
 from echomemory_backend.db.pagination import paginate
+from echomemory_backend.schemas.album import PaginatedAlbumListOut
 from echomemory_backend.services.association_helpers import (
     rebuild_tag_association,
     sync_owner_tags_from_musics,
@@ -36,7 +45,45 @@ from echomemory_backend.services.dictionary_reference_service import (
     validate_emotion_tags_exist,
     validate_interest_tags_exist,
 )
+from echomemory_backend.services.cache_service import (
+    invalidate_album_detail,
+    invalidate_dashboard_stats,
+)
 from echomemory_backend.services.user_service import get_user_by_id
+
+
+# 首页推荐专辑缓存 TTL：10 分钟
+_HOME_ALBUMS_CACHE_TTL_SECONDS = 10 * 60
+
+
+def _is_home_albums_cacheable_query(
+    *,
+    emotion_tag_id: int | None,
+    interest_tag_id: int | None,
+    q: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[bool, str | None]:
+    """判断当前查询是否可命中首页推荐专辑缓存，并返回缓存键。
+
+    仅当无标签筛选、无搜索、offset 为 0 时认为是首页推荐查询。
+
+    Returns:
+        (是否可缓存, 缓存键)。
+    """
+    if (
+        emotion_tag_id is not None
+        or interest_tag_id is not None
+        or q is not None
+        or offset != 0
+    ):
+        return False, None
+    return True, build_cache_key(HOME_RECOMMENDED_ALBUMS_PREFIX, limit)
+
+
+async def invalidate_home_albums_cache() -> None:
+    """失效首页推荐专辑缓存。"""
+    await cache_delete_pattern(f"{HOME_RECOMMENDED_ALBUMS_PREFIX}:*")
 
 
 async def _set_album_authors(
@@ -194,6 +241,7 @@ async def create_album(
         logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
         raise BusinessError("Invalid reference in album data", 400)
     await db.refresh(album)
+    await invalidate_dashboard_stats()
     return album
 
 
@@ -246,6 +294,18 @@ async def list_albums(
     Returns:
         {"items": 专辑实例列表, "total": 总记录数}。
     """
+    should_cache, cache_key = _is_home_albums_cacheable_query(
+        emotion_tag_id=emotion_tag_id,
+        interest_tag_id=interest_tag_id,
+        q=q,
+        offset=offset,
+        limit=limit,
+    )
+    if should_cache:
+        cached = await cache_get(cache_key)
+        if cached is not CACHE_MISS:
+            return cached
+
     where_clause: list = [
         Album.is_deleted == False,
         exists().where(AlbumMusic.album_id == Album.id),  # 排除空专辑
@@ -274,7 +334,13 @@ async def list_albums(
 
     stmt = select(Album).where(*where_clause).order_by(desc(Album.created_at))
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
-    return {"items": page.items, "total": page.total}
+    result = {"items": page.items, "total": page.total}
+
+    if should_cache:
+        serialized = PaginatedAlbumListOut.model_validate(result).model_dump()
+        await cache_set(cache_key, serialized, _HOME_ALBUMS_CACHE_TTL_SECONDS)
+
+    return result
 
 
 async def search_albums(
@@ -353,6 +419,9 @@ async def update_album(
         logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
         raise BusinessError("Invalid reference in album data", 400)
     await db.refresh(album)
+    await invalidate_home_albums_cache()
+    await invalidate_album_detail(album.id)
+    await invalidate_dashboard_stats()
     return album
 
 
@@ -369,6 +438,9 @@ async def soft_delete_album(db: AsyncSession, album: Album) -> None:
     album.is_deleted = True
     await db.commit()
     await db.refresh(album)
+    await invalidate_home_albums_cache()
+    await invalidate_album_detail(album.id)
+    await invalidate_dashboard_stats()
 
 
 async def add_music_to_album(
@@ -420,6 +492,8 @@ async def add_music_to_album(
             "Music already belongs to another album", 409
         )
     await db.refresh(album_music)
+    await invalidate_home_albums_cache()
+    await invalidate_album_detail(album_id)
     return album_music
 
 
@@ -452,6 +526,8 @@ async def remove_music_from_album(
     from echomemory_backend.services.hotness_service import recalculate_album_hot
     await recalculate_album_hot(db, album_id)
     await db.commit()
+    await invalidate_home_albums_cache()
+    await invalidate_album_detail(album_id)
 
 
 async def admin_search_albums(
@@ -519,4 +595,6 @@ async def update_album_covers(
         album.cover_url = cover_url
     await db.commit()
     await db.refresh(album)
+    await invalidate_home_albums_cache()
+    await invalidate_album_detail(album.id)
     return album

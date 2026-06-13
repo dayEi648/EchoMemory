@@ -38,9 +38,8 @@ async def require_entity(
     return entity
 
 
-async def build_detail_response(
-    entity,
-    schema_cls: type,
+async def build_detail_response_from_schema(
+    schema_obj,
     check_fn: Callable[..., Awaitable[bool]],
     db: AsyncSession,
     current_user,
@@ -48,24 +47,23 @@ async def build_detail_response(
     entity_id: int | None = None,
     field_name: str = "is_collected_by_me",
 ):
-    """构造带收藏状态的详情响应 Schema。
+    """从已构建的 Schema 实例中填充当前用户状态。
+
+    用于缓存场景：公共详情已从缓存取出，只需合并当前用户的收藏/关注状态。
 
     Args:
-        entity: ORM 实体实例。
-        schema_cls: 输出 Pydantic Schema 类。
-        check_fn: 异步收藏状态检查函数，签名为 (db, user_id, entity_id) -> bool。
+        schema_obj: 已构建的 Pydantic Schema 实例（不含用户状态）。
+        check_fn: 异步状态检查函数，签名为 (db, user_id, entity_id) -> bool。
         db: SQLAlchemy 异步 Session。
-        current_user: 当前用户实例，None 时收藏状态为 False。
-        entity_id: 实体主键，默认取 entity.id。
-        field_name: 收藏状态字段名，默认 is_collected_by_me。
+        current_user: 当前用户实例，None 时状态为 False。
+        entity_id: 实体主键，默认取 schema_obj.id。
+        field_name: 状态字段名，默认 is_collected_by_me。
 
     Returns:
-        填充了收藏状态的 Schema 实例。
+        填充了用户状态的 Schema 实例。
     """
-    resolved_id = entity_id if entity_id is not None else entity.id
+    resolved_id = entity_id if entity_id is not None else schema_obj.id
     collected = False
     if current_user is not None:
         collected = await check_fn(db, current_user.id, resolved_id)
-    return schema_cls.model_validate(entity).model_copy(
-        update={field_name: collected}
-    )
+    return schema_obj.model_copy(update={field_name: collected})
