@@ -145,13 +145,15 @@ async def _create_public_playlist(
     *,
     emotion_tag_id: int | None = None,
     interest_tag_id: int | None = None,
+    hot: int = 0,
 ) -> Playlist:
-    """创建公开测试歌单并加入一首音乐，可附加标签。"""
+    """创建公开测试歌单并加入一首音乐，可附加标签与热度。"""
     playlist = Playlist(
         title=title,
         user_id=user_id,
         is_private=False,
         is_like=False,
+        hot=hot,
     )
     db.add(playlist)
     await db.flush()
@@ -182,9 +184,10 @@ async def _create_album(
     *,
     emotion_tag_id: int | None = None,
     interest_tag_id: int | None = None,
+    hot: int = 0,
 ) -> Album:
-    """创建测试专辑并加入一首音乐，可附加标签。"""
-    album = Album(title=title)
+    """创建测试专辑并加入一首音乐，可附加标签与热度。"""
+    album = Album(title=title, hot=hot)
     db.add(album)
     await db.flush()
 
@@ -735,3 +738,97 @@ def test_chart_no_auth(client: TestClient):
     """推荐榜允许未认证访问。"""
     response = client.get(f"{BASE_URL}/chart")
     assert response.status_code == 200
+@pytest.mark.asyncio
+async def test_recommended_playlists_fallback_by_hotness(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """无标签匹配时，推荐歌单应按热度倒序兜底。"""
+    user = await _create_user(db_session, "playlist_hot_user")
+    other = await _create_user(db_session, "playlist_hot_other")
+    music = await _create_music_directly(db_session, "Hot Music")
+
+    low_hot = await _create_public_playlist(
+        db_session, other.id, "Low Hot", music.id, hot=1
+    )
+    high_hot = await _create_public_playlist(
+        db_session, other.id, "High Hot", music.id, hot=10
+    )
+
+    response = client.get(
+        f"{BASE_URL}/playlists?limit=2", headers=_auth_header(user)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [pl["id"] for pl in data["items"]] == [high_hot.id, low_hot.id]
+
+
+@pytest.mark.asyncio
+async def test_recommended_playlists_broadens_to_own_when_no_others(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """当没有其他用户公开歌单时，应放宽限制展示自己的公开歌单。"""
+    user = await _create_user(db_session, "playlist_own_user")
+    music = await _create_music_directly(db_session, "Own Music")
+    own_playlist = await _create_public_playlist(
+        db_session, user.id, "My Public Playlist", music.id, hot=5
+    )
+
+    response = client.get(
+        f"{BASE_URL}/playlists?limit=10", headers=_auth_header(user)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == own_playlist.id
+
+
+@pytest.mark.asyncio
+async def test_recommended_albums_fallback_by_hotness(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """无标签匹配时，推荐专辑应按热度倒序兜底。"""
+    user = await _create_user(db_session, "album_hot_user")
+    music1 = await _create_music_directly(db_session, "Album Hot Music 1")
+    music2 = await _create_music_directly(db_session, "Album Hot Music 2")
+
+    low_hot = await _create_album(
+        db_session, "Low Hot Album", music1.id, hot=1
+    )
+    high_hot = await _create_album(
+        db_session, "High Hot Album", music2.id, hot=10
+    )
+
+    response = client.get(
+        f"{BASE_URL}/albums?limit=2", headers=_auth_header(user)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [a["id"] for a in data["items"]] == [high_hot.id, low_hot.id]
+
+
+@pytest.mark.asyncio
+async def test_recommended_albums_broadens_to_empty_albums(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """当没有非空专辑时，应放宽限制展示空专辑，避免完全为空。"""
+    user = await _create_user(db_session, "album_empty_user")
+    empty_album = Album(title="Empty Album", hot=5)
+    db_session.add(empty_album)
+    await db_session.commit()
+    await db_session.refresh(empty_album)
+
+    response = client.get(
+        f"{BASE_URL}/albums?limit=10", headers=_auth_header(user)
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == empty_album.id

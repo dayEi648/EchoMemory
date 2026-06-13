@@ -575,6 +575,11 @@ def _tag_match_for_albums(user_tag_ids: dict[str, list[int]]) -> list:
     return conditions
 
 
+def _playlist_order_by() -> list:
+    """歌单推荐排序：热度倒序，ID 倒序作为稳定 tie-breaker。"""
+    return [Playlist.hot.desc(), Playlist.id.desc()]
+
+
 async def recommend_playlists(
     db: AsyncSession,
     user_id: int,
@@ -584,8 +589,9 @@ async def recommend_playlists(
 ) -> dict[str, object]:
     """根据用户口味推荐公开歌单。
 
-    优先推荐情绪/兴趣标签有交集的非空公开歌单；不足时随机兜底。
+    优先推荐情绪/兴趣标签有交集的非空公开歌单；不足时按热度兜底。
     排除用户自己的歌单、私密歌单和系统喜欢歌单。
+    若第一页仍为空，则放宽为所有公开非空歌单（含自己的公开歌单）按热度补齐。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -606,12 +612,13 @@ async def recommend_playlists(
     tags = await _get_user_tag_ids(db, user_id)
     tag_conditions = _tag_match_for_playlists(tags)
 
+    result: dict[str, object]
     if tag_conditions:
         tag_where = base_where + [or_(*tag_conditions)]
         stmt = (
             select(Playlist)
             .where(*tag_where)
-            .order_by(Playlist.id)
+            .order_by(*_playlist_order_by())
             .options(selectinload(Playlist.user))
         )
         tag_page = await paginate(
@@ -620,37 +627,62 @@ async def recommend_playlists(
         if len(tag_page.items) == limit or (
             offset == 0 and tag_page.total >= limit
         ):
-            return {"items": tag_page.items, "total": tag_page.total}
-
-        # 标签匹配不足，用兜底补齐当前页
-        fallback_where = base_where + [
-            ~or_(*tag_conditions) if len(tag_conditions) > 1 else ~tag_conditions[0]
-        ]
-        fallback_stmt = (
+            result = {"items": tag_page.items, "total": tag_page.total}
+        else:
+            # 标签匹配不足，用兜底补齐当前页
+            fallback_where = base_where + [
+                ~or_(*tag_conditions) if len(tag_conditions) > 1 else ~tag_conditions[0]
+            ]
+            fallback_stmt = (
+                select(Playlist)
+                .where(*fallback_where)
+                .order_by(*_playlist_order_by())
+                .options(selectinload(Playlist.user))
+            )
+            fallback_limit = limit - len(tag_page.items)
+            fallback_offset = max(0, offset - tag_page.total)
+            fallback_page = await paginate(
+                db, fallback_stmt, fallback_where, limit=fallback_limit, offset=fallback_offset
+            )
+            result = {
+                "items": tag_page.items + fallback_page.items,
+                "total": tag_page.total + fallback_page.total,
+            }
+    else:
+        # 无标签：按热度兜底
+        stmt = (
             select(Playlist)
-            .where(*fallback_where)
-            .order_by(Playlist.id)
+            .where(*base_where)
+            .order_by(*_playlist_order_by())
             .options(selectinload(Playlist.user))
         )
-        fallback_limit = limit - len(tag_page.items)
-        fallback_offset = max(0, offset - tag_page.total)
-        fallback_page = await paginate(
-            db, fallback_stmt, fallback_where, limit=fallback_limit, offset=fallback_offset
-        )
-        return {
-            "items": tag_page.items + fallback_page.items,
-            "total": tag_page.total + fallback_page.total,
-        }
+        page = await paginate(db, stmt, base_where, limit=limit, offset=offset)
+        result = {"items": page.items, "total": page.total}
 
-    # 无标签：按 ID 顺序兜底，保证分页稳定
-    stmt = (
-        select(Playlist)
-        .where(*base_where)
-        .order_by(Playlist.id)
-        .options(selectinload(Playlist.user))
-    )
-    page = await paginate(db, stmt, base_where, limit=limit, offset=offset)
-    return {"items": page.items, "total": page.total}
+    # 第一页仍为空时，放宽“排除自己”的限制，用所有公开非空歌单按热度补齐
+    if offset == 0 and not result["items"]:
+        broaden_where = [
+            Playlist.is_private.is_(False),
+            Playlist.is_like.is_(False),
+            exists().where(PlaylistMusic.playlist_id == Playlist.id),
+        ]
+        broaden_stmt = (
+            select(Playlist)
+            .where(*broaden_where)
+            .order_by(*_playlist_order_by())
+            .options(selectinload(Playlist.user))
+        )
+        broaden_page = await paginate(
+            db, broaden_stmt, broaden_where, limit=limit, offset=0
+        )
+        result = {"items": broaden_page.items, "total": broaden_page.total}
+
+    return result
+
+
+def _album_order_by() -> list:
+    """专辑推荐排序：热度倒序，ID 倒序作为稳定 tie-breaker。"""
+    return [Album.hot.desc(), Album.id.desc()]
 
 
 async def recommend_albums(
@@ -662,7 +694,8 @@ async def recommend_albums(
 ) -> dict[str, object]:
     """根据用户口味推荐专辑。
 
-    优先推荐情绪/兴趣标签有交集的未删除非空专辑；不足时随机兜底。
+    优先推荐情绪/兴趣标签有交集的未删除非空专辑；不足时按热度兜底。
+    若第一页仍为空，则放宽“非空专辑”的限制，用所有未删除专辑按热度补齐。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -681,34 +714,50 @@ async def recommend_albums(
     tags = await _get_user_tag_ids(db, user_id)
     tag_conditions = _tag_match_for_albums(tags)
 
+    result: dict[str, object]
     if tag_conditions:
         tag_where = base_where + [or_(*tag_conditions)]
-        stmt = select(Album).where(*tag_where).order_by(Album.id)
+        stmt = select(Album).where(*tag_where).order_by(*_album_order_by())
         tag_page = await paginate(
             db, stmt, tag_where, limit=limit, offset=offset
         )
         if len(tag_page.items) == limit or (
             offset == 0 and tag_page.total >= limit
         ):
-            return {"items": tag_page.items, "total": tag_page.total}
+            result = {"items": tag_page.items, "total": tag_page.total}
+        else:
+            fallback_where = base_where + [
+                ~or_(*tag_conditions) if len(tag_conditions) > 1 else ~tag_conditions[0]
+            ]
+            fallback_stmt = select(Album).where(*fallback_where).order_by(
+                *_album_order_by()
+            )
+            fallback_limit = limit - len(tag_page.items)
+            fallback_offset = max(0, offset - tag_page.total)
+            fallback_page = await paginate(
+                db, fallback_stmt, fallback_where, limit=fallback_limit, offset=fallback_offset
+            )
+            result = {
+                "items": tag_page.items + fallback_page.items,
+                "total": tag_page.total + fallback_page.total,
+            }
+    else:
+        stmt = select(Album).where(*base_where).order_by(*_album_order_by())
+        page = await paginate(db, stmt, base_where, limit=limit, offset=offset)
+        result = {"items": page.items, "total": page.total}
 
-        fallback_where = base_where + [
-            ~or_(*tag_conditions) if len(tag_conditions) > 1 else ~tag_conditions[0]
-        ]
-        fallback_stmt = select(Album).where(*fallback_where).order_by(Album.id)
-        fallback_limit = limit - len(tag_page.items)
-        fallback_offset = max(0, offset - tag_page.total)
-        fallback_page = await paginate(
-            db, fallback_stmt, fallback_where, limit=fallback_limit, offset=fallback_offset
+    # 第一页仍为空时，放宽“非空专辑”限制，用所有未删除专辑按热度补齐
+    if offset == 0 and not result["items"]:
+        broaden_where = [Album.is_deleted.is_(False)]
+        broaden_stmt = select(Album).where(*broaden_where).order_by(
+            *_album_order_by()
         )
-        return {
-            "items": tag_page.items + fallback_page.items,
-            "total": tag_page.total + fallback_page.total,
-        }
+        broaden_page = await paginate(
+            db, broaden_stmt, broaden_where, limit=limit, offset=0
+        )
+        result = {"items": broaden_page.items, "total": broaden_page.total}
 
-    stmt = select(Album).where(*base_where).order_by(Album.id)
-    page = await paginate(db, stmt, base_where, limit=limit, offset=offset)
-    return {"items": page.items, "total": page.total}
+    return result
 
 
 async def get_recommendation_chart(
