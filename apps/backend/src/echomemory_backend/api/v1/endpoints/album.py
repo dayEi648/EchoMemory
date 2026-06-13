@@ -8,7 +8,7 @@ from echomemory_backend.api.helpers import (
     require_entity,
 )
 from echomemory_backend.api.v1.endpoints._upload_helpers import UploadCollector
-from echomemory_backend.core import oss_client
+from echomemory_backend.core.clients import oss_client
 from echomemory_backend.models.album import Album
 from echomemory_backend.schemas.album import (
     AdminAlbumListItem,

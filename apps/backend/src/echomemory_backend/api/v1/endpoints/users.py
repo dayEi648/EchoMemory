@@ -9,7 +9,7 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import (
     form_to_schema,
     upload_optional_image,
 )
-from echomemory_backend.core import oss_client
+from echomemory_backend.core.clients import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
@@ -31,7 +31,7 @@ from echomemory_backend.schemas.user import (
 )
 from echomemory_backend.schemas.user_tag import UserTagOut
 from echomemory_backend.services import admin_service
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.services import message_service, user_service
 from echomemory_backend.services import user_tag_service
 from echomemory_backend.services.cache_service import (

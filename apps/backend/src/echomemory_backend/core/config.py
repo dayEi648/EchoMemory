@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     deepseek_reasoning_effort: str = "high"
     deepseek_thinking_type: str = "enabled"
 
+    # AI 对话
+    ai_default_model: str = "deepseek-v4-flash"
+    ai_default_title: str = "新对话"
+    ai_conversation_list_cache_ttl_seconds: int = 300
+    ai_conversation_messages_cache_ttl_seconds: int = 300
+    ai_max_context_messages: int = 50
+
     # Embedding（阿里云 DashScope text-embedding-v4）
     dashscope_api_key: str | None = None
     embedding_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -54,6 +61,19 @@ class Settings(BaseSettings):
             return url.replace("postgresql+psycopg2", "postgresql+asyncpg")
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
+    def postgres_conn_string(self) -> str:
+        """返回供 psycopg 使用的纯 PostgreSQL 连接字符串。
+
+        LangGraph AsyncPostgresSaver 需要原生 postgresql:// URL，
+        不含 SQLAlchemy 驱动前缀。
+        """
+        url = self.database_url
+        for prefix in ("postgresql+psycopg2://", "postgresql+asyncpg://"):
+            if url.startswith(prefix):
+                return url.replace(prefix, "postgresql://", 1)
         return url
 
 

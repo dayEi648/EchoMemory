@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from echomemory_backend.api.v1.endpoints import (
+    ai_conversation,
     album,
     auth,
     carousel,
@@ -35,4 +36,5 @@ router.include_router(carousel.router)
 router.include_router(recommendation.router)
 router.include_router(notification.router)
 router.include_router(message.router)
+router.include_router(ai_conversation.router)
 router.include_router(ws_inbox.router)

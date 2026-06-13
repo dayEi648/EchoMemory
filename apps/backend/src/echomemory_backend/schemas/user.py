@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
 
-from echomemory_backend.core.utils import parse_iso8601_duration, timedelta_to_iso8601_duration
+from echomemory_backend.core.utils.common import parse_iso8601_duration, timedelta_to_iso8601_duration
 
 
 class UserBase(BaseModel):

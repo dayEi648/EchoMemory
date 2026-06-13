@@ -9,7 +9,7 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import (
     form_to_schema,
     upload_optional_image,
 )
-from echomemory_backend.core import oss_client
+from echomemory_backend.core.clients import oss_client
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
@@ -25,8 +25,8 @@ from echomemory_backend.services.auth_service import (
     refresh_user_token,
     register_user,
 )
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.redis_client import check_rate_limit
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.clients.redis_client import check_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

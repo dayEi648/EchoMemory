@@ -7,8 +7,8 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.utils import escape_like
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.utils.common import escape_like
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.user import User, UserFollow

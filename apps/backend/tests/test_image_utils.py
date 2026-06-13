@@ -5,7 +5,7 @@ import io
 import pytest
 from PIL import Image
 
-from echomemory_backend.core.image_utils import compress_image_to_memory
+from echomemory_backend.core.utils.image_utils import compress_image_to_memory
 
 
 def _make_image_bytes() -> io.BytesIO:

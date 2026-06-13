@@ -7,8 +7,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.inbox_pubsub import publish_inbox_event
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.inbox.pubsub import publish_inbox_event
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.notification import Notification
 

@@ -2,8 +2,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core import redis_client as rc
-from echomemory_backend.core.security import decode_access_token
+from echomemory_backend.core.clients import redis_client as rc
+from echomemory_backend.core.security.security import decode_access_token
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User
@@ -17,7 +17,7 @@ ME_URL = "/api/v1/auth/me"
 
 
 async def _create_user_directly(db: AsyncSession, username: str = "tester", password: str = "secret123") -> User:
-    from echomemory_backend.core.security import get_password_hash
+    from echomemory_backend.core.security.security import get_password_hash
 
     user = User(
         username=username,
@@ -210,7 +210,7 @@ class TestLogout:
 
     async def test_logout_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常登出，验证令牌被加入黑名单。"""
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_user", password="secret")
         await rc.store_refresh_token("logout_rt", user.id, version=0)
@@ -229,7 +229,7 @@ class TestLogout:
 
     async def test_logout_increments_version(self, client: TestClient, db_session: AsyncSession):
         """测试登出后令牌版本递增，旧令牌失效。"""
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_version", password="secret")
         await rc.store_refresh_token("logout_rt2", user.id, version=0)
@@ -256,7 +256,7 @@ class TestGetMe:
     async def test_get_me_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常获取当前用户信息。"""
         user = await _create_user_directly(db_session, username="me_user", password="secret")
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
@@ -278,7 +278,7 @@ class TestGetMe:
         user.status = UserStatus.BANNED.value
         user.banned_at = func.now()
         await db_session.commit()
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
@@ -287,7 +287,7 @@ class TestGetMe:
     async def test_get_me_blacklisted_token(self, client: TestClient, db_session: AsyncSession):
         """测试黑名单中的令牌返回 401。"""
         user = await _create_user_directly(db_session, username="blacklisted", password="secret")
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         token = create_access_token(subject=user.id, version=0)
         await rc.blacklist_access_token(token)
@@ -297,7 +297,7 @@ class TestGetMe:
     async def test_get_me_version_mismatch(self, client: TestClient, db_session: AsyncSession):
         """测试令牌版本不匹配时返回 401。"""
         user = await _create_user_directly(db_session, username="versioned", password="secret")
-        from echomemory_backend.core.security import create_access_token
+        from echomemory_backend.core.security.security import create_access_token
 
         # 模拟 version 已被递增（如 logout / ban 后）
         await rc.increment_user_token_version(user.id)

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.models.user import User
@@ -130,7 +130,7 @@ class TestCreateSpacePost:
             fake_upload,
         )
         monkeypatch.setattr(
-            "echomemory_backend.core.oss_client.delete_object_by_url",
+            "echomemory_backend.core.clients.oss_client.delete_object_by_url",
             fake_delete,
         )
 

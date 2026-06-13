@@ -6,7 +6,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from echomemory_backend.core.cache import (
+from echomemory_backend.core.cache.general import (
     ADMIN_DASHBOARD_STATS_PREFIX,
     ALBUM_DETAIL_PREFIX,
     CACHE_MISS,

@@ -8,7 +8,7 @@ from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
@@ -141,7 +141,7 @@ def mock_oss_uploads(monkeypatch):
         return "https://fake-oss.example.com/playlists/cover.jpg"
 
     monkeypatch.setattr(
-        "echomemory_backend.core.oss_client.upload_image_to_oss",
+        "echomemory_backend.core.clients.oss_client.upload_image_to_oss",
         fake_image_upload,
     )
 
@@ -368,7 +368,7 @@ class TestGetPlaylist:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """歌单更新后详情缓存应被失效。"""
-        from echomemory_backend.core.cache import PLAYLIST_DETAIL_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import PLAYLIST_DETAIL_PREFIX, build_cache_key
 
         user = await _create_user(db_session, "get_cache_inv")
         playlist = await _create_playlist_directly(

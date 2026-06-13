@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy import select
 
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music

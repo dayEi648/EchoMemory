@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from echomemory_backend.core.utils import (
+from echomemory_backend.core.utils.common import (
     escape_like,
     parse_iso8601_duration,
     timedelta_to_iso8601_duration,

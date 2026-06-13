@@ -6,11 +6,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import (
+from echomemory_backend.core.clients.redis_client import (
     get_user_token_version,
     is_access_token_blacklisted,
 )
-from echomemory_backend.core.security import decode_access_token
+from echomemory_backend.core.security.security import decode_access_token
 from echomemory_backend.db.session import AsyncSessionLocal
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User

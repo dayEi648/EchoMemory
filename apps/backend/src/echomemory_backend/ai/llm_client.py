@@ -1,15 +1,15 @@
-"""DeepSeek LLM 异步客户端封装。
+"""DeepSeek LLM 客户端封装。
 
 提供 deepseek-v4-pro（思考模型）与 deepseek-v4-flash（快速模型）两种调用入口，
-基于 OpenAI 兼容接口访问 DeepSeek 官方 API。
+基于 OpenAI 兼容接口访问 DeepSeek 官方 API，支持异步与同步调用。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import AsyncIterator, Literal
+from typing import AsyncIterator, Iterator, Literal
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from echomemory_backend.core.config import settings
 
@@ -101,13 +101,13 @@ class ChatResponse:
 
 
 class DeepSeekClient:
-    """DeepSeek API 专属异步客户端。
+    """DeepSeek API 专属客户端。
 
-    使用 OpenAI 兼容协议访问 DeepSeek，支持非流式与流式调用。
+    使用 OpenAI 兼容协议访问 DeepSeek，支持异步与同步调用，以及流式输出。
     当 ``enable_thinking=True`` 时，请求会显式启用 thinking 模式，
     推理内容通过 ``ChatResponse.reasoning_content`` 暴露。
 
-    内部对 ``AsyncOpenAI`` 采用懒加载：仅在首次调用时才构造实际客户端，
+    内部对 ``AsyncOpenAI`` / ``OpenAI`` 采用懒加载：仅在首次调用时才构造实际客户端，
     避免应用启动或服务导入时因未配置 API key 而失败。
     """
 
@@ -139,18 +139,30 @@ class DeepSeekClient:
         self._api_key = api_key if api_key is not None else settings.deepseek_api_key
         self._base_url = base_url if base_url is not None else settings.deepseek_base_url
         self._timeout = timeout
-        self._client: AsyncOpenAI | None = None
+        self._async_client: AsyncOpenAI | None = None
+        self._sync_client: OpenAI | None = None
 
     @property
     def _openai_client(self) -> AsyncOpenAI:
         """返回懒加载的 AsyncOpenAI 客户端实例。"""
-        if self._client is None:
-            self._client = AsyncOpenAI(
+        if self._async_client is None:
+            self._async_client = AsyncOpenAI(
                 api_key=self._api_key,
                 base_url=self._base_url,
                 timeout=self._timeout,
             )
-        return self._client
+        return self._async_client
+
+    @property
+    def _openai_sync_client(self) -> OpenAI:
+        """返回懒加载的同步 OpenAI 客户端实例。"""
+        if self._sync_client is None:
+            self._sync_client = OpenAI(
+                api_key=self._api_key,
+                base_url=self._base_url,
+                timeout=self._timeout,
+            )
+        return self._sync_client
 
     def _build_request(
         self,
@@ -238,6 +250,75 @@ class DeepSeekClient:
         async for chunk in stream:
             # DeepSeek 在启用 stream_options.include_usage 后，会在 [DONE] 之前
             # 额外发送一个 choices 为空、usage 为总统计的 chunk。
+            if chunk.usage is not None:
+                yield ChatResponse(
+                    content="",
+                    reasoning_content=None,
+                    model=chunk.model,
+                    usage=chunk.usage.model_dump(),
+                )
+                continue
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            yield ChatResponse(
+                content=delta.content or "",
+                reasoning_content=getattr(delta, "reasoning_content", None),
+                model=chunk.model,
+                usage=None,
+            )
+
+    def chat_sync(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = DEFAULT_TEMPERATURE,
+        max_tokens: int | None = None,
+    ) -> ChatResponse:
+        """同步发送聊天请求并返回模型回复。
+
+        参数:
+            messages: 对话上下文消息列表。
+            temperature: 采样温度，建议范围 0~2。
+            max_tokens: 最大生成 token 数，None 表示由服务端决定。
+
+        返回:
+            包含回复正文、推理内容（如有）与使用统计的 ChatResponse。
+
+        异常:
+            openai.APIError: DeepSeek API 返回错误时抛出。
+        """
+        body = self._build_request(messages, temperature, max_tokens, stream=False)
+        response = self._openai_sync_client.chat.completions.create(**body)
+        message = response.choices[0].message
+        return ChatResponse(
+            content=message.content or "",
+            reasoning_content=getattr(message, "reasoning_content", None),
+            model=response.model,
+            usage=response.usage.model_dump() if response.usage else None,
+        )
+
+    def chat_stream_sync(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = DEFAULT_TEMPERATURE,
+        max_tokens: int | None = None,
+    ) -> Iterator[ChatResponse]:
+        """同步流式发送聊天请求，逐块返回增量内容。
+
+        参数:
+            messages: 对话上下文消息列表。
+            temperature: 采样温度，建议范围 0~2。
+            max_tokens: 最大生成 token 数，None 表示由服务端决定。
+
+        返回:
+            迭代器，每次产出当前增量文本的 ChatResponse。
+
+        异常:
+            openai.APIError: DeepSeek API 返回错误时抛出。
+        """
+        body = self._build_request(messages, temperature, max_tokens, stream=True)
+        stream = self._openai_sync_client.chat.completions.create(**body)
+        for chunk in stream:
             if chunk.usage is not None:
                 yield ChatResponse(
                     content="",

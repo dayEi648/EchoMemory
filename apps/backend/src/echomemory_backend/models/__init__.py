@@ -1,5 +1,9 @@
 from echomemory_backend.db.base import Base
 from echomemory_backend.models.enums import NotificationType, UserRole, UserStatus
+from echomemory_backend.models.ai_conversation import (
+    AIConversation,
+    AIConversationStatus,
+)
 from echomemory_backend.models.album import (
     Album,
     AlbumAuthor,
@@ -68,6 +72,8 @@ from echomemory_backend.models.vector_document import VectorDocument
 
 __all__ = [
     "Base",
+    "AIConversation",
+    "AIConversationStatus",
     "Album",
     "AlbumAuthor",
     "AlbumEmotionTag",

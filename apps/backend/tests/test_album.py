@@ -8,8 +8,8 @@ from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.cache import HOME_RECOMMENDED_ALBUMS_PREFIX, build_cache_key
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.cache.general import HOME_RECOMMENDED_ALBUMS_PREFIX, build_cache_key
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.album import Album, AlbumEmotionTag, AlbumMusic
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
@@ -145,7 +145,7 @@ def mock_oss_uploads(monkeypatch):
         return "https://fake-oss.example.com/albums/cover.jpg"
 
     monkeypatch.setattr(
-        "echomemory_backend.core.oss_client.upload_image_to_oss",
+        "echomemory_backend.core.clients.oss_client.upload_image_to_oss",
         fake_image_upload,
     )
 
@@ -236,7 +236,7 @@ class TestPublicGetAlbum:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """专辑更新后详情缓存应被失效。"""
-        from echomemory_backend.core.cache import ALBUM_DETAIL_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import ALBUM_DETAIL_PREFIX, build_cache_key
 
         admin = await _create_user(db_session, "admin_album_detail", role=UserRole.ADMIN.value)
         album = await _create_album_directly(db_session, title="OldAlbumDetail")
@@ -454,7 +454,7 @@ class TestAlbumTagSync:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """音乐标签变更后，所属专辑详情缓存应被失效。"""
-        from echomemory_backend.core.cache import ALBUM_DETAIL_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import ALBUM_DETAIL_PREFIX, build_cache_key
 
         admin = await _create_user(
             db_session, "admin_tag_cache_inv", role=UserRole.ADMIN.value

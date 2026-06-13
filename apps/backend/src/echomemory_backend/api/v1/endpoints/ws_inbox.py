@@ -11,13 +11,13 @@ import logging
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.inbox_pubsub import inbox_channel
-from echomemory_backend.core.redis_client import (
+from echomemory_backend.core.inbox.pubsub import inbox_channel
+from echomemory_backend.core.clients.redis_client import (
     get_user_token_version,
     is_access_token_blacklisted,
     redis_client,
 )
-from echomemory_backend.core.security import decode_access_token
+from echomemory_backend.core.security.security import decode_access_token
 from echomemory_backend.db.session import AsyncSessionLocal
 from echomemory_backend.models.user import User
 

@@ -11,15 +11,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from echomemory_backend.api.v1.router import router as api_v1_router
 from echomemory_backend.core.config import settings
-from echomemory_backend.core.exception_handlers import (
+from echomemory_backend.core.exceptions.handlers import (
     business_error_handler,
     generic_exception_handler,
     http_exception_handler,
     validation_exception_handler,
 )
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.redis_client import redis_client
-from echomemory_backend.core.seed_data import seed_dictionary_tables
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.ai.checkpointer import close_checkpointer, setup_checkpointer
+from echomemory_backend.core.clients.redis_client import redis_client
+from echomemory_backend.core.utils.seed_data import seed_dictionary_tables
 from echomemory_backend.db.session import AsyncSessionLocal, async_engine
 from echomemory_backend.models import Base  # noqa: F401
 
@@ -40,6 +41,9 @@ async def lifespan(app: FastAPI):
     if result.returncode != 0:
         logger.error("Alembic upgrade failed: %s", result.stderr)
         raise RuntimeError(f"Alembic upgrade failed: {result.stderr}")
+
+    # 初始化 LangGraph Postgres Checkpointer，自动创建 checkpoints 相关表
+    await setup_checkpointer()
 
     # 验证 Redis 连接可用，避免懒连接导致启动时无感知、运行时才爆炸
     # 增加重试机制，兼容 Redis 与后端并行启动的场景
@@ -127,6 +131,7 @@ async def lifespan(app: FastAPI):
         await recommend_task
     except asyncio.CancelledError:
         pass
+    await close_checkpointer()
     await async_engine.dispose()
     await redis_client.close()
 

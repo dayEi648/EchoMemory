@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.comment import Comment
 from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.notification import Notification

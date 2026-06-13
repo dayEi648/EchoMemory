@@ -5,7 +5,7 @@ from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User, UserFollow
@@ -154,7 +154,7 @@ class TestGetUser:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """用户更新资料后公开资料缓存应被失效。"""
-        from echomemory_backend.core.cache import USER_PUBLIC_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import USER_PUBLIC_PREFIX, build_cache_key
 
         user = await _create_user(db_session, "public_cache_inv")
 
@@ -647,7 +647,7 @@ class TestAdminDashboardStats:
         first_count = resp.json()["users"]
 
         # 绕过业务层直接写入用户，避免触发缓存失效
-        from echomemory_backend.core.security import get_password_hash
+        from echomemory_backend.core.security.security import get_password_hash
 
         db_session.add(
             User(
@@ -666,7 +666,7 @@ class TestAdminDashboardStats:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """新用户注册后仪表盘统计缓存应被失效。"""
-        from echomemory_backend.core.cache import ADMIN_DASHBOARD_STATS_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import ADMIN_DASHBOARD_STATS_PREFIX, build_cache_key
 
         admin = await _create_user(
             db_session, "stats_cache_inv_admin", role=UserRole.ADMIN.value

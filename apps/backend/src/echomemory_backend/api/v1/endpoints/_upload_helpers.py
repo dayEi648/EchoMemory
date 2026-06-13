@@ -5,7 +5,7 @@ from typing import TypeVar
 
 from fastapi import HTTPException, UploadFile, status
 
-from echomemory_backend.core import oss_client
+from echomemory_backend.core.clients import oss_client
 
 logger = logging.getLogger(__name__)
 

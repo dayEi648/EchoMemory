@@ -3,7 +3,7 @@ import asyncio
 from jose import jwt
 
 from echomemory_backend.core.config import settings
-from echomemory_backend.core.security import (
+from echomemory_backend.core.security.security import (
     create_access_token,
     decode_access_token,
     get_password_hash,

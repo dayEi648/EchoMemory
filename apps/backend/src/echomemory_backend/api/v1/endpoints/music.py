@@ -15,8 +15,8 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
     upload_optional_image,
 )
-from echomemory_backend.core import oss_client
-from echomemory_backend.core.oss_client import _ALLOWED_AUDIO_TYPES
+from echomemory_backend.core.clients import oss_client
+from echomemory_backend.core.clients.oss_client import _ALLOWED_AUDIO_TYPES
 from echomemory_backend.models.music import Music
 from echomemory_backend.schemas.music import (
     LyricsOut,
@@ -24,7 +24,7 @@ from echomemory_backend.schemas.music import (
     PaginatedAdminMusicListOut,
     PaginatedMusicListOut,
 )
-from echomemory_backend.core.redis_client import check_rate_limit
+from echomemory_backend.core.clients.redis_client import check_rate_limit
 from echomemory_backend.services import collection_service, music_service
 from echomemory_backend.services.cache_service import (
     get_cached_lyrics,

@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from echomemory_backend.core.cache import (
+from echomemory_backend.core.cache.general import (
     CACHE_MISS,
     CACHE_NONE_MARKER,
     build_cache_key,

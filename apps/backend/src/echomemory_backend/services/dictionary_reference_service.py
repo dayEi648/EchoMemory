@@ -7,7 +7,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag, Instrument
 
 

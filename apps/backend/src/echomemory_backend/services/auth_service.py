@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import (
+from echomemory_backend.core.clients.redis_client import (
     blacklist_access_token,
     blacklist_refresh_token,
     delete_refresh_token,
@@ -14,10 +14,10 @@ from echomemory_backend.core.redis_client import (
     increment_user_token_version,
     store_refresh_token,
 )
-from echomemory_backend.core.security import create_access_token, get_password_hash, verify_password
+from echomemory_backend.core.security.security import create_access_token, get_password_hash, verify_password
 from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.schemas.user import Token, UserCreate
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.services.user_service import create_user, get_user_by_id, get_user_by_username
 
 

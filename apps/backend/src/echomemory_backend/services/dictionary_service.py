@@ -21,7 +21,7 @@ from echomemory_backend.models.music import (
 from echomemory_backend.models.playlist import PlaylistEmotionTag, PlaylistInterestTag
 from echomemory_backend.models.user import User
 from echomemory_backend.models.user_tag import UserEmotionTag, UserInterestTag
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 
 # 字典类型到 ORM 模型的映射
 _MODEL_MAP = {

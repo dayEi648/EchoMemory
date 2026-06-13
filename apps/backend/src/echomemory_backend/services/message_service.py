@@ -8,8 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.inbox_pubsub import publish_inbox_event
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.inbox.pubsub import publish_inbox_event
 from echomemory_backend.models.message import Conversation, DirectMessage, UserBlock
 from echomemory_backend.models.user import User
 

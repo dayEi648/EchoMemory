@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Query, status
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.models.message import Conversation
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.message import (

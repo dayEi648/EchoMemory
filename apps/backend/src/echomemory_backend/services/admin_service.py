@@ -4,13 +4,13 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import increment_user_token_version
-from echomemory_backend.core.security import get_password_hash
-from echomemory_backend.core.utils import escape_like, parse_iso8601_duration
+from echomemory_backend.core.clients.redis_client import increment_user_token_version
+from echomemory_backend.core.security.security import get_password_hash
+from echomemory_backend.core.utils.common import escape_like, parse_iso8601_duration
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import UserAdminCreate, UserAdminUpdate, UserBanAction
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.services.cache_service import (
     invalidate_dashboard_stats,
     invalidate_user_public,

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from echomemory_backend.core.config import settings
-from echomemory_backend.core.llm import (
+from echomemory_backend.ai.llm_client import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_TEMPERATURE,
     REASONING_EFFORT,

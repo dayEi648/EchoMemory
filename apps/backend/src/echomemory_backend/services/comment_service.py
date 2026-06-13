@@ -11,7 +11,7 @@ from echomemory_backend.schemas.comment import CommentOut
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.services.cache_service import invalidate_music_detail
 from echomemory_backend.services.notification_service import create_notification
 from echomemory_backend.services.space_post_service import can_view_space_post

@@ -10,7 +10,7 @@ from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.schemas.space_post import SpacePostListOut, SpacePostOut
 from echomemory_backend.services.notification_service import create_notification
 

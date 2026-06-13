@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
-from echomemory_backend.core.cache import (
+from echomemory_backend.core.cache.general import (
     CACHE_MISS,
     CHART_HOT_SONGS_PREFIX,
     CHART_NEW_SONGS_PREFIX,
@@ -28,8 +28,8 @@ from echomemory_backend.models.music import (
     MusicInterestTag,
 )
 from echomemory_backend.models.playlist import PlaylistMusic
-from echomemory_backend.core.exceptions import BusinessError
-from echomemory_backend.core.utils import escape_like
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.utils.common import escape_like
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.schemas.music import PaginatedMusicListOut
 from echomemory_backend.services.association_helpers import rebuild_tag_association

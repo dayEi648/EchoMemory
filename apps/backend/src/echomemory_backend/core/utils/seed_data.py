@@ -35,7 +35,7 @@ def _get_seed_data_path() -> Path:
     Returns:
         JSON 文件绝对路径。
     """
-    return Path(__file__).resolve().parent.parent / "data" / "dictionary_seed.json"
+    return Path(__file__).resolve().parent.parent.parent / "data" / "dictionary_seed.json"
 
 
 def load_dictionary_seed_data() -> dict[str, list[dict]]:

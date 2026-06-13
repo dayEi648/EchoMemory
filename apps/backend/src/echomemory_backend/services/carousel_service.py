@@ -8,7 +8,7 @@ from redis.exceptions import WatchError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.redis_client import redis_client, with_redis_retry
+from echomemory_backend.core.clients.redis_client import redis_client, with_redis_retry
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.album import Album
 

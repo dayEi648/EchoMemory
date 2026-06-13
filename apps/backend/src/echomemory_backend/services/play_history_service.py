@@ -8,7 +8,7 @@ from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.music import Music

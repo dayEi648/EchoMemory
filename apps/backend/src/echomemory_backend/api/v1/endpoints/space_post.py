@@ -7,7 +7,7 @@ from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
     upload_optional_image,
 )
-from echomemory_backend.core.oss_client import delete_object_by_url
+from echomemory_backend.core.clients.oss_client import delete_object_by_url
 from echomemory_backend.schemas.space_post import PaginatedSpacePostListOut, SpacePostListOut, SpacePostOut
 from echomemory_backend.services import space_post_service
 from echomemory_backend.services.space_post_service import can_view_space_post

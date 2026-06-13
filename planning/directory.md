@@ -30,12 +30,32 @@
 │   │   │       ├── core/           # 核心工具与配置
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── config.py   # Pydantic Settings 配置
-│   │   │       │   ├── exceptions.py   # BusinessError 业务异常定义
-│   │   │       │   ├── image_utils.py  # 图片压缩与格式转换
-│   │   │       │   ├── oss_client.py   # 阿里云 OSS 异步客户端封装
-│   │   │       │   ├── redis_client.py # Redis 异步客户端
-│   │   │       │   ├── security.py     # JWT、密码哈希等安全工具
-│   │   │       │   └── utils.py        # 通用工具（如 ISO 8601 duration 解析）
+│   │   │       │   ├── cache/      # 业务缓存
+│   │   │       │   │   └── general.py    # 通用 Redis 缓存工具
+│   │   │       │   ├── clients/    # 外部服务客户端
+│   │   │       │   │   ├── oss_client.py   # 阿里云 OSS 异步客户端封装
+│   │   │       │   │   └── redis_client.py # Redis 异步客户端
+│   │   │       │   ├── exceptions/ # 异常与全局处理器
+│   │   │       │   │   ├── business.py       # BusinessError 业务异常定义
+│   │   │       │   │   └── handlers.py       # FastAPI 全局异常处理器
+│   │   │       │   ├── inbox/      # 私信/通知 Pub/Sub
+│   │   │       │   │   └── pubsub.py
+│   │   │       │   ├── security/   # 安全工具
+│   │   │       │   │   └── security.py     # JWT、密码哈希等
+│   │   │       │   └── utils/      # 通用工具
+│   │   │       │       ├── common.py       # 通用工具（如 ISO 8601 duration 解析）
+│   │   │       │       ├── image_utils.py  # 图片压缩与格式转换
+│   │   │       │       └── seed_data.py    # 字典表种子数据管理
+│   │   │       ├── ai/             # AI 对话基础设施
+│   │   │       │   ├── __init__.py
+│   │   │       │   ├── cache.py            # AI 对话 Redis 缓存
+│   │   │       │   ├── checkpointer.py     # LangGraph Postgres Checkpointer 生命周期
+│   │   │       │   ├── graph.py            # LangGraph 状态图定义
+│   │   │       │   ├── llm.py              # LangChain 兼容 DeepSeek 封装
+│   │   │       │   ├── llm_client.py       # DeepSeek 异步/同步客户端
+│   │   │       │   ├── prompts.py          # 提示词加载器
+│   │   │       │   └── prompts/
+│   │   │       │       └── system.md       # 系统提示词
 │   │   │       ├── api/            # API 层
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── deps.py     # FastAPI 依赖注入（SessionDep、CurrentUser 等）
@@ -44,37 +64,51 @@
 │   │   │       │       ├── router.py   # v1 路由聚合
 │   │   │       │       └── endpoints/  # 业务路由端点
 │   │   │       │           ├── __init__.py
+│   │   │       │           ├── ai_conversation.py  # AI 对话
 │   │   │       │           ├── album.py
 │   │   │       │           ├── auth.py
+│   │   │       │           ├── carousel.py
 │   │   │       │           ├── collection.py
 │   │   │       │           ├── comment.py
 │   │   │       │           ├── dictionary.py
+│   │   │       │           ├── message.py
 │   │   │       │           ├── music.py
+│   │   │       │           ├── notification.py
 │   │   │       │           ├── play_history.py
 │   │   │       │           ├── playlist.py
+│   │   │       │           ├── recommendation.py
 │   │   │       │           ├── space_post.py
-│   │   │       │           └── users.py
+│   │   │       │           ├── users.py
+│   │   │       │           └── ws_inbox.py
 │   │   │       ├── models/         # SQLAlchemy ORM 模型
 │   │   │       │   ├── __init__.py
+│   │   │       │   ├── ai_conversation.py    # AI 对话会话元数据
 │   │   │       │   ├── album.py
 │   │   │       │   ├── collection.py
 │   │   │       │   ├── comment.py
 │   │   │       │   ├── dictionary.py
 │   │   │       │   ├── enums.py
+│   │   │       │   ├── message.py
 │   │   │       │   ├── music.py
+│   │   │       │   ├── notification.py
 │   │   │       │   ├── play_history.py
 │   │   │       │   ├── playlist.py
+│   │   │       │   ├── recommendation.py
 │   │   │       │   ├── space_post.py
 │   │   │       │   ├── user.py
 │   │   │       │   ├── user_tag.py
 │   │   │       │   └── vector_document.py  # RAG 向量文档模型
 │   │   │       ├── schemas/        # Pydantic Schema（请求/响应模型）
 │   │   │       │   ├── __init__.py
+│   │   │       │   ├── ai_conversation.py
 │   │   │       │   ├── album.py
+│   │   │       │   ├── carousel.py
 │   │   │       │   ├── collection.py
 │   │   │       │   ├── comment.py
 │   │   │       │   ├── dictionary.py
+│   │   │       │   ├── message.py
 │   │   │       │   ├── music.py
+│   │   │       │   ├── notification.py
 │   │   │       │   ├── play_history.py
 │   │   │       │   ├── playlist.py
 │   │   │       │   ├── space_post.py
@@ -83,17 +117,25 @@
 │   │   │       ├── services/       # 业务逻辑服务层
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── admin_service.py
+│   │   │       │   ├── ai_conversation_service.py
 │   │   │       │   ├── album_service.py
 │   │   │       │   ├── auth_service.py
+│   │   │       │   ├── carousel_service.py
 │   │   │       │   ├── collection_service.py
 │   │   │       │   ├── comment_service.py
+│   │   │       │   ├── dictionary_reference_service.py
 │   │   │       │   ├── dictionary_service.py
+│   │   │       │   ├── message_service.py
 │   │   │       │   ├── music_service.py
+│   │   │       │   ├── notification_service.py
 │   │   │       │   ├── play_history_service.py
 │   │   │       │   ├── playlist_service.py
+│   │   │       │   ├── recommendation_service.py
 │   │   │       │   ├── space_post_service.py
+│   │   │       │   ├── stats_service.py
 │   │   │       │   ├── user_service.py
-│   │   │       │   └── user_tag_service.py
+│   │   │       │   ├── user_tag_service.py
+│   │   │       │   └── association_helpers.py
 │   │   │       ├── rag/            # RAG 基础设施
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── embeddings.py     # text-embedding-v4 客户端封装
@@ -105,20 +147,28 @@
 │   │   └── tests/                  # pytest 测试
 │   │       ├── __init__.py
 │   │       ├── conftest.py         # 测试夹具（数据库、FakeRedis、TestClient）
+│   │       ├── test_ai_conversation.py   # AI 对话测试
 │   │       ├── test_album.py
 │   │       ├── test_auth.py
+│   │       ├── test_cache.py
 │   │       ├── test_collection.py
 │   │       ├── test_comment.py
 │   │       ├── test_dictionary.py
+│   │       ├── test_embeddings.py  # Embedding 客户端测试
+│   │       ├── test_image_utils.py
+│   │       ├── test_llm.py
+│   │       ├── test_message.py
 │   │       ├── test_music.py
+│   │       ├── test_notification.py
 │   │       ├── test_play_history.py
 │   │       ├── test_playlist.py
+│   │       ├── test_recommendations.py
 │   │       ├── test_redis_client.py
 │   │       ├── test_security.py
 │   │       ├── test_space_post.py
 │   │       ├── test_user_tag.py
 │   │       ├── test_users.py
-│   │       ├── test_embeddings.py  # Embedding 客户端测试
+│   │       ├── test_utils.py
 │   │       └── test_vector_store.py # 向量存储测试
 │   └── frontend/                   # Tauri 2.x + React 19 + TS + Vite + Tailwind CSS
 │       ├── package.json

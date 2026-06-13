@@ -16,7 +16,7 @@ from echomemory_backend.models.collection import (
 )
 from echomemory_backend.models.music import Music, MusicAuthor
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
-from echomemory_backend.core.exceptions import BusinessError
+from echomemory_backend.core.exceptions.business import BusinessError
 
 
 @dataclass

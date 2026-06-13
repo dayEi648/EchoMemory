@@ -1,3 +1,13 @@
+from echomemory_backend.schemas.ai_conversation import (
+    AIConversationCreate,
+    AIConversationMessageCreate,
+    AIConversationMessageOut,
+    AIConversationMessagesOut,
+    AIConversationOut,
+    AIConversationWithFirstMessageOut,
+    AIStreamChunkOut,
+    PaginatedAIConversationOut,
+)
 from echomemory_backend.schemas.user import (
     FollowCreate,
     FolloweeOut,
@@ -32,6 +42,13 @@ from echomemory_backend.schemas.notification import (
 )
 
 __all__ = [
+    "AIConversationCreate",
+    "AIConversationMessageCreate",
+    "AIConversationMessageOut",
+    "AIConversationMessagesOut",
+    "AIConversationOut",
+    "AIConversationWithFirstMessageOut",
+    "AIStreamChunkOut",
     "ConversationOut",
     "DirectMessageCreate",
     "DirectMessageOut",
@@ -41,6 +58,7 @@ __all__ = [
     "MessagePeerOut",
     "NotificationActorOut",
     "NotificationOut",
+    "PaginatedAIConversationOut",
     "PaginatedConversationOut",
     "PaginatedDirectMessageOut",
     "PaginatedNotificationOut",

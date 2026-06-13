@@ -10,12 +10,12 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.core.cache import (
+from echomemory_backend.core.cache.general import (
     CHART_HOT_SONGS_PREFIX,
     CHART_NEW_SONGS_PREFIX,
     build_cache_key,
 )
-from echomemory_backend.core.security import create_access_token, get_password_hash
+from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.dictionary import (
     EmotionTag,
@@ -154,15 +154,15 @@ def mock_oss_uploads(monkeypatch):
         return "https://fake-oss.example.com/lyrics/test.lrc"
 
     monkeypatch.setattr(
-        "echomemory_backend.core.oss_client.upload_audio_to_oss",
+        "echomemory_backend.core.clients.oss_client.upload_audio_to_oss",
         fake_audio_upload,
     )
     monkeypatch.setattr(
-        "echomemory_backend.core.oss_client.upload_image_to_oss",
+        "echomemory_backend.core.clients.oss_client.upload_image_to_oss",
         fake_image_upload,
     )
     monkeypatch.setattr(
-        "echomemory_backend.core.oss_client.upload_lyrics_to_oss",
+        "echomemory_backend.core.clients.oss_client.upload_lyrics_to_oss",
         fake_lyrics_upload,
     )
 
@@ -316,11 +316,11 @@ class TestAdminImportMusic:
             deleted_urls.append(url)
 
         monkeypatch.setattr(
-            "echomemory_backend.core.oss_client.upload_audio_to_oss",
+            "echomemory_backend.core.clients.oss_client.upload_audio_to_oss",
             fake_audio_upload,
         )
         monkeypatch.setattr(
-            "echomemory_backend.core.oss_client.upload_image_to_oss",
+            "echomemory_backend.core.clients.oss_client.upload_image_to_oss",
             fake_cover_upload,
         )
         monkeypatch.setattr(
@@ -328,7 +328,7 @@ class TestAdminImportMusic:
             fake_optional_upload,
         )
         monkeypatch.setattr(
-            "echomemory_backend.core.oss_client.delete_object_by_url",
+            "echomemory_backend.core.clients.oss_client.delete_object_by_url",
             fake_delete,
         )
 
@@ -532,7 +532,7 @@ class TestGetMusic:
         self, client: TestClient, db_session: AsyncSession, fake_redis
     ):
         """管理员更新音乐后详情缓存应被失效。"""
-        from echomemory_backend.core.cache import MUSIC_DETAIL_PREFIX, build_cache_key
+        from echomemory_backend.core.cache.general import MUSIC_DETAIL_PREFIX, build_cache_key
 
         admin = await _create_user(db_session, "admin_detail_cache", role=UserRole.ADMIN.value)
         music = await _create_music_directly(db_session, title="OldDetailSong")
@@ -568,7 +568,7 @@ class TestGetMusicLyrics:
         async def fake_fetch(_url: str) -> str:
             return "[00:00.00]Test lyrics\n[00:05.00]Line two"
 
-        from echomemory_backend.core import oss_client
+        from echomemory_backend.core.clients import oss_client
 
         monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
 
@@ -601,8 +601,8 @@ class TestGetMusicLyrics:
         self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
     ):
         """歌词二次请求应命中缓存，避免重复请求 OSS。"""
-        from echomemory_backend.core import oss_client
-        from echomemory_backend.core.cache import MUSIC_LYRICS_PREFIX, build_cache_key
+        from echomemory_backend.core.clients import oss_client
+        from echomemory_backend.core.cache.general import MUSIC_LYRICS_PREFIX, build_cache_key
 
         music = await _create_music_directly(db_session, title="CachedLyrics")
         music.lyrics_url = "https://fake-oss.example.com/lyrics/cached.lrc"
@@ -633,8 +633,8 @@ class TestGetMusicLyrics:
         self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
     ):
         """管理员更新歌词文件后缓存应被失效。"""
-        from echomemory_backend.core import oss_client
-        from echomemory_backend.core.cache import MUSIC_LYRICS_PREFIX, build_cache_key
+        from echomemory_backend.core.clients import oss_client
+        from echomemory_backend.core.cache.general import MUSIC_LYRICS_PREFIX, build_cache_key
 
         admin = await _create_user(
             db_session, "admin_lyrics_cache", role=UserRole.ADMIN.value

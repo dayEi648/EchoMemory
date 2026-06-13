@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from echomemory_backend.core import redis_client as rc
+from echomemory_backend.core.clients import redis_client as rc
 
 
 @pytest.fixture(autouse=True)
