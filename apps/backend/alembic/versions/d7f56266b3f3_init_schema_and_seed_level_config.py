@@ -5,6 +5,8 @@ Revises:
 Create Date: 2026-06-07 12:43:13.760559
 
 """
+import json
+from pathlib import Path
 from typing import Sequence, Union
 
 from alembic import op
@@ -479,26 +481,25 @@ def upgrade() -> None:
     )
     op.create_index('idx_comment_likes_user', 'comment_likes', ['user_id'], unique=False)
 
-    # Seed level_config data
+    # Seed level_config data from the shared dictionary seed file
+    seed_path = (
+        Path(__file__).resolve().parent.parent.parent
+        / "src"
+        / "echomemory_backend"
+        / "data"
+        / "dictionary_seed.json"
+    )
+    with open(seed_path, encoding="utf-8") as f:
+        seed_data = json.load(f)
+    level_config_rows = seed_data.get("level_config", [])
+
     level_config_table = sa.table(
         'level_config',
         sa.column('level', sa.SmallInteger),
         sa.column('min_exp', sa.Integer),
         sa.column('title', sa.String),
     )
-    op.bulk_insert(level_config_table, [
-        {'level': 0, 'min_exp': 0, 'title': '静默之声'},
-        {'level': 1, 'min_exp': 100, 'title': '初响'},
-        {'level': 2, 'min_exp': 300, 'title': '浅唱'},
-        {'level': 3, 'min_exp': 700, 'title': '低吟'},
-        {'level': 4, 'min_exp': 1500, 'title': '和鸣'},
-        {'level': 5, 'min_exp': 3000, 'title': '共鸣'},
-        {'level': 6, 'min_exp': 5500, 'title': '弦歌'},
-        {'level': 7, 'min_exp': 9500, 'title': '高歌'},
-        {'level': 8, 'min_exp': 16000, 'title': '咏叹'},
-        {'level': 9, 'min_exp': 28000, 'title': '天籁'},
-        {'level': 10, 'min_exp': 50000, 'title': '回响'},
-    ])
+    op.bulk_insert(level_config_table, level_config_rows)
     # ### end Alembic commands ###
 
 

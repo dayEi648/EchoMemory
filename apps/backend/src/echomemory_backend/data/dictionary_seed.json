@@ -1,0 +1,69 @@
+{
+  "level_config": [
+    {"level": 0, "min_exp": 0, "title": "静默之声"},
+    {"level": 1, "min_exp": 100, "title": "初响"},
+    {"level": 2, "min_exp": 300, "title": "浅唱"},
+    {"level": 3, "min_exp": 700, "title": "低吟"},
+    {"level": 4, "min_exp": 1500, "title": "和鸣"},
+    {"level": 5, "min_exp": 3000, "title": "共鸣"},
+    {"level": 6, "min_exp": 5500, "title": "弦歌"},
+    {"level": 7, "min_exp": 9500, "title": "高歌"},
+    {"level": 8, "min_exp": 16000, "title": "咏叹"},
+    {"level": 9, "min_exp": 28000, "title": "天籁"},
+    {"level": 10, "min_exp": 50000, "title": "回响"}
+  ],
+  "styles": [
+    {"name": "流行"},
+    {"name": "摇滚"},
+    {"name": "古典"},
+    {"name": "电子"},
+    {"name": "民谣"},
+    {"name": "爵士"},
+    {"name": "R&B"},
+    {"name": "嘻哈"},
+    {"name": "轻音乐"},
+    {"name": "古风"},
+    {"name": "金属"},
+    {"name": "蓝调"}
+  ],
+  "languages": [
+    {"name": "汉语"},
+    {"name": "英语"},
+    {"name": "日语"},
+    {"name": "韩语"},
+    {"name": "粤语"},
+    {"name": "法语"},
+    {"name": "西班牙语"},
+    {"name": "德语"},
+    {"name": "俄语"},
+    {"name": "意大利语"}
+  ],
+  "emotion_tags": [
+    {"name": "治愈"},
+    {"name": "激昂"},
+    {"name": "忧伤"},
+    {"name": "浪漫"},
+    {"name": "宁静"},
+    {"name": "怀旧"},
+    {"name": "欢快"},
+    {"name": "孤独"},
+    {"name": "希望"},
+    {"name": "慵懒"},
+    {"name": "紧张"},
+    {"name": "温暖"}
+  ],
+  "interest_tags": [
+    {"name": "运动"},
+    {"name": "学习"},
+    {"name": "睡眠"},
+    {"name": "通勤"},
+    {"name": "聚会"},
+    {"name": "阅读"},
+    {"name": "游戏"},
+    {"name": "冥想"},
+    {"name": "旅行"},
+    {"name": "工作"},
+    {"name": "烹饪"},
+    {"name": "散步"}
+  ]
+}
