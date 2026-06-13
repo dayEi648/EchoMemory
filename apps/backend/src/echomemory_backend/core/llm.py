@@ -21,6 +21,54 @@ REASONING_EFFORT: str = settings.deepseek_reasoning_effort
 THINKING_TYPE: str = settings.deepseek_thinking_type
 THINKING_EXTRA_BODY: dict = {"thinking": {"type": THINKING_TYPE}}
 
+# 流式输出时请求服务端在最后一个空 choice 块中返回总 usage
+STREAM_OPTIONS_INCLUDE_USAGE: dict = {"include_usage": True}
+
+# DeepSeek V4 系列官方上下文窗口长度（来源：官方定价页）。
+# 该值为模型固定规格，API 不会返回；需要用于计算上下文占用百分比。
+MODEL_CONTEXT_WINDOWS: dict[str, int] = {
+    "deepseek-v4-pro": 1_000_000,
+    "deepseek-v4-flash": 1_000_000,
+}
+DEFAULT_CONTEXT_WINDOW: int = 1_000_000
+
+
+def get_context_window(model_id: str) -> int:
+    """返回指定模型 ID 的官方上下文窗口长度。
+
+    参数:
+        model_id: DeepSeek 模型 ID。
+
+    返回:
+        上下文窗口 token 数；未知模型返回默认值。
+    """
+    return MODEL_CONTEXT_WINDOWS.get(model_id, DEFAULT_CONTEXT_WINDOW)
+
+
+def calculate_context_usage_percentage(
+    usage: dict,
+    model_id: str,
+) -> float:
+    """根据 usage 统计精确计算上下文窗口占用百分比。
+
+    上下文占用应使用 API 返回的 ``prompt_tokens``（输入侧累计 token 数）
+    除以模型官方上下文窗口长度，而非 ``total_tokens``。
+
+    参数:
+        usage: DeepSeek 返回的 usage 字典，需包含 prompt_tokens。
+        model_id: DeepSeek 模型 ID，用于确定上下文窗口上限。
+
+    返回:
+        已用上下文百分比，范围 0~100；usage 无效时返回 0.0。
+    """
+    if not usage:
+        return 0.0
+    prompt_tokens = usage.get("prompt_tokens")
+    if not isinstance(prompt_tokens, int) or prompt_tokens <= 0:
+        return 0.0
+    context_window = get_context_window(model_id)
+    return round((prompt_tokens / context_window) * 100, 4)
+
 
 @dataclass(frozen=True)
 class ChatMessage:
@@ -130,6 +178,8 @@ class DeepSeekClient:
         }
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
+        if stream:
+            body["stream_options"] = STREAM_OPTIONS_INCLUDE_USAGE
         if self._enable_thinking:
             body["reasoning_effort"] = REASONING_EFFORT
             body["extra_body"] = THINKING_EXTRA_BODY
@@ -186,6 +236,18 @@ class DeepSeekClient:
         body = self._build_request(messages, temperature, max_tokens, stream=True)
         stream = await self._openai_client.chat.completions.create(**body)
         async for chunk in stream:
+            # DeepSeek 在启用 stream_options.include_usage 后，会在 [DONE] 之前
+            # 额外发送一个 choices 为空、usage 为总统计的 chunk。
+            if chunk.usage is not None:
+                yield ChatResponse(
+                    content="",
+                    reasoning_content=None,
+                    model=chunk.model,
+                    usage=chunk.usage.model_dump(),
+                )
+                continue
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             yield ChatResponse(
                 content=delta.content or "",

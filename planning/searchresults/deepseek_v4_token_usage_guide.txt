@@ -1,0 +1,288 @@
+# DeepSeek-V4-Pro Token 计数与上下文监控指南
+
+## 一、请求后：从 API 响应中读取实际 Token 用量
+
+DeepSeek 的 Chat Completion API 会在响应根对象中返回 `usage` 字段，这是唯一权威的计费依据。
+
+### 1. 非流式响应（stream=false）
+
+`usage` 直接位于响应 JSON 的顶层：
+
+```json
+{
+  "choices": [...],
+  "usage": {
+    "prompt_tokens": 1200,
+    "completion_tokens": 800,
+    "total_tokens": 2000,
+    "prompt_cache_hit_tokens": 1000,
+    "prompt_cache_miss_tokens": 200,
+    "completion_tokens_details": {
+      "reasoning_tokens": 300
+    }
+  }
+}
+```
+
+关键字段说明：
+
+| 字段 | 含义 |
+|------|------|
+| prompt_tokens | 输入总 Token 数（= hit + miss） |
+| completion_tokens | 模型生成的输出 Token 数 |
+| total_tokens | 本次请求总 Token 数 |
+| prompt_cache_hit_tokens | 命中上下文缓存的输入 Token（计费极低） |
+| prompt_cache_miss_tokens | 未命中缓存的输入 Token（正常计费） |
+| completion_tokens_details.reasoning_tokens | V4 特有：Think High / Think Max 模式下的推理过程 Token |
+
+### 2. 流式响应（stream=true）
+
+流式模式下，必须在请求体中显式开启 `stream_options.include_usage`，否则不会返回 Token 统计：
+
+```python
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=messages,
+    stream=True,
+    stream_options={"include_usage": True},  # 必须加
+)
+```
+
+注意陷阱：usage 只出现在最后一个 SSE chunk 中，且与 `finish_reason: "stop"` 同时出现；中间所有 chunk 的 usage 为 null 或零值。如果在第一个带 usage 的 chunk（通常是零值）就触发上报，会导致统计数据丢失。
+
+Python 示例：正确捕获流式 usage
+
+```python
+import openai
+
+client = openai.OpenAI(api_key="sk-...", base_url="https://api.deepseek.com")
+
+response = client.chat.completions.create(
+    model="deepseek-v4-pro",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+
+final_usage = None
+for chunk in response:
+    # 只在最后一个 chunk 取 usage
+    if chunk.choices and chunk.choices[0].finish_reason == "stop":
+        final_usage = chunk.usage
+
+if final_usage:
+    print(f"Prompt: {final_usage.prompt_tokens}")
+    print(f"Completion: {final_usage.completion_tokens}")
+    print(f"Total: {final_usage.total_tokens}")
+    print(f"Cache hit: {getattr(final_usage, 'prompt_cache_hit_tokens', 0)}")
+```
+
+---
+
+## 二、请求前：本地预估当前上下文占用
+
+如果你需要在发请求前就知道当前对话历史占了多少 Token、还剩多少窗口可用，就必须在服务端本地做预计算。
+
+### 1. 使用 HuggingFace Transformers 加载官方 Tokenizer
+
+DeepSeek V4 使用自己的 BPE Tokenizer，不能用 OpenAI 的 tiktoken 代替，否则计数会偏差很大。
+
+```python
+from transformers import AutoTokenizer
+
+# 从 HuggingFace 加载 DeepSeek V4 的 Tokenizer
+tokenizer = AutoTokenizer.from_pretrained("deepseek-ai/DeepSeek-V4-Pro")
+
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "请分析这段代码..."},
+]
+
+# 方式 A：手动拼接后编码（简单但不精确）
+text = "".join(m["content"] for m in messages)
+token_count = len(tokenizer.encode(text))
+
+# 方式 B：使用 chat template 编码（更接近真实 API 行为）
+prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+token_count = len(tokenizer.encode(prompt))
+
+print(f"当前上下文占用: {token_count} tokens")
+```
+
+注意：transformers v5 以上版本对 DeepSeek tokenizer 曾有兼容性问题（空格丢失），如果你遇到解码异常，建议降级到 transformers==4.57.6 或查看最新官方修复。
+
+### 2. 使用 DeepSeek 官方离线 Tokenizer 包
+
+DeepSeek 官方也提供了独立的 tokenizer 压缩包（deepseek_v3_tokenizer.zip），适合不想引入整个 Transformers 库的场景。
+
+---
+
+## 三、计算上下文窗口百分比
+
+deepseek-v4-pro 的上下文窗口为 1,000,000 tokens（1M）。
+
+在 Agent 服务中，你可以这样计算占用百分比：
+
+```python
+CONTEXT_LIMIT = 1_000_000  # deepseek-v4-pro 上限
+
+def get_context_stats(messages, tokenizer):
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    prompt_tokens = len(tokenizer.encode(prompt))
+
+    # 预留输出空间（根据业务调整，Think Max 建议至少留 384K）
+    max_output_tokens = 131072  # 或 384000 for Think Max
+    available = CONTEXT_LIMIT - prompt_tokens - max_output_tokens
+
+    usage_pct = (prompt_tokens / CONTEXT_LIMIT) * 100
+    reserved_pct = (max_output_tokens / CONTEXT_LIMIT) * 100
+    remaining_pct = 100 - usage_pct - reserved_pct
+
+    return {
+        "prompt_tokens": prompt_tokens,
+        "context_limit": CONTEXT_LIMIT,
+        "usage_percent": round(usage_pct, 2),
+        "reserved_percent": round(reserved_pct, 2),
+        "remaining_percent": round(remaining_pct, 2),
+        "available_for_output": available,
+    }
+
+# 示例
+stats = get_context_stats(messages, tokenizer)
+print(f"上下文占用: {stats['usage_percent']}% ({stats['prompt_tokens']:,}/{CONTEXT_LIMIT:,})")
+print(f"剩余可用: {stats['remaining_percent']}%")
+```
+
+Agent 服务中的实用建议：
+
+| 阈值 | 建议动作 |
+|------|----------|
+| 0-50% | 绿色，正常继续 |
+| 50-80% | 黄色，考虑摘要历史或开启新会话 |
+| 80-100% | 红色，必须截断/摘要，否则请求可能失败 |
+| Think Max 模式 | 额外预留 384K tokens 给推理过程，实际可用输入窗口约 600K |
+
+---
+
+## 四、生产环境最佳实践
+
+1. 双轨计数：本地预估算用于前置拦截（防止超限提交），API 返回的 usage 用于后计费和对账。
+2. 缓存监控：重点关注 prompt_cache_hit_tokens，Agent 场景下系统提示和代码库上下文通常能大量命中缓存，实际成本可能远低于表价。
+3. 推理 Token 单独监控：V4 的 completion_tokens_details.reasoning_tokens 会揭示 Think Max 模式下的隐性开销，便于区分"思考成本"和"输出成本"。
+4. 流式必抓 final chunk：很多 SDK 默认不会等最后一个 chunk，需要显式处理 finish_reason == "stop" 时的 usage。
+
+---
+
+## 五、完整 Agent 服务集成示例
+
+```python
+import openai
+from transformers import AutoTokenizer
+from dataclasses import dataclass
+
+@dataclass
+class ContextStats:
+    prompt_tokens: int
+    context_limit: int
+    usage_percent: float
+    reserved_percent: float
+    remaining_percent: float
+    available_for_output: int
+
+class DeepSeekAgent:
+    CONTEXT_LIMIT = 1_000_000
+
+    def __init__(self, api_key: str, max_output_tokens: int = 131072):
+        self.client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        self.tokenizer = AutoTokenizer.from_pretrained("deepseek-ai/DeepSeek-V4-Pro")
+        self.max_output_tokens = max_output_tokens
+        self.messages = []
+
+    def get_context_stats(self) -> ContextStats:
+        if not self.messages:
+            prompt_tokens = 0
+        else:
+            prompt = self.tokenizer.apply_chat_template(
+                self.messages, tokenize=False, add_generation_prompt=True
+            )
+            prompt_tokens = len(self.tokenizer.encode(prompt))
+
+        usage_pct = (prompt_tokens / self.CONTEXT_LIMIT) * 100
+        reserved_pct = (self.max_output_tokens / self.CONTEXT_LIMIT) * 100
+        remaining_pct = 100 - usage_pct - reserved_pct
+
+        return ContextStats(
+            prompt_tokens=prompt_tokens,
+            context_limit=self.CONTEXT_LIMIT,
+            usage_percent=round(usage_pct, 2),
+            reserved_percent=round(reserved_pct, 2),
+            remaining_percent=round(remaining_pct, 2),
+            available_for_output=self.CONTEXT_LIMIT - prompt_tokens - self.max_output_tokens,
+        )
+
+    def chat(self, user_message: str, stream: bool = False) -> dict:
+        self.messages.append({"role": "user", "content": user_message})
+
+        # 前置检查
+        stats = self.get_context_stats()
+        if stats.usage_percent > 90:
+            raise RuntimeError(f"上下文即将超限: {stats.usage_percent}%")
+
+        response = self.client.chat.completions.create(
+            model="deepseek-v4-pro",
+            messages=self.messages,
+            stream=stream,
+            stream_options={"include_usage": True} if stream else None,
+            max_tokens=self.max_output_tokens,
+        )
+
+        if not stream:
+            usage = response.usage
+            assistant_content = response.choices[0].message.content
+            self.messages.append({"role": "assistant", "content": assistant_content})
+            return {
+                "content": assistant_content,
+                "usage": {
+                    "prompt_tokens": usage.prompt_tokens,
+                    "completion_tokens": usage.completion_tokens,
+                    "total_tokens": usage.total_tokens,
+                    "cache_hit": getattr(usage, "prompt_cache_hit_tokens", 0),
+                    "reasoning_tokens": getattr(
+                        usage.completion_tokens_details, "reasoning_tokens", 0
+                    ) if hasattr(usage, "completion_tokens_details") else 0,
+                },
+                "context_stats": self.get_context_stats().__dict__,
+            }
+        else:
+            # 流式处理
+            final_usage = None
+            content_chunks = []
+            for chunk in response:
+                if chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        content_chunks.append(delta.content)
+                    if chunk.choices[0].finish_reason == "stop":
+                        final_usage = chunk.usage
+
+            assistant_content = "".join(content_chunks)
+            self.messages.append({"role": "assistant", "content": assistant_content})
+
+            return {
+                "content": assistant_content,
+                "usage": {
+                    "prompt_tokens": getattr(final_usage, "prompt_tokens", 0) if final_usage else 0,
+                    "completion_tokens": getattr(final_usage, "completion_tokens", 0) if final_usage else 0,
+                    "total_tokens": getattr(final_usage, "total_tokens", 0) if final_usage else 0,
+                },
+                "context_stats": self.get_context_stats().__dict__,
+            }
+```
+
+---
+
+## 参考资源
+
+- DeepSeek 官方 API 文档：定义了 usage 对象的完整字段结构，包括 prompt_cache_hit_tokens 和 reasoning_tokens。
+- DataCamp DeepSeek V4 教程：提供了完整的 estimate_cost_usd() 辅助函数，展示如何拆分 cache hit/miss 并计算实际费用。
+- GitHub Issue (CLIProxyAPI)：详细记录了流式响应中 usage 只出现在最后一个 chunk 的陷阱及修复方案。
