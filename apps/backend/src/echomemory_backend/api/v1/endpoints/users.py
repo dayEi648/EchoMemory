@@ -105,11 +105,27 @@ async def get_my_interest_tags(
     return await user_tag_service.list_user_interest_tags(db, current_user.id)
 
 
+@router.get("/me/styles", response_model=list[UserTagOut])
+async def get_my_styles(
+    db: SessionDep, current_user: ActiveUser
+) -> list[dict]:
+    """获取当前用户的风格偏好列表。"""
+    return await user_tag_service.list_user_styles(db, current_user.id)
+
+
+@router.get("/me/languages", response_model=list[UserTagOut])
+async def get_my_languages(
+    db: SessionDep, current_user: ActiveUser
+) -> list[dict]:
+    """获取当前用户的语言偏好列表。"""
+    return await user_tag_service.list_user_languages(db, current_user.id)
+
+
 @router.post("/me/recalculate-tags", status_code=status.HTTP_204_NO_CONTENT)
 async def recalculate_my_tags(
     db: SessionDep, current_user: ActiveUser
 ) -> None:
-    """手动触发重新计算当前用户的情绪标签和兴趣标签。"""
+    """手动触发重新计算当前用户的偏好画像。"""
     await user_tag_service.recalculate_user_tags(db, current_user.id)
     return None
 

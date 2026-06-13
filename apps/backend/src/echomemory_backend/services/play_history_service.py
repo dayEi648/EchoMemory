@@ -54,18 +54,21 @@ async def create_play_history(
         if result.scalar_one_or_none() is None:
             raise BusinessError("Music not in playlist", 400)
 
-    await db.execute(
-        delete(PlayHistory)
-        .where(
-            PlayHistory.user_id == user_id,
-            PlayHistory.music_id == music_id,
-        )
-        .execution_options(synchronize_session=False)
+    stmt = select(PlayHistory).where(
+        PlayHistory.user_id == user_id,
+        PlayHistory.music_id == music_id,
     )
+    result = await db.execute(stmt)
+    history = result.scalar_one_or_none()
 
-    history = PlayHistory(user_id=user_id, music_id=music_id)
-    db.add(history)
-    await db.flush()  # 确保播放历史记录对后续查询可见
+    if history is not None:
+        history.play_count += 1
+        history.played_at = func.now()
+        await db.flush()
+    else:
+        history = PlayHistory(user_id=user_id, music_id=music_id, play_count=1)
+        db.add(history)
+        await db.flush()  # 确保播放历史记录对后续查询可见
 
     # 递增音乐播放量
     await db.execute(

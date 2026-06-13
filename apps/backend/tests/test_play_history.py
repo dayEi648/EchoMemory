@@ -62,8 +62,9 @@ async def _create_play_history_directly(
     user_id: int,
     music_id: int,
     played_at: datetime | None = None,
+    play_count: int = 1,
 ) -> PlayHistory:
-    history = PlayHistory(user_id=user_id, music_id=music_id)
+    history = PlayHistory(user_id=user_id, music_id=music_id, play_count=play_count)
     if played_at is not None:
         history.played_at = played_at
     db.add(history)
@@ -129,12 +130,12 @@ class TestRecordPlay:
         assert data["music"]["title"] == music.title
         assert "played_at" in data
 
-    async def test_record_play_replaces_existing_music_history(
+    async def test_record_play_replays_increment_play_count(
         self, client: TestClient, db_session: AsyncSession
     ):
-        """测试重复播放同一音乐时替换旧播放历史。"""
-        user = await _create_user(db_session, "record_replace")
-        music = await _create_music_directly(db_session, title="ReplaceSong")
+        """测试重复播放同一音乐时 play_count 递增且保持同一条记录。"""
+        user = await _create_user(db_session, "record_replay")
+        music = await _create_music_directly(db_session, title="ReplaySong")
 
         first_resp = client.post(
             BASE_URL + "/",
@@ -143,6 +144,7 @@ class TestRecordPlay:
         )
         assert first_resp.status_code == 201
         first_id = first_resp.json()["id"]
+        assert first_resp.json()["play_count"] == 1
 
         second_resp = client.post(
             BASE_URL + "/",
@@ -151,16 +153,18 @@ class TestRecordPlay:
         )
         assert second_resp.status_code == 201
         second_id = second_resp.json()["id"]
+        assert second_resp.json()["play_count"] == 2
 
-        assert second_id != first_id
+        assert second_id == first_id
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
         assert len(data["items"]) == 1
-        assert data["items"][0]["id"] == second_id
+        assert data["items"][0]["id"] == first_id
         assert data["items"][0]["music"]["id"] == music.id
+        assert data["items"][0]["play_count"] == 2
 
         result = await db_session.execute(
             select(PlayHistory).where(
@@ -168,7 +172,9 @@ class TestRecordPlay:
                 PlayHistory.music_id == music.id,
             )
         )
-        assert len(result.scalars().all()) == 1
+        histories = list(result.scalars().all())
+        assert len(histories) == 1
+        assert histories[0].play_count == 2
 
     async def test_record_play_keeps_latest_100_items(
         self, client: TestClient, db_session: AsyncSession
@@ -227,6 +233,35 @@ class TestRecordPlay:
         updated_music = result.scalar_one()
         await db_session.refresh(updated_music)
         assert updated_music.play_count == 1
+
+    async def test_record_play_increments_existing_play_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试重复播放时，已有的 play_count 会继续递增。"""
+        user = await _create_user(db_session, "record_existing_count")
+        music = await _create_music_directly(db_session, title="ExistingCountSong")
+        history = await _create_play_history_directly(
+            db_session, user.id, music.id, play_count=3
+        )
+        assert history.play_count == 3
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"music_id": music.id},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["play_count"] == 4
+
+        result = await db_session.execute(
+            select(PlayHistory).where(
+                PlayHistory.user_id == user.id,
+                PlayHistory.music_id == music.id,
+            )
+        )
+        updated_history = result.scalar_one()
+        await db_session.refresh(updated_history)
+        assert updated_history.play_count == 4
 
     async def test_record_play_increments_album_play_count(
         self, client: TestClient, db_session: AsyncSession
@@ -343,6 +378,23 @@ class TestRecordPlay:
 
 class TestListPlayHistory:
     """测试查询播放历史功能。"""
+
+    async def test_list_play_history_includes_play_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试播放历史列表返回中包含 play_count。"""
+        user = await _create_user(db_session, "list_play_count")
+        music = await _create_music_directly(db_session, title="ListCountSong")
+        await _create_play_history_directly(
+            db_session, user.id, music.id, play_count=5
+        )
+
+        resp = client.get(BASE_URL + "/", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["play_count"] == 5
 
     async def test_list_play_history_order(
         self, client: TestClient, db_session: AsyncSession

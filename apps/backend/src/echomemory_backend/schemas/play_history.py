@@ -22,6 +22,7 @@ class PlayHistoryOut(BaseModel):
 
     id: int
     played_at: datetime
+    play_count: int
     music: PlayHistoryMusicOut
 
 
