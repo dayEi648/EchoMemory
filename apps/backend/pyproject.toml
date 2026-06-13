@@ -27,6 +27,7 @@ dependencies = [
     "Pillow",
     "python-multipart",
     "openai>=2.41.1",
+    "pgvector>=0.4.2",
 ]
 
 [project.scripts]

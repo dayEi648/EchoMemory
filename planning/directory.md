@@ -66,7 +66,8 @@
 │   │   │       │   ├── playlist.py
 │   │   │       │   ├── space_post.py
 │   │   │       │   ├── user.py
-│   │   │       │   └── user_tag.py
+│   │   │       │   ├── user_tag.py
+│   │   │       │   └── vector_document.py  # RAG 向量文档模型
 │   │   │       ├── schemas/        # Pydantic Schema（请求/响应模型）
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── album.py
@@ -93,6 +94,10 @@
 │   │   │       │   ├── space_post_service.py
 │   │   │       │   ├── user_service.py
 │   │   │       │   └── user_tag_service.py
+│   │   │       ├── rag/            # RAG 基础设施
+│   │   │       │   ├── __init__.py
+│   │   │       │   ├── embeddings.py     # text-embedding-v4 客户端封装
+│   │   │       │   └── vector_store.py   # pgvector 向量存储封装
 │   │   │       └── db/             # 数据库连接与会话管理
 │   │   │           ├── __init__.py
 │   │   │           ├── base.py     # SQLAlchemy Base 与模型导入
@@ -112,7 +117,9 @@
 │   │       ├── test_security.py
 │   │       ├── test_space_post.py
 │   │       ├── test_user_tag.py
-│   │       └── test_users.py
+│   │       ├── test_users.py
+│   │       ├── test_embeddings.py  # Embedding 客户端测试
+│   │       └── test_vector_store.py # 向量存储测试
 │   └── frontend/                   # Tauri 2.x + React 19 + TS + Vite + Tailwind CSS
 │       ├── package.json
 │       ├── vite.config.ts

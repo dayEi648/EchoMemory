@@ -72,6 +72,7 @@ def setup_db():
     """使用同步引擎初始化测试数据库结构（仅一次）。"""
     with sync_test_engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         Base.metadata.drop_all(bind=conn)
         Base.metadata.create_all(bind=conn)
         conn.execute(text(_TRIGGER_SQL))
@@ -115,7 +116,8 @@ def clean_tables():
             user_emotion_tags, user_interest_tags,
             user_languages, user_styles,
             user_daily_recommendations, user_radar_recommendations,
-            notifications, conversations, direct_messages, user_blocks
+            notifications, conversations, direct_messages, user_blocks,
+            vector_documents
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(get_dictionary_seed_sql()))

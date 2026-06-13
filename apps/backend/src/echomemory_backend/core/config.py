@@ -32,10 +32,17 @@ class Settings(BaseSettings):
     deepseek_flash_model: str = "deepseek-v4-flash"
 
     # DeepSeek 调用默认参数
-    deepseek_default_temperature: float = 0.6
+    deepseek_default_temperature: float = 0.7
     deepseek_default_timeout: float = 60.0
     deepseek_reasoning_effort: str = "high"
     deepseek_thinking_type: str = "enabled"
+
+    # Embedding（阿里云 DashScope text-embedding-v4）
+    dashscope_api_key: str | None = None
+    embedding_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    embedding_model: str = "text-embedding-v4"
+    embedding_dimensions: int = 1024
+    embedding_batch_size: int = 25
 
     model_config = SettingsConfigDict(env_file=str(_DEFAULT_ENV_FILE))
 

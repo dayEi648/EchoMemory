@@ -64,6 +64,7 @@ from echomemory_backend.models.user_tag import (
     UserLanguage,
     UserStyle,
 )
+from echomemory_backend.models.vector_document import VectorDocument
 
 __all__ = [
     "Base",
@@ -112,4 +113,5 @@ __all__ = [
     "UserRole",
     "UserStatus",
     "UserStyle",
+    "VectorDocument",
 ]
