@@ -3288,6 +3288,33 @@ textarea {
   margin-top: 2px;
 }
 
+.daily-subtitle {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.daily-play-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--color-ink);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.daily-play-all:hover {
+  opacity: 0.85;
+}
+
 /* ========== Discover Sections ========== */
 .discover-section {
   margin-bottom: 28px;

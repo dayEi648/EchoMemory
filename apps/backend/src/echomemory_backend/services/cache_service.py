@@ -4,21 +4,27 @@
 所有函数只操作公共字段，不包含当前用户状态（如 is_collected_by_me）。
 """
 
+from datetime import datetime, timedelta, timezone
+
 from echomemory_backend.core.cache import (
     ADMIN_DASHBOARD_STATS_PREFIX,
     ALBUM_DETAIL_PREFIX,
     CACHE_MISS,
+    DAILY_RECOMMENDATION_PREFIX,
     MUSIC_DETAIL_PREFIX,
     MUSIC_LYRICS_PREFIX,
     PLAYLIST_DETAIL_PREFIX,
+    RADAR_RECOMMENDATION_PREFIX,
+    RECOMMEND_CHART_PREFIX,
     USER_PUBLIC_PREFIX,
     build_cache_key,
     cache_delete,
+    cache_delete_pattern,
     cache_get,
     cache_set,
 )
 from echomemory_backend.schemas.album import AlbumOut
-from echomemory_backend.schemas.music import MusicOut
+from echomemory_backend.schemas.music import MusicOut, RecommendChartListOut
 from echomemory_backend.schemas.playlist import PlaylistOut
 from echomemory_backend.schemas.user import UserPublicOut
 
@@ -267,3 +273,80 @@ async def set_cached_dashboard_stats(stats: dict[str, int]) -> None:
 async def invalidate_dashboard_stats() -> None:
     """失效管理仪表盘统计缓存。"""
     await cache_delete(build_cache_key(ADMIN_DASHBOARD_STATS_PREFIX))
+
+
+# ---------------------------------------------------------------------------
+# 推荐缓存
+# ---------------------------------------------------------------------------
+
+def _recommendation_cache_ttl_seconds() -> int:
+    """计算推荐缓存的剩余有效秒数。
+
+    推荐结果在每天 6:00 UTC 刷新，因此 TTL 设为到下一个 6:00 UTC 的秒数。
+
+    Returns:
+        剩余秒数。
+    """
+    now = datetime.now(timezone.utc)
+    next_refresh = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if next_refresh <= now:
+        next_refresh = next_refresh + timedelta(days=1)
+    return int((next_refresh - now).total_seconds())
+
+
+async def get_cached_daily_recommendation(user_id: int) -> dict | None:
+    """从缓存读取用户每日推荐结果。"""
+    cached = await cache_get(build_cache_key(DAILY_RECOMMENDATION_PREFIX, user_id))
+    if cached is CACHE_MISS:
+        return None
+    return cached
+
+
+async def set_cached_daily_recommendation(user_id: int, payload: dict) -> None:
+    """将用户每日推荐结果写入缓存。"""
+    await cache_set(
+        build_cache_key(DAILY_RECOMMENDATION_PREFIX, user_id),
+        payload,
+        _recommendation_cache_ttl_seconds(),
+    )
+
+
+async def get_cached_radar_recommendation(user_id: int) -> dict | None:
+    """从缓存读取用户私人雷达结果。"""
+    cached = await cache_get(build_cache_key(RADAR_RECOMMENDATION_PREFIX, user_id))
+    if cached is CACHE_MISS:
+        return None
+    return cached
+
+
+async def set_cached_radar_recommendation(user_id: int, payload: dict) -> None:
+    """将用户私人雷达结果写入缓存。"""
+    await cache_set(
+        build_cache_key(RADAR_RECOMMENDATION_PREFIX, user_id),
+        payload,
+        _recommendation_cache_ttl_seconds(),
+    )
+
+
+async def get_cached_recommendation_chart(date_str: str) -> dict | None:
+    """从缓存读取指定日期的推荐榜。"""
+    cached = await cache_get(build_cache_key(RECOMMEND_CHART_PREFIX, date_str))
+    if cached is CACHE_MISS:
+        return None
+    return cached
+
+
+async def set_cached_recommendation_chart(date_str: str, payload: dict) -> None:
+    """将指定日期的推荐榜写入缓存。"""
+    await cache_set(
+        build_cache_key(RECOMMEND_CHART_PREFIX, date_str),
+        payload,
+        _recommendation_cache_ttl_seconds(),
+    )
+
+
+async def invalidate_recommendation_caches() -> None:
+    """失效所有推荐相关缓存。"""
+    await cache_delete_pattern(f"{DAILY_RECOMMENDATION_PREFIX}:*")
+    await cache_delete_pattern(f"{RADAR_RECOMMENDATION_PREFIX}:*")
+    await cache_delete_pattern(f"{RECOMMEND_CHART_PREFIX}:*")

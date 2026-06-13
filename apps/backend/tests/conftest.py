@@ -113,6 +113,8 @@ def clean_tables():
             play_history, user_music_releases,
             user_album_collections, user_playlist_collections,
             user_emotion_tags, user_interest_tags,
+            user_languages, user_styles,
+            user_daily_recommendations, user_radar_recommendations,
             notifications, conversations, direct_messages, user_blocks
             RESTART IDENTITY CASCADE
         """))

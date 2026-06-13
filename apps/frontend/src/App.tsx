@@ -7,6 +7,8 @@ import { useInboxStore } from "./shared/stores/inboxStore";
 import { AppShell } from "./components/layout/AppShell";
 import { AuthPage } from "./pages/AuthPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
+import { DailyRecommendPage } from "./pages/DailyRecommendPage";
+import { RadarPage } from "./pages/RadarPage";
 import { PlaylistsPage } from "./pages/PlaylistsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { HistoryPage } from "./pages/HistoryPage";
@@ -147,6 +149,8 @@ export default function App() {
         {/* 主应用路由 */}
         <Route element={<AppShell />}>
           <Route path="/" element={<DiscoverPage />} />
+          <Route path="/daily-recommend" element={<DailyRecommendPage />} />
+          <Route path="/personal-radar" element={<RadarPage />} />
           <Route path="/playlists" element={<PlaylistsPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/history" element={<HistoryPage />} />

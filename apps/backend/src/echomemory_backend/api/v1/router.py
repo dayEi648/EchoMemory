@@ -14,6 +14,7 @@ from echomemory_backend.api.v1.endpoints import (
     notification,
     play_history,
     playlist,
+    recommendation,
     space_post,
     users,
     ws_inbox,
@@ -31,6 +32,7 @@ router.include_router(collection.router)
 router.include_router(comment.router)
 router.include_router(space_post.router)
 router.include_router(carousel.router)
+router.include_router(recommendation.router)
 router.include_router(notification.router)
 router.include_router(message.router)
 router.include_router(ws_inbox.router)

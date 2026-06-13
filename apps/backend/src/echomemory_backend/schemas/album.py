@@ -117,6 +117,7 @@ class AlbumListOut(BaseModel):
     play_count: int
     cover_icon_url: str | None = None
     created_at: datetime
+    is_collected_by_me: bool = False
 
 
 class AdminAlbumListItem(JoinedAuthorValidatorMixin, AlbumListOut):

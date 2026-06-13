@@ -119,6 +119,7 @@ class PlaylistListOut(BaseModel):
     cover_icon_url: str | None = None
     user: PlaylistUserOut
     created_at: datetime
+    is_collected_by_me: bool = False
 
     @field_validator("user", mode="before")
     @classmethod

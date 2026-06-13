@@ -45,6 +45,10 @@ from echomemory_backend.models.playlist import (
     PlaylistInterestTag,
     PlaylistMusic,
 )
+from echomemory_backend.models.recommendation import (
+    UserDailyRecommendation,
+    UserRadarRecommendation,
+)
 from echomemory_backend.models.space_post import (
     SpacePost,
     SpacePostImage,
@@ -97,12 +101,14 @@ __all__ = [
     "User",
     "UserAlbumCollection",
     "UserBlock",
+    "UserDailyRecommendation",
     "UserEmotionTag",
     "UserFollow",
     "UserInterestTag",
     "UserLanguage",
     "UserMusicRelease",
     "UserPlaylistCollection",
+    "UserRadarRecommendation",
     "UserRole",
     "UserStatus",
     "UserStyle",

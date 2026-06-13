@@ -1,11 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Sparkles, TrendingUp, Flame, Music, Disc, Radio, Compass, Zap } from "lucide-react";
+import {
+  Sparkles,
+  TrendingUp,
+  Flame,
+  Music,
+  Disc,
+  Radio,
+  Compass,
+  Zap,
+  Trophy,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { musicApi, albumApi, carouselApi } from "../shared/api/instances";
-import type { MusicListItem, AlbumListItem } from "../shared/api/types";
+import {
+  musicApi,
+  carouselApi,
+  recommendationApi,
+} from "../shared/api/instances";
+import type {
+  MusicListItem,
+  AlbumListItem,
+  PlaylistListItem,
+} from "../shared/api/types";
 import type { CarouselItem } from "../shared/api/carouselApi";
 import { formatAuthors, formatAlbumTitle } from "../shared/utils";
 import { usePlayMusic } from "../shared/usePlayMusic";
@@ -15,7 +33,10 @@ import { ChartColumn } from "../components/ui/ChartColumn";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 import { SectionHeader } from "../components/ui/SectionHeader";
-import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
+import {
+  StaggerContainer,
+  StaggerItem,
+} from "../components/motion/StaggerContainer";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
 
@@ -57,7 +78,7 @@ function carouselItemToSlide(
   };
 }
 
-/** 每日推荐 / 私人入口 占位卡片数据 */
+/** 每日推荐 / 私人入口 卡片数据 */
 const DAILY_CARDS = [
   {
     key: "daily",
@@ -66,6 +87,7 @@ const DAILY_CARDS = [
     subtitle: "根据你的口味生成",
     gradient: "linear-gradient(135deg, #ff4d8b, #ff7aa8)",
     iconAccent: "pink" as const,
+    path: "/daily-recommend",
   },
   {
     key: "radar",
@@ -74,6 +96,7 @@ const DAILY_CARDS = [
     subtitle: "探索你可能喜欢的新歌",
     gradient: "linear-gradient(135deg, #1a3a3a, #2d5a5a)",
     iconAccent: "teal" as const,
+    path: "/personal-radar",
   },
   {
     key: "roam",
@@ -82,6 +105,7 @@ const DAILY_CARDS = [
     subtitle: "随机发现更多惊喜",
     gradient: "linear-gradient(135deg, #b8a4ed, #d4c8f5)",
     iconAccent: "lavender" as const,
+    path: null,
   },
 ] as const;
 
@@ -91,9 +115,16 @@ export const DiscoverPage = () => {
 
   const [hotSongs, setHotSongs] = useState<MusicListItem[]>([]);
   const [newSongs, setNewSongs] = useState<MusicListItem[]>([]);
-  const [albums, setAlbums] = useState<AlbumListItem[]>([]);
+  const [recommendChart, setRecommendChart] = useState<MusicListItem[]>([]);
+  const [recommendedPlaylists, setRecommendedPlaylists] = useState<
+    PlaylistListItem[]
+  >([]);
+  const [recommendedAlbums, setRecommendedAlbums] = useState<AlbumListItem[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
-  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>(FALLBACK_SLIDES);
+  const [carouselSlides, setCarouselSlides] =
+    useState<CarouselSlide[]>(FALLBACK_SLIDES);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,20 +134,49 @@ export const DiscoverPage = () => {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const dateFrom = thirtyDaysAgo.toISOString().slice(0, 10);
 
-        const [hotRes, newRes, albumRes, carouselRes] = await Promise.all([
-          musicApi.listMusic({ limit: 5, sort_by: "hot" }).catch(() => ({ items: [], total: 0 })),
-          musicApi.listMusic({ limit: 8, sort_by: "hot", release_date_from: dateFrom }).catch(() => ({ items: [], total: 0 })),
-          albumApi.listAlbums({ limit: 6 }).catch(() => ({ items: [], total: 0 })),
-          carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
-        ]);
+        const [hotRes, newRes, playlistRes, albumRes, chartRes, carouselRes] =
+          await Promise.all([
+            musicApi
+              .listMusic({ limit: 5, sort_by: "hot" })
+              .catch(() => ({ items: [], total: 0 })),
+            musicApi
+              .listMusic({
+                limit: 8,
+                sort_by: "hot",
+                release_date_from: dateFrom,
+              })
+              .catch(() => ({ items: [], total: 0 })),
+            recommendationApi
+              .getRecommendedPlaylists({ limit: 6 })
+              .catch(() => ({ items: [], total: 0 })),
+            recommendationApi
+              .getRecommendedAlbums({ limit: 6 })
+              .catch(() => ({ items: [], total: 0 })),
+            recommendationApi
+              .getRecommendationChart({ limit: 5 })
+              .catch(() => ({ items: [] })),
+            carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
+          ]);
         if (cancelled) return;
-        setHotSongs(hotRes.items);
-        setNewSongs(newRes.items);
-        setAlbums(albumRes.items);
+        setHotSongs(hotRes?.items ?? []);
+        setNewSongs(newRes?.items ?? []);
+        setRecommendedPlaylists(playlistRes?.items ?? []);
+        setRecommendedAlbums(albumRes?.items ?? []);
+        setRecommendChart(chartRes?.items ?? []);
 
-        const items = carouselRes as CarouselItem[];
+        const items = Array.isArray(carouselRes)
+          ? (carouselRes as CarouselItem[])
+          : [];
         if (items.length > 0) {
-          setCarouselSlides(items.map((item) => carouselItemToSlide(item, (path) => navigate(path), (id) => playMusicById(id))));
+          setCarouselSlides(
+            items.map((item) =>
+              carouselItemToSlide(
+                item,
+                (path) => navigate(path),
+                (id) => playMusicById(id),
+              ),
+            ),
+          );
         }
       } catch {
         if (!cancelled) toast.error("加载内容失败，请稍后重试");
@@ -125,7 +185,11 @@ export const DiscoverPage = () => {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
+    // playMusicById 来自 usePlayMusic，仅在轮播图点击中使用；避免每次渲染触发重新加载
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   return (
@@ -143,16 +207,22 @@ export const DiscoverPage = () => {
               <motion.div
                 key={card.key}
                 className="discover-daily-card"
-                style={{ background: card.gradient }}
-                whileHover={{ y: -4, scale: 1.02 }}
+                style={{
+                  background: card.gradient,
+                  cursor: card.path ? "pointer" : "default",
+                }}
+                whileHover={card.path ? { y: -4, scale: 1.02 } : undefined}
                 transition={{ duration: 0.25 }}
+                onClick={card.path ? () => navigate(card.path) : undefined}
               >
                 <div className="discover-daily-card-icon">
                   <card.icon size={24} />
                 </div>
                 <div className="discover-daily-card-text">
                   <div className="discover-daily-card-title">{card.title}</div>
-                  <div className="discover-daily-card-subtitle">{card.subtitle}</div>
+                  <div className="discover-daily-card-subtitle">
+                    {card.subtitle}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -166,14 +236,58 @@ export const DiscoverPage = () => {
           <SectionHeader
             title="推荐歌单"
             action={
-              <button className="section-link" onClick={() => navigate("/browse?tab=albums")} type="button">
+              <button
+                className="section-link"
+                onClick={() => navigate("/browse?tab=playlists")}
+                type="button"
+              >
                 查看更多 →
               </button>
             }
           />
-          {albums.length > 0 ? (
+          {recommendedPlaylists.length > 0 ? (
             <StaggerContainer className="playlist-rail">
-              {albums.map((album) => (
+              {recommendedPlaylists.map((playlist) => (
+                <StaggerItem key={playlist.id}>
+                  <CoverCard
+                    id={playlist.id}
+                    title={playlist.title}
+                    subtitle={playlist.user.nickname}
+                    coverUrl={playlist.cover_icon_url ?? undefined}
+                    onClick={() => navigate(`/playlist/${playlist.id}`)}
+                  />
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          ) : (
+            <EmptyState
+              icon={Music}
+              title="暂无推荐歌单"
+              accent="lavender"
+              compact
+            />
+          )}
+        </section>
+      </FadeIn>
+
+      {/* ====== 4. 推荐专辑 ====== */}
+      <FadeIn delay={0.18}>
+        <section className="discover-section">
+          <SectionHeader
+            title="推荐专辑"
+            action={
+              <button
+                className="section-link"
+                onClick={() => navigate("/browse?tab=albums")}
+                type="button"
+              >
+                查看更多 →
+              </button>
+            }
+          />
+          {recommendedAlbums.length > 0 ? (
+            <StaggerContainer className="playlist-rail">
+              {recommendedAlbums.map((album) => (
                 <StaggerItem key={album.id}>
                   <CoverCard
                     id={album.id}
@@ -186,18 +300,30 @@ export const DiscoverPage = () => {
               ))}
             </StaggerContainer>
           ) : (
-            <EmptyState icon={Disc} title="暂无推荐专辑" accent="lavender" compact />
+            <EmptyState
+              icon={Disc}
+              title="暂无推荐专辑"
+              accent="peach"
+              compact
+            />
           )}
         </section>
       </FadeIn>
 
-      {/* ====== 4. 热门榜单（三列） ====== */}
+      {/* ====== 5. 热门榜单（三列） ====== */}
       <FadeIn delay={0.2}>
         <section className="discover-section">
           <SectionHeader
             title={
               <>
-                <TrendingUp size={18} style={{ display: "inline", verticalAlign: "-3px", marginRight: 6 }} />
+                <TrendingUp
+                  size={18}
+                  style={{
+                    display: "inline",
+                    verticalAlign: "-3px",
+                    marginRight: 6,
+                  }}
+                />
                 热门榜单
               </>
             }
@@ -221,17 +347,30 @@ export const DiscoverPage = () => {
               onPlay={(song) => playMusicListItem(song)}
               onViewAll={() => navigate("/browse?tab=music")}
             />
+            <ChartColumn
+              title="推荐榜"
+              icon={Trophy}
+              accent="ochre"
+              songs={recommendChart}
+              loading={loading}
+              onPlay={(song) => playMusicListItem(song)}
+              onViewAll={() => navigate("/browse?tab=music")}
+            />
           </div>
         </section>
       </FadeIn>
 
-      {/* ====== 5. 最新上架 ====== */}
+      {/* ====== 6. 最新上架 ====== */}
       <FadeIn delay={0.25}>
         <section className="discover-section">
           <SectionHeader
             title="最新上架"
             action={
-              <button className="section-link" onClick={() => navigate("/browse?tab=music")} type="button">
+              <button
+                className="section-link"
+                onClick={() => navigate("/browse?tab=music")}
+                type="button"
+              >
                 查看全部 →
               </button>
             }
@@ -241,7 +380,12 @@ export const DiscoverPage = () => {
               <p>加载中...</p>
             </div>
           ) : newSongs.length === 0 ? (
-            <EmptyState icon={Music} title="暂无新歌上架" accent="peach" compact />
+            <EmptyState
+              icon={Music}
+              title="暂无新歌上架"
+              accent="peach"
+              compact
+            />
           ) : (
             <StaggerContainer staggerDelay={0.03}>
               {newSongs.map((song, i) => (

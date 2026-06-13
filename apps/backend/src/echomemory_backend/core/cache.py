@@ -38,6 +38,9 @@ CHART_NEW_SONGS_PREFIX = "chart:new_songs"
 HOME_RECOMMENDED_ALBUMS_PREFIX = "home:recommended_albums"
 MUSIC_LYRICS_PREFIX = "music:lyrics"
 ADMIN_DASHBOARD_STATS_PREFIX = "admin:dashboard:stats"
+DAILY_RECOMMENDATION_PREFIX = "recommend:daily"
+RADAR_RECOMMENDATION_PREFIX = "recommend:radar"
+RECOMMEND_CHART_PREFIX = "recommend:chart"
 
 
 class _CacheMiss:

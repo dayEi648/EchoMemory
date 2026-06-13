@@ -575,3 +575,91 @@ async def is_playlist_collected(db: AsyncSession, user_id: int, playlist_id: int
     if playlist is None or playlist.user_id == user_id:
         return False
     return await db.get(UserPlaylistCollection, (user_id, playlist_id)) is not None
+
+
+async def get_collected_music_ids(
+    db: AsyncSession, user_id: int, music_ids: list[int]
+) -> set[int]:
+    """批量判断一组音乐中哪些已被用户收藏。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        music_ids: 音乐主键列表。
+
+    Returns:
+        已被收藏的音乐 ID 集合。
+    """
+    if not music_ids:
+        return set()
+    stmt = (
+        select(PlaylistMusic.music_id)
+        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+        .where(
+            Playlist.user_id == user_id,
+            PlaylistMusic.music_id.in_(music_ids),
+        )
+        .distinct()
+    )
+    rows = await db.execute(stmt)
+    return set(rows.scalars().all())
+
+
+async def get_collected_album_ids(
+    db: AsyncSession, user_id: int, album_ids: list[int]
+) -> set[int]:
+    """批量判断一组专辑中哪些已被用户收藏。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        album_ids: 专辑主键列表。
+
+    Returns:
+        已被收藏的专辑 ID 集合。
+    """
+    if not album_ids:
+        return set()
+    stmt = (
+        select(UserAlbumCollection.album_id)
+        .where(
+            UserAlbumCollection.user_id == user_id,
+            UserAlbumCollection.album_id.in_(album_ids),
+        )
+    )
+    rows = await db.execute(stmt)
+    return set(rows.scalars().all())
+
+
+async def get_collected_playlist_ids(
+    db: AsyncSession, user_id: int, playlist_ids: list[int]
+) -> set[int]:
+    """批量判断一组歌单中哪些已被用户收藏（自己的歌单恒为未收藏）。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        playlist_ids: 歌单主键列表。
+
+    Returns:
+        已被收藏的歌单 ID 集合。
+    """
+    if not playlist_ids:
+        return set()
+    stmt = (
+        select(UserPlaylistCollection.playlist_id)
+        .where(
+            UserPlaylistCollection.user_id == user_id,
+            UserPlaylistCollection.playlist_id.in_(playlist_ids),
+        )
+    )
+    rows = await db.execute(stmt)
+    collected = set(rows.scalars().all())
+    # 自己的歌单不算收藏
+    own_stmt = select(Playlist.id).where(
+        Playlist.id.in_(playlist_ids),
+        Playlist.user_id == user_id,
+    )
+    own_rows = await db.execute(own_stmt)
+    collected -= set(own_rows.scalars().all())
+    return collected

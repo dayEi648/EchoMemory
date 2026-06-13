@@ -158,6 +158,7 @@ export type MusicListItem = {
   interest_tags: Tag[];
   albums: { id: number; title: string }[];
   created_at: string;
+  is_collected_by_me?: boolean;
 };
 
 export type PaginatedMusicList = {
@@ -217,6 +218,16 @@ export type MusicUpdateInput = {
   cover_home?: File;
   cover_play?: File;
   lyrics_file?: File;
+};
+
+/* ==================== Recommendation ==================== */
+
+export type RecommendChartItem = MusicListItem & {
+  recommend_count: number;
+};
+
+export type RecommendChartList = {
+  items: RecommendChartItem[];
 };
 
 /* ==================== Admin Album List ==================== */

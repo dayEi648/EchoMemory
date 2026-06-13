@@ -123,6 +123,7 @@ class MusicListOut(JoinedAuthorValidatorMixin, BaseModel):
     cover_icon_url: str | None = None
     authors: list[AuthorOut] = []
     created_at: datetime
+    is_collected_by_me: bool = False
 
 
 class AdminMusicListOut(
@@ -204,3 +205,15 @@ class MusicUpdate(BaseModel):
     instrument_ids: list[int] | None = None
     emotion_tag_ids: list[int] | None = None
     interest_tag_ids: list[int] | None = None
+
+
+class RecommendChartItemOut(MusicListOut):
+    """推荐榜列表项输出，在音乐列表项基础上增加被推荐用户数。"""
+
+    recommend_count: int
+
+
+class RecommendChartListOut(BaseModel):
+    """推荐榜响应 Schema。"""
+
+    items: list[RecommendChartItemOut]

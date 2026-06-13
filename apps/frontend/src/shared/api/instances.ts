@@ -15,6 +15,7 @@ import { createCarouselApi } from "./carouselApi";
 import { createUserApi } from "./userApi";
 import { createNotificationApi } from "./notificationApi";
 import { createMessageApi } from "./messageApi";
+import { createRecommendationApi } from "./recommendationApi";
 
 const isDev = import.meta.env.DEV;
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -42,6 +43,7 @@ export type ApiRegistry = {
   carouselApi: ReturnType<typeof createCarouselApi>;
   notificationApi: ReturnType<typeof createNotificationApi>;
   messageApi: ReturnType<typeof createMessageApi>;
+  recommendationApi: ReturnType<typeof createRecommendationApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -59,6 +61,7 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     carouselApi: createCarouselApi(options),
     notificationApi: createNotificationApi(options),
     messageApi: createMessageApi(options),
+    recommendationApi: createRecommendationApi(options),
   };
 }
 
@@ -86,6 +89,7 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   carouselApi = apis.carouselApi;
   notificationApi = apis.notificationApi;
   messageApi = apis.messageApi;
+  recommendationApi = apis.recommendationApi;
 }
 
 export let userApi = apis.userApi;
@@ -100,3 +104,4 @@ export let dictionaryApi = apis.dictionaryApi;
 export let carouselApi = apis.carouselApi;
 export let notificationApi = apis.notificationApi;
 export let messageApi = apis.messageApi;
+export let recommendationApi = apis.recommendationApi;

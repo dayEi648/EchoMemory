@@ -89,11 +89,42 @@ async def lifespan(app: FastAPI):
 
     hotness_task = asyncio.create_task(_hotness_maintenance_loop())
 
+    # 启动每日推荐刷新定时任务（每天 6:00 UTC 全量刷新）
+    async def _recommendation_refresh_loop():
+        from echomemory_backend.services.recommendation_service import (
+            _seconds_until_next_utc_hour,
+            refresh_all_daily_and_radar_recommendations,
+        )
+        from echomemory_backend.services.cache_service import (
+            invalidate_recommendation_caches,
+        )
+
+        while True:
+            try:
+                sleep_seconds = _seconds_until_next_utc_hour(6)
+                await asyncio.sleep(sleep_seconds)
+                async with AsyncSessionLocal() as db:
+                    await refresh_all_daily_and_radar_recommendations(db)
+                    await invalidate_recommendation_caches()
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("Recommendation refresh failed")
+                # 出错后等待 5 分钟再重试，避免 tight loop
+                await asyncio.sleep(300)
+
+    recommend_task = asyncio.create_task(_recommendation_refresh_loop())
+
     yield
 
     hotness_task.cancel()
+    recommend_task.cancel()
     try:
         await hotness_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await recommend_task
     except asyncio.CancelledError:
         pass
     await async_engine.dispose()
