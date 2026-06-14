@@ -3,6 +3,7 @@
 提供播放历史记录的创建、查询、删除及清空等核心业务逻辑，
 并在创建播放历史时同步递增音乐、专辑和歌单的播放次数。
 """
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,19 +41,19 @@ async def create_play_history(
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
-        raise BusinessError("Music not found", 404)
+        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
 
     if playlist_id is not None:
         playlist = await db.get(Playlist, playlist_id)
         if playlist is None:
-            raise BusinessError("Playlist not found", 404)
+            raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
         stmt = select(PlaylistMusic).where(
             PlaylistMusic.playlist_id == playlist_id,
             PlaylistMusic.music_id == music_id,
         )
         result = await db.execute(stmt)
         if result.scalar_one_or_none() is None:
-            raise BusinessError("Music not in playlist", 400)
+            raise BusinessError("Music not in playlist", code=ErrorCode.MUSIC_NOT_IN_PLAYLIST)
 
     stmt = select(PlayHistory).where(
         PlayHistory.user_id == user_id,
@@ -187,7 +188,7 @@ async def delete_play_history(
     """
     history = await db.get(PlayHistory, history_id)
     if history is None or history.user_id != user_id:
-        raise BusinessError("Play history record not found", 404)
+        raise BusinessError("Play history record not found", code=ErrorCode.PLAY_HISTORY_NOT_FOUND)
 
     await db.delete(history)
     await db.commit()

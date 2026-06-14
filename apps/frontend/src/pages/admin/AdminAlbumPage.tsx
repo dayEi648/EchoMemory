@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { albumApi, musicApi } from "../../shared/api/instances";
+import { ApiError } from "../../shared/api/base";
+import { ErrorCode } from "../../shared/constants/errorCode";
 import { useAuthStore } from "../../shared/stores/authStore";
 import type { AdminAlbumListItem, AlbumDetail, MusicListItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -269,11 +271,15 @@ export const AdminAlbumPage = () => {
         ),
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("409") || msg.includes("Conflict") || msg.includes("already")) {
+      const apiErr = err instanceof ApiError ? err : null;
+      if (
+        apiErr &&
+        (apiErr.is(ErrorCode.MUSIC_ALREADY_IN_ALBUM) ||
+          apiErr.is(ErrorCode.MUSIC_BELONGS_TO_ANOTHER_ALBUM))
+      ) {
         toast.error("该歌曲已在专辑中或属于其他专辑");
       } else {
-        toast.error(msg || "添加失败");
+        toast.error(apiErr?.message || "添加失败");
       }
     }
   };

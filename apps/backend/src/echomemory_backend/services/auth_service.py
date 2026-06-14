@@ -1,4 +1,5 @@
 """用户认证相关服务，涵盖注册、登录、token 签发与刷新、登出等核心流程。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from datetime import datetime, timezone
 
@@ -66,11 +67,11 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> T
     """
     user = await get_user_by_username(db, username)
     if not user or not verify_password(password, user.password_hash):
-        raise BusinessError("用户名或密码错误", 401)
+        raise BusinessError("用户名或密码错误", code=ErrorCode.AUTH_CREDENTIALS_INVALID)
     if user.is_deleted:
-        raise BusinessError("账号已被删除", 401)
+        raise BusinessError("账号已被删除", code=ErrorCode.AUTH_ACCOUNT_DELETED)
     if user.status == UserStatus.BANNED:
-        raise BusinessError("账号已被封禁", 401)
+        raise BusinessError("账号已被封禁", code=ErrorCode.AUTH_ACCOUNT_BANNED)
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
     return await _issue_tokens(user.id)
@@ -88,18 +89,18 @@ async def refresh_user_token(db: AsyncSession, refresh_token: str) -> Token:
     """
     user_id, token_version = await get_refresh_token_data(refresh_token)
     if user_id is None:
-        raise BusinessError("刷新令牌无效或已过期", 401)
+        raise BusinessError("刷新令牌无效或已过期", code=ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
     # 校验 refresh token 的 version 是否匹配当前用户 version
     current_version = await get_user_token_version(user_id)
     if token_version is not None and token_version != current_version:
-        raise BusinessError("刷新令牌无效或已过期", 401)
+        raise BusinessError("刷新令牌无效或已过期", code=ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
     user = await get_user_by_id(db, user_id)
     if not user or user.is_deleted:
-        raise BusinessError("用户不存在", 401)
+        raise BusinessError("用户不存在", code=ErrorCode.AUTH_USER_NOT_FOUND)
     if user.status == UserStatus.BANNED:
-        raise BusinessError("账号已被封禁", 401)
+        raise BusinessError("账号已被封禁", code=ErrorCode.AUTH_ACCOUNT_BANNED)
 
     await delete_refresh_token(refresh_token)
     return await _issue_tokens(user.id)

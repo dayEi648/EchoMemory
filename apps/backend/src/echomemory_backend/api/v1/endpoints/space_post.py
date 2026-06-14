@@ -1,4 +1,5 @@
 """空间动态（Space Post）API 路由端点，支持用户发布、查看、点赞、删除动态及管理员硬删除。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/space-posts", tags=["space-posts"])
 # 用户接口
 # ---------------------------------------------------------------------------
 
-@router.post("/", response_model=SpacePostOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=SpacePostOut, status_code=HttpStatus.CREATED)
 async def create_space_post(
     db: SessionDep,
     current_user: ActiveUser,
@@ -30,7 +31,7 @@ async def create_space_post(
     """创建空间动态。支持文字 + 可选多图上传。"""
     if not content and not files:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Content or at least one file is required",
         )
     async with UploadCollector() as uploads:
@@ -68,12 +69,12 @@ async def get_space_post(
     post = await space_post_service.get_space_post_by_id(db, post_id)
     if post is None or post.is_deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=HttpStatus.NOT_FOUND,
             detail="Post not found",
         )
     if not can_view_space_post(current_user.id, post):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to view this post",
         )
     return (
@@ -107,7 +108,7 @@ async def list_space_posts(
     return PaginatedSpacePostListOut(items=items, total=result["total"])
 
 
-@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{post_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_space_post(
     db: SessionDep,
     current_user: ActiveUser,
@@ -117,19 +118,19 @@ async def delete_space_post(
     post = await space_post_service.get_space_post_by_id(db, post_id)
     if post is None or post.is_deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=HttpStatus.NOT_FOUND,
             detail="Post not found",
         )
     if post.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to delete this post",
         )
     await space_post_service.soft_delete_space_post(db, post)
     return None
 
 
-@router.post("/{post_id}/like", status_code=status.HTTP_201_CREATED)
+@router.post("/{post_id}/like", status_code=HttpStatus.CREATED)
 async def like_space_post(
     db: SessionDep,
     current_user: ActiveUser,
@@ -139,14 +140,14 @@ async def like_space_post(
     post = await space_post_service.get_space_post_by_id(db, post_id)
     if post is None or not can_view_space_post(current_user.id, post):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=HttpStatus.NOT_FOUND,
             detail="Post not found",
         )
     await space_post_service.like_space_post(db, current_user.id, post_id)
     return None
 
 
-@router.delete("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{post_id}/like", status_code=HttpStatus.NO_CONTENT)
 async def unlike_space_post(
     db: SessionDep,
     current_user: ActiveUser,
@@ -157,7 +158,7 @@ async def unlike_space_post(
     return None
 
 
-@router.post("/forward", response_model=SpacePostOut, status_code=status.HTTP_201_CREATED)
+@router.post("/forward", response_model=SpacePostOut, status_code=HttpStatus.CREATED)
 async def forward_to_space(
     db: SessionDep,
     current_user: ActiveUser,
@@ -182,7 +183,7 @@ async def forward_to_space(
 # 管理员接口
 # ---------------------------------------------------------------------------
 
-@router.delete("/admin/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/admin/{post_id}", status_code=HttpStatus.NO_CONTENT)
 async def admin_hard_delete_space_post(
     db: SessionDep,
     _: AdminUser,

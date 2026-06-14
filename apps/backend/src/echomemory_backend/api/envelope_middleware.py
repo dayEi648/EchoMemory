@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
+from echomemory_backend.core.exceptions.codes import HttpStatus
 from echomemory_backend.schemas.response import error_body, is_envelope, wrap_success_payload
 
 API_V1_PREFIX = "/api/v1"
@@ -61,7 +62,7 @@ class ApiEnvelopeMiddleware(BaseHTTPMiddleware):
             body += chunk
 
         if response.status_code == 204:
-            wrapped = JSONResponse(status_code=200, content=wrap_success_payload(None))
+            wrapped = JSONResponse(status_code=HttpStatus.OK, content=wrap_success_payload(None))
             _copy_response_headers(response, wrapped)
             return wrapped
 

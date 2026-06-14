@@ -1,4 +1,5 @@
 """私信会话与消息相关的 API 路由端点。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, Query, status
 
@@ -122,12 +123,12 @@ async def get_or_init_conversation(
 ):
     """获取与指定用户的会话元数据。会话不存在时返回 404，由发送首条消息时自动创建。"""
     if user_id == current_user.id:
-        raise BusinessError("Cannot start a conversation with yourself", 400)
+        raise BusinessError("Cannot start a conversation with yourself", code=ErrorCode.MESSAGE_CANNOT_WITH_SELF)
     conversation = await message_service.get_conversation_with_user(
         db, viewer_id=current_user.id, peer_id=user_id
     )
     if conversation is None:
-        raise BusinessError("Conversation not found", 404)
+        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
     return await _build_conversation_out(db, conversation, current_user.id)
 
 
@@ -156,7 +157,7 @@ async def list_messages(
 
 @router.post(
     "/conversations/{conversation_id}/read",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=HttpStatus.NO_CONTENT,
 )
 async def mark_read(
     db: SessionDep,
@@ -173,7 +174,7 @@ async def mark_read(
 @router.post(
     "/{user_id}",
     response_model=DirectMessageOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=HttpStatus.CREATED,
 )
 async def send_message(
     db: SessionDep,

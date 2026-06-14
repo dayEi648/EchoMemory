@@ -1,4 +1,5 @@
 """播放历史相关接口。提供播放记录创建、查询、单条删除及清空等操作。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -13,7 +14,7 @@ from echomemory_backend.services import play_history_service
 router = APIRouter(prefix="/play-history", tags=["play-history"])
 
 
-@router.post("/", response_model=PlayHistoryOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PlayHistoryOut, status_code=HttpStatus.CREATED)
 async def record_play(
     db: SessionDep,
     current_user: ActiveUser,
@@ -45,7 +46,7 @@ async def list_play_history(
     )
 
 
-@router.delete("/{history_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{history_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_play_history(
     db: SessionDep,
     current_user: ActiveUser,
@@ -57,7 +58,7 @@ async def delete_play_history(
     )
 
 
-@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/", status_code=HttpStatus.NO_CONTENT)
 async def clear_play_history(
     db: SessionDep,
     current_user: ActiveUser,

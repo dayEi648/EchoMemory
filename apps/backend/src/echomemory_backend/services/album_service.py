@@ -2,6 +2,7 @@
 
 提供专辑的创建、查询、更新、删除及歌曲关联管理等服务功能。
 """
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 
@@ -108,7 +109,7 @@ async def _set_album_authors(
     for ordinal, author_id in enumerate(author_ids):
         author = await get_user_by_id(db, author_id)
         if author is None or author.is_deleted:
-            raise BusinessError(f"Author with id={author_id} not found", 404)
+            raise BusinessError(f"Author with id={author_id} not found", code=ErrorCode.ALBUM_AUTHOR_NOT_FOUND)
         db.add(
             AlbumAuthor(
                 album_id=album.id, author_id=author_id, ordinal=ordinal
@@ -219,7 +220,7 @@ async def create_album(
         BusinessError: 作者不存在或数据库约束冲突时抛出。
     """
     if author_ids and any(i <= 0 for i in author_ids):
-        raise BusinessError("Invalid author ID", 400)
+        raise BusinessError("Invalid author ID", code=ErrorCode.CLIENT_INVALID_AUTHOR_ID)
 
     album = Album(
         title=title,
@@ -239,7 +240,7 @@ async def create_album(
     except IntegrityError as exc:
         await db.rollback()
         logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
-        raise BusinessError("Invalid reference in album data", 400)
+        raise BusinessError("Invalid reference in album data", code=ErrorCode.CLIENT_INVALID_REFERENCE_IN_ALBUM)
     await db.refresh(album)
     await invalidate_dashboard_stats()
     return album
@@ -417,7 +418,7 @@ async def update_album(
     except IntegrityError as exc:
         await db.rollback()
         logger.warning("Invalid reference in album data: %s", exc, exc_info=True)
-        raise BusinessError("Invalid reference in album data", 400)
+        raise BusinessError("Invalid reference in album data", code=ErrorCode.CLIENT_INVALID_REFERENCE_IN_ALBUM)
     await db.refresh(album)
     await invalidate_home_albums_cache()
     await invalidate_album_detail(album.id)
@@ -464,11 +465,11 @@ async def add_music_to_album(
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
-        raise BusinessError("Music not found", 404)
+        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
 
     existing = await db.get(AlbumMusic, (album_id, music_id))
     if existing is not None:
-        raise BusinessError("Music already in album", 409)
+        raise BusinessError("Music already in album", code=ErrorCode.MUSIC_ALREADY_IN_ALBUM)
 
     stmt = select(func.max(AlbumMusic.ordinal)).where(
         AlbumMusic.album_id == album_id
@@ -489,8 +490,7 @@ async def add_music_to_album(
     except IntegrityError:
         await db.rollback()
         raise BusinessError(
-            "Music already belongs to another album", 409
-        )
+            "Music already belongs to another album", code=ErrorCode.MUSIC_BELONGS_TO_ANOTHER_ALBUM)
     await db.refresh(album_music)
     await invalidate_home_albums_cache()
     await invalidate_album_detail(album_id)
@@ -517,7 +517,7 @@ async def remove_music_from_album(
     """
     album_music = await db.get(AlbumMusic, (album_id, music_id))
     if album_music is None:
-        raise BusinessError("Music not found in album", 404)
+        raise BusinessError("Music not found in album", code=ErrorCode.MUSIC_NOT_FOUND)
 
     await db.delete(album_music)
     await db.flush()

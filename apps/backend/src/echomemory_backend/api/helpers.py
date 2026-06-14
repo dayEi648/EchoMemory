@@ -1,4 +1,5 @@
 """API 层通用辅助函数。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
@@ -34,7 +35,7 @@ async def require_entity(
     """
     entity = await getter(db, entity_id)
     if entity is None or (predicate is not None and not predicate(entity)):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+        raise HTTPException(status_code=HttpStatus.NOT_FOUND, detail=detail)
     return entity
 
 

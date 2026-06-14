@@ -1,4 +1,5 @@
 """上传辅助模块，提供文件上传至 OSS 的公共函数。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 from typing import TypeVar
@@ -75,7 +76,7 @@ async def upload_optional_image(
     name = detail_name or prefix
     if file.content_type is None or not file.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail=f"{name} must be an image file",
         )
     try:
@@ -85,12 +86,12 @@ async def upload_optional_image(
     except ValueError as exc:
         logger.warning("Invalid image upload for %s: %s", name, exc)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Invalid image file",
         ) from exc
     except RuntimeError as exc:
         logger.warning("OSS upload failed for %s: %s", name, exc)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=HttpStatus.SERVICE_UNAVAILABLE,
             detail="File upload failed",
         ) from exc

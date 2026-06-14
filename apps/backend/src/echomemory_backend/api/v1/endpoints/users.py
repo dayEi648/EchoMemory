@@ -1,4 +1,5 @@
 """用户相关 API 端点，提供用户资料管理、关注关系及管理员操作接口。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from typing import Annotated
 
@@ -121,7 +122,7 @@ async def get_my_languages(
     return await user_tag_service.list_user_languages(db, current_user.id)
 
 
-@router.post("/me/recalculate-tags", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/me/recalculate-tags", status_code=HttpStatus.NO_CONTENT)
 async def recalculate_my_tags(
     db: SessionDep, current_user: ActiveUser
 ) -> None:
@@ -138,7 +139,7 @@ async def get_user(
     user = await user_service.get_user_by_id(db, user_id)
     if not user or user.is_deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=HttpStatus.NOT_FOUND,
             detail="User not found",
         )
 
@@ -178,7 +179,7 @@ async def search_users(
     return PaginatedUserSearchOut(items=items, total=result["total"])
 
 
-@router.post("/follow", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/follow", status_code=HttpStatus.NO_CONTENT)
 async def follow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
@@ -187,7 +188,7 @@ async def follow_user(
     return None
 
 
-@router.post("/unfollow", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/unfollow", status_code=HttpStatus.NO_CONTENT)
 async def unfollow_user(
     db: SessionDep, current_user: ActiveUser, follow_in: FollowCreate
 ) -> None:
@@ -196,7 +197,7 @@ async def unfollow_user(
     return None
 
 
-@router.post("/{user_id}/block", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{user_id}/block", status_code=HttpStatus.NO_CONTENT)
 async def block_user(
     db: SessionDep,
     current_user: ActiveUser,
@@ -207,7 +208,7 @@ async def block_user(
     return None
 
 
-@router.delete("/{user_id}/block", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{user_id}/block", status_code=HttpStatus.NO_CONTENT)
 async def unblock_user(
     db: SessionDep,
     current_user: ActiveUser,
@@ -288,7 +289,7 @@ async def admin_list_users(
     return PaginatedUserAdminOut(items=items, total=total)
 
 
-@router.post("/admin/create", response_model=UserMeOut, status_code=status.HTTP_201_CREATED)
+@router.post("/admin/create", response_model=UserMeOut, status_code=HttpStatus.CREATED)
 async def admin_create_user(
     db: SessionDep,
     admin: AdminUser,
@@ -344,7 +345,7 @@ async def admin_get_user(
     return await admin_service.get_user_full(db, admin, user_id)
 
 
-@router.delete("/{user_id}/admin", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{user_id}/admin", status_code=HttpStatus.NO_CONTENT)
 async def admin_delete_user(
     db: SessionDep,
     admin: AdminUser,

@@ -1,4 +1,5 @@
 """通知（Notification）API 路由端点。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, Query, status
 
@@ -49,7 +50,7 @@ async def list_notifications(
     return PaginatedNotificationOut(items=items, total=result["total"])
 
 
-@router.post("/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{notification_id}/read", status_code=HttpStatus.NO_CONTENT)
 async def mark_notification_read(
     db: SessionDep,
     current_user: ActiveUser,
@@ -64,7 +65,7 @@ async def mark_notification_read(
     return None
 
 
-@router.post("/read-all", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/read-all", status_code=HttpStatus.NO_CONTENT)
 async def mark_all_notifications_read(
     db: SessionDep,
     current_user: ActiveUser,

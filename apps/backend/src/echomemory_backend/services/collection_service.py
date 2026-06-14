@@ -1,4 +1,5 @@
 """用户收藏服务模块，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -65,7 +66,7 @@ async def _get_music_collection_view(
     )
     playlist_music = (await db.execute(stmt)).scalar_one_or_none()
     if playlist_music is None:
-        raise BusinessError("Music not found in user playlists", 404)
+        raise BusinessError("Music not found in user playlists", code=ErrorCode.MUSIC_NOT_IN_USER_PLAYLISTS)
     return MusicCollectionView(
         music=playlist_music.music,
         created_at=playlist_music.created_at,
@@ -90,7 +91,7 @@ async def collect_music(db: AsyncSession, user_id: int, music_id: int) -> MusicC
 
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
-        raise BusinessError("Music not found", 404)
+        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
 
     if await is_music_collected(db, user_id, music_id):
         return await _get_music_collection_view(db, user_id, music_id)
@@ -235,7 +236,7 @@ async def collect_album(db: AsyncSession, user_id: int, album_id: int) -> UserAl
     """
     album = await db.get(Album, album_id)
     if album is None or album.is_deleted:
-        raise BusinessError("Album not found", 404)
+        raise BusinessError("Album not found", code=ErrorCode.ALBUM_NOT_FOUND)
 
     existing = await db.get(UserAlbumCollection, (user_id, album_id))
     if existing is not None:
@@ -341,9 +342,9 @@ async def collect_playlist(
     """
     playlist = await db.get(Playlist, playlist_id)
     if playlist is None or playlist.is_private:
-        raise BusinessError("Playlist not found", 404)
+        raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
     if playlist.user_id == user_id:
-        raise BusinessError("Cannot collect your own playlist", 403)
+        raise BusinessError("Cannot collect your own playlist", code=ErrorCode.CANNOT_COLLECT_OWN_PLAYLIST)
 
     existing = await db.get(UserPlaylistCollection, (user_id, playlist_id))
     if existing is not None:
@@ -465,7 +466,7 @@ async def release_music(db: AsyncSession, user_id: int, music_id: int) -> UserMu
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
-        raise BusinessError("Music not found", 404)
+        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
 
     existing = await db.get(UserMusicRelease, (user_id, music_id))
     if existing is not None:

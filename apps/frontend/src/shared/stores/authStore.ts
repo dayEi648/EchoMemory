@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { createUserApi, type ApiError } from "../api/userApi";
 import { replaceApiTokenStore, API_BASE_URL } from "../api/instances";
+import { HttpStatus } from "../constants/httpStatus";
 import type { UpdateMeInput, UserMe } from "../api/types";
 import { createLocalStorageTokenStore, type TokenStore } from "../auth/tokenStore";
 
@@ -59,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, loading: false, initialized: true });
     } catch (err) {
       const apiErr = err as ApiError;
-      if (apiErr.status === 401) {
+      if (apiErr.status === HttpStatus.UNAUTHORIZED) {
         currentTokenStore.clear();
       }
       set({ user: null, loading: false, initialized: true });

@@ -1,4 +1,5 @@
 """评论业务服务模块，提供评论的创建、查询、删除、点赞/点踩等核心操作。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,15 +56,15 @@ async def _validate_target_exists(
     if target_type == "music":
         target = await db.get(Music, target_id)
         if target is None or not target.is_published:
-            raise BusinessError("Target not found", 404)
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
     elif target_type == "playlist":
         target = await db.get(Playlist, target_id)
         if target is None or not _can_view_playlist(viewer_id, target):
-            raise BusinessError("Target not found", 404)
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
         if target is None or not can_view_space_post(viewer_id, target):
-            raise BusinessError("Target not found", 404)
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
 
 
 async def _resolve_parent(
@@ -92,7 +93,7 @@ async def _resolve_parent(
 
     parent = await db.get(Comment, parent_id)
     if parent is None or parent.is_deleted:
-        raise BusinessError("Parent comment not found", 404)
+        raise BusinessError("Parent comment not found", code=ErrorCode.COMMENT_PARENT_NOT_FOUND)
 
     # 校验 parent 是否属于同一个 target
     parent_target_match = {
@@ -101,7 +102,7 @@ async def _resolve_parent(
         "space_post": parent.space_post_id == target_id,
     }[target_type]
     if not parent_target_match:
-        raise BusinessError("Parent comment does not belong to the same target", 400)
+        raise BusinessError("Parent comment does not belong to the same target", code=ErrorCode.COMMENT_PARENT_TARGET_MISMATCH)
 
     if parent.root_id is None:
         return parent.id, False
@@ -152,7 +153,7 @@ async def create_comment(
         BusinessError: target_type 无效或目标不存在时抛出。
     """
     if target_type not in _VALID_TARGET_TYPES:
-        raise BusinessError("Invalid target_type", 400)
+        raise BusinessError("Invalid target_type", code=ErrorCode.CLIENT_INVALID_TARGET_TYPE)
 
     await _validate_target_exists(db, target_type, target_id, viewer_id=user_id)
     root_id, is_nested_reply = await _resolve_parent(db, parent_id, target_type, target_id)
@@ -257,16 +258,16 @@ async def list_comments(
         BusinessError: target_type 无效或目标不可见时抛出 400/404。
     """
     if target_type not in _VALID_TARGET_TYPES:
-        raise BusinessError("Invalid target_type", 400)
+        raise BusinessError("Invalid target_type", code=ErrorCode.CLIENT_INVALID_TARGET_TYPE)
 
     if target_type == "playlist":
         target = await db.get(Playlist, target_id)
         if target is None or not _can_view_playlist(viewer_user_id, target):
-            raise BusinessError("Target not found", 404)
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
         if target is None or not can_view_space_post(viewer_user_id, target):
-            raise BusinessError("Target not found", 404)
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
 
     target_filter = {
         "music": Comment.music_id == target_id,
@@ -338,9 +339,9 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
     """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
-        raise BusinessError("Comment not found", 404)
+        raise BusinessError("Comment not found", code=ErrorCode.COMMENT_NOT_FOUND)
     if comment.user_id != user_id:
-        raise BusinessError("Permission denied", 403)
+        raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     comment.is_deleted = True
 
@@ -393,7 +394,7 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
     """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
-        raise BusinessError("Comment not found", 404)
+        raise BusinessError("Comment not found", code=ErrorCode.COMMENT_NOT_FOUND)
 
     existing = await db.get(CommentLike, (comment_id, user_id))
     if existing is not None:
@@ -474,7 +475,7 @@ async def dislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> No
     """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
-        raise BusinessError("Comment not found", 404)
+        raise BusinessError("Comment not found", code=ErrorCode.COMMENT_NOT_FOUND)
 
     existing = await db.get(CommentDislike, (comment_id, user_id))
     if existing is not None:

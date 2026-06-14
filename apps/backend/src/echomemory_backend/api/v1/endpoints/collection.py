@@ -1,4 +1,5 @@
 """用户收藏与发布标记相关的 API 路由端点，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 # ---------------------------------------------------------------------------
 
 
-@router.post("/musics/{music_id}", response_model=MusicCollectionOut, status_code=status.HTTP_201_CREATED)
+@router.post("/musics/{music_id}", response_model=MusicCollectionOut, status_code=HttpStatus.CREATED)
 async def collect_music(
     db: SessionDep,
     current_user: ActiveUser,
@@ -33,7 +34,7 @@ async def collect_music(
     return await collection_service.collect_music(db, current_user.id, music_id)
 
 
-@router.delete("/musics/{music_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/musics/{music_id}", status_code=HttpStatus.NO_CONTENT)
 async def uncollect_music(
     db: SessionDep,
     current_user: ActiveUser,
@@ -62,7 +63,7 @@ async def list_music_collections(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/albums/{album_id}", response_model=AlbumCollectionOut, status_code=status.HTTP_201_CREATED)
+@router.post("/albums/{album_id}", response_model=AlbumCollectionOut, status_code=HttpStatus.CREATED)
 async def collect_album(
     db: SessionDep,
     current_user: ActiveUser,
@@ -72,7 +73,7 @@ async def collect_album(
     return await collection_service.collect_album(db, current_user.id, album_id)
 
 
-@router.delete("/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/albums/{album_id}", status_code=HttpStatus.NO_CONTENT)
 async def uncollect_album(
     db: SessionDep,
     current_user: ActiveUser,
@@ -102,7 +103,7 @@ async def list_album_collections(
 
 
 @router.post(
-    "/playlists/{playlist_id}", response_model=PlaylistCollectionOut, status_code=status.HTTP_201_CREATED
+    "/playlists/{playlist_id}", response_model=PlaylistCollectionOut, status_code=HttpStatus.CREATED
 )
 async def collect_playlist(
     db: SessionDep,
@@ -113,7 +114,7 @@ async def collect_playlist(
     return await collection_service.collect_playlist(db, current_user.id, playlist_id)
 
 
-@router.delete("/playlists/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/playlists/{playlist_id}", status_code=HttpStatus.NO_CONTENT)
 async def uncollect_playlist(
     db: SessionDep,
     current_user: ActiveUser,
@@ -142,7 +143,7 @@ async def list_playlist_collections(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/releases/{music_id}", response_model=ReleaseOut, status_code=status.HTTP_201_CREATED)
+@router.post("/releases/{music_id}", response_model=ReleaseOut, status_code=HttpStatus.CREATED)
 async def release_music(
     db: SessionDep,
     current_user: ActiveUser,
@@ -152,7 +153,7 @@ async def release_music(
     return await collection_service.release_music(db, current_user.id, music_id)
 
 
-@router.delete("/releases/{music_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/releases/{music_id}", status_code=HttpStatus.NO_CONTENT)
 async def unrelease_music(
     db: SessionDep,
     current_user: ActiveUser,

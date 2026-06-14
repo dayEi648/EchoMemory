@@ -1,4 +1,5 @@
 """通知业务服务模块，提供通知的创建（幂等）、查询、未读统计与已读标记等核心操作。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 
@@ -47,7 +48,7 @@ async def create_notification(
         BusinessError: target_type 非法时抛出 400。
     """
     if target_type not in ("user", "comment", "space_post"):
-        raise BusinessError("Invalid target_type", 400)
+        raise BusinessError("Invalid target_type", code=ErrorCode.CLIENT_INVALID_TARGET_TYPE)
     if actor_id is not None and actor_id == recipient_id:
         return None
 
@@ -184,7 +185,7 @@ async def mark_notification_read(
     """
     notification = await db.get(Notification, notification_id)
     if notification is None or notification.recipient_id != recipient_id:
-        raise BusinessError("Notification not found", 404)
+        raise BusinessError("Notification not found", code=ErrorCode.NOTIFICATION_NOT_FOUND)
     if notification.is_read:
         return
     notification.is_read = True

@@ -1,4 +1,5 @@
 """提供音乐记录的创建、查询、更新及关联关系管理服务。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 from datetime import date, timedelta
@@ -128,7 +129,7 @@ async def _set_music_authors(db: AsyncSession, music: Music, author_ids: list[in
     for ordinal, author_id in enumerate(author_ids):
         author = await get_user_by_id(db, author_id)
         if author is None or author.is_deleted:
-            raise BusinessError(f"Author with id={author_id} not found", 404)
+            raise BusinessError(f"Author with id={author_id} not found", code=ErrorCode.ALBUM_AUTHOR_NOT_FOUND)
         db.add(
             MusicAuthor(
                 music_id=music.id, author_id=author_id, ordinal=ordinal
@@ -244,13 +245,13 @@ async def create_music(
         BusinessError: 作者不存在或数据库约束冲突时抛出。
     """
     if author_ids and any(i <= 0 for i in author_ids):
-        raise BusinessError("Invalid author ID", 400)
+        raise BusinessError("Invalid author ID", code=ErrorCode.CLIENT_INVALID_AUTHOR_ID)
     if instrument_ids and any(i <= 0 for i in instrument_ids):
-        raise BusinessError("Invalid instrument ID", 400)
+        raise BusinessError("Invalid instrument ID", code=ErrorCode.CLIENT_INVALID_INSTRUMENT_ID)
     if emotion_tag_ids and any(i <= 0 for i in emotion_tag_ids):
-        raise BusinessError("Invalid emotion tag ID", 400)
+        raise BusinessError("Invalid emotion tag ID", code=ErrorCode.CLIENT_INVALID_EMOTION_TAG_ID)
     if interest_tag_ids and any(i <= 0 for i in interest_tag_ids):
-        raise BusinessError("Invalid interest tag ID", 400)
+        raise BusinessError("Invalid interest tag ID", code=ErrorCode.CLIENT_INVALID_INTEREST_TAG_ID)
 
     music = Music(
         title=title,
@@ -282,7 +283,7 @@ async def create_music(
     except IntegrityError as exc:
         await db.rollback()
         logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
-        raise BusinessError("Invalid reference in music data", 400)
+        raise BusinessError("Invalid reference in music data", code=ErrorCode.CLIENT_INVALID_REFERENCE_IN_MUSIC)
     await db.refresh(music)
     await invalidate_dashboard_stats()
     return music
@@ -686,7 +687,7 @@ async def update_music(
     except IntegrityError as exc:
         await db.rollback()
         logger.warning("Invalid reference in music data: %s", exc, exc_info=True)
-        raise BusinessError("Invalid reference in music data", 400)
+        raise BusinessError("Invalid reference in music data", code=ErrorCode.CLIENT_INVALID_REFERENCE_IN_MUSIC)
     await db.refresh(music)
     await invalidate_chart_caches()
     await invalidate_music_detail(music.id)

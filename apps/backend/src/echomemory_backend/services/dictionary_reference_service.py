@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.exceptions.codes import ErrorCode
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag, Instrument
 
 
@@ -39,7 +40,7 @@ async def _validate_ids_exist(
     }
     missing = set(ids) - existing
     if missing:
-        raise BusinessError(f"{label} not found: {sorted(missing)}", 404)
+        raise BusinessError(f"{label} not found: {sorted(missing)}", code=ErrorCode.DICTIONARY_ITEM_NOT_FOUND)
 
 
 async def validate_emotion_tags_exist(db: AsyncSession, tag_ids: list[int]) -> None:

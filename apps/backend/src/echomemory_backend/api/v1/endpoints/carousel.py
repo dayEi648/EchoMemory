@@ -1,4 +1,5 @@
 """轮播推图 API 端点。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -29,7 +30,7 @@ async def list_carousel(db: SessionDep):
 # 管理员接口
 # ---------------------------------------------------------------------------
 
-@router.post("/admin", response_model=CarouselItemOut, status_code=status.HTTP_201_CREATED)
+@router.post("/admin", response_model=CarouselItemOut, status_code=HttpStatus.CREATED)
 async def create_carousel_item(
     db: SessionDep,
     _: AdminUser,
@@ -61,11 +62,11 @@ async def update_carousel_item(
         description=item_in.description,
     )
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="推图不存在")
+        raise HTTPException(status_code=HttpStatus.NOT_FOUND, detail="推图不存在")
     return item
 
 
-@router.delete("/admin/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/admin/{item_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_carousel_item(
     _: AdminUser,
     item_id: str,
@@ -73,11 +74,11 @@ async def delete_carousel_item(
     """管理员：删除轮播推图。"""
     deleted = await carousel_service.delete_carousel_item(item_id)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="推图不存在")
+        raise HTTPException(status_code=HttpStatus.NOT_FOUND, detail="推图不存在")
     return None
 
 
-@router.patch("/admin/reorder", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/admin/reorder", status_code=HttpStatus.NO_CONTENT)
 async def reorder_carousel_items(
     _: AdminUser,
     body: ReorderRequest,
@@ -86,7 +87,7 @@ async def reorder_carousel_items(
     ok = await carousel_service.reorder_carousel_items(body.ids)
     if not ok:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="ID 列表与实际推图数量不匹配",
         )
     return None

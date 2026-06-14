@@ -2,6 +2,7 @@
 
 提供歌单的创建、查询、更新、删除以及歌单内歌曲的增删操作。
 """
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/playlists", tags=["playlists"])
 # 歌单 CRUD
 # ---------------------------------------------------------------------------
 
-@router.post("/", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=PlaylistOut, status_code=HttpStatus.CREATED)
 async def create_playlist(
     db: SessionDep,
     current_user: ActiveUser,
@@ -151,12 +152,12 @@ async def get_playlist(
     playlist = await db.get(Playlist, playlist_id)
     if playlist is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Playlist not found"
+            status_code=HttpStatus.NOT_FOUND, detail="Playlist not found"
         )
 
     if playlist.is_private and playlist.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to view this playlist",
         )
 
@@ -192,7 +193,7 @@ async def update_playlist(
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to update this playlist",
         )
 
@@ -209,7 +210,7 @@ async def update_playlist(
     return playlist
 
 
-@router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{playlist_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_playlist(
     db: SessionDep,
     current_user: ActiveUser,
@@ -225,7 +226,7 @@ async def delete_playlist(
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to delete this playlist",
         )
 
@@ -239,7 +240,7 @@ async def delete_playlist(
 @router.post(
     "/{playlist_id}/musics/{music_id}",
     response_model=PlaylistOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=HttpStatus.CREATED,
 )
 async def add_music_to_playlist(
     db: SessionDep,
@@ -257,7 +258,7 @@ async def add_music_to_playlist(
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to modify this playlist",
         )
 
@@ -270,7 +271,7 @@ async def add_music_to_playlist(
 
 @router.delete(
     "/{playlist_id}/musics/{music_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=HttpStatus.NO_CONTENT,
 )
 async def remove_music_from_playlist(
     db: SessionDep,
@@ -288,7 +289,7 @@ async def remove_music_from_playlist(
 
     if playlist.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to modify this playlist",
         )
 

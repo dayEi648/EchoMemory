@@ -1,4 +1,5 @@
 """AI 对话相关的 API 路由端点。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from typing import AsyncIterator
 
@@ -47,7 +48,7 @@ async def list_ai_conversations(
     return PaginatedAIConversationOut(items=result["items"], total=result["total"])
 
 
-@router.post("", response_model=AIConversationWithFirstMessageOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AIConversationWithFirstMessageOut, status_code=HttpStatus.CREATED)
 async def create_ai_conversation(
     db: SessionDep,
     current_user: ActiveUser,
@@ -121,7 +122,7 @@ async def send_ai_message(
     return ai_message
 
 
-@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{conversation_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_ai_conversation(
     db: SessionDep,
     current_user: ActiveUser,

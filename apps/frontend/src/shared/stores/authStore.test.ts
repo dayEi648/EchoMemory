@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAuthStore } from "./authStore";
 import { createMemoryTokenStore } from "../auth/tokenStore";
+import { ErrorCode } from "../constants/errorCode";
+import { HttpStatus } from "../constants/httpStatus";
+
+const envelope = <T,>(data: T) => ({ code: 0, msg: "success", data });
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
+    status: init.status ?? HttpStatus.OK,
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
 
@@ -56,7 +60,7 @@ describe("authStore", () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
     useAuthStore.getState()._setTokenStore(tokenStore);
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(mockUser));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(envelope(mockUser)));
 
     await useAuthStore.getState().init();
 
@@ -69,7 +73,10 @@ describe("authStore", () => {
     tokenStore.set({ accessToken: "expired", refreshToken: "rt" });
     useAuthStore.getState()._setTokenStore(tokenStore);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      jsonResponse({ detail: "expired" }, { status: 401 }),
+      jsonResponse(
+        { code: ErrorCode.AUTH_CREDENTIALS_INVALID, msg: "expired", data: null },
+        { status: HttpStatus.UNAUTHORIZED },
+      ),
     );
 
     await useAuthStore.getState().init();
@@ -83,9 +90,15 @@ describe("authStore", () => {
     useAuthStore.getState()._setTokenStore(tokenStore);
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
-        jsonResponse({ access_token: "at", refresh_token: "rt", token_type: "bearer" }),
+        jsonResponse(
+          envelope({
+            access_token: "at",
+            refresh_token: "rt",
+            token_type: "bearer",
+          }),
+        ),
       )
-      .mockResolvedValueOnce(jsonResponse(mockUser));
+      .mockResolvedValueOnce(jsonResponse(envelope(mockUser)));
 
     await useAuthStore.getState().login("alice", "secret");
 
@@ -102,7 +115,9 @@ describe("authStore", () => {
       loading: false,
       initialized: true,
     });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: HttpStatus.NO_CONTENT }),
+    );
 
     await useAuthStore.getState().logout();
 
@@ -116,7 +131,7 @@ describe("authStore", () => {
     useAuthStore.getState()._setTokenStore(tokenStore);
     useAuthStore.setState({ user: mockUser, loading: false, initialized: true });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      jsonResponse({ ...mockUser, nickname: "NewName", city: "北京" }),
+      jsonResponse(envelope({ ...mockUser, nickname: "NewName", city: "北京" })),
     );
 
     await useAuthStore.getState().updateProfile({ nickname: "NewName", city: "北京" });

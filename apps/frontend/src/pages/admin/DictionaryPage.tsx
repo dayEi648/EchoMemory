@@ -4,6 +4,8 @@ import { Plus, Pencil, Trash2, BookOpen, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { dictionaryApi } from "../../shared/api/instances";
+import { ApiError } from "../../shared/api/base";
+import { ErrorCode } from "../../shared/constants/errorCode";
 import type { DictionaryType, DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
@@ -136,11 +138,11 @@ export const DictionaryPage = () => {
         loadItems(activeType, page);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("409") || msg.includes("Conflict")) {
+      const apiErr = err instanceof ApiError ? err : null;
+      if (apiErr?.is(ErrorCode.DICTIONARY_ITEM_REFERENCED)) {
         toast.error("该字典项已被业务数据引用，无法删除");
       } else {
-        toast.error(msg || "删除失败");
+        toast.error(apiErr?.message || "删除失败");
       }
     } finally {
       setSubmitting(false);

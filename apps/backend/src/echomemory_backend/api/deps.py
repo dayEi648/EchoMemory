@@ -2,9 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 from echomemory_backend.core.clients.redis_client import (
     get_user_token_version,
@@ -41,7 +43,7 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     """
     if await is_access_token_blacklisted(token):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="Token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -49,14 +51,14 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id: str | None = payload.get("sub")
     if user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -64,7 +66,7 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
         user_id_int = int(user_id)
     except ValueError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -74,7 +76,7 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     current_version = await get_user_token_version(user_id_int)
     if token_version != current_version:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="Token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -82,13 +84,13 @@ async def get_current_user(db: SessionDep, token: TokenDep) -> User:
     user = await db.get(User, user_id_int)
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if user.is_deleted:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=HttpStatus.UNAUTHORIZED,
             detail="User account has been deleted",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -103,7 +105,7 @@ async def get_current_active_user(current_user: CurrentUser) -> User:
     """确保当前用户账号处于活跃状态（未被封禁或暂停）。"""
     if current_user.status != UserStatus.ACTIVE:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="User account is not active",
         )
     return current_user
@@ -117,7 +119,7 @@ async def require_admin(current_user: ActiveUser) -> User:
     """要求当前用户具有 admin 或 super-admin 权限。"""
     if current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=HttpStatus.FORBIDDEN,
             detail="Admin privileges required",
         )
     return current_user

@@ -1,4 +1,5 @@
 """空间动态（SpacePost）业务服务模块，提供动态的创建、查询、列表、删除及点赞等功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,7 +154,7 @@ async def hard_delete_space_post(db: AsyncSession, post_id: int) -> list[str]:
     """
     post = await get_space_post_by_id(db, post_id)
     if post is None:
-        raise BusinessError("Post not found", 404)
+        raise BusinessError("Post not found", code=ErrorCode.SPACE_POST_NOT_FOUND)
 
     image_urls = [img.image_url for img in post.images]
 
@@ -202,14 +203,14 @@ async def forward_to_space(
         BusinessError: source_type 非法或源实体不存在/不可访问时抛出。
     """
     if source_type not in _VALID_FORWARD_TYPES:
-        raise BusinessError(f"Invalid source_type: {source_type}", 400)
+        raise BusinessError(f"Invalid source_type: {source_type}", code=ErrorCode.CLIENT_INVALID_SOURCE_TYPE)
 
     # 校验源实体存在且可访问
     source_title = ""
     if source_type == "space_post":
         source_post = await db.get(SpacePost, source_id)
         if source_post is None or source_post.is_deleted or source_post.is_private:
-            raise BusinessError("Source post not found or not accessible", 404)
+            raise BusinessError("Source post not found or not accessible", code=ErrorCode.SPACE_POST_SOURCE_NOT_FOUND)
         source_title = source_post.content or ""
         await db.execute(
             update(SpacePost)
@@ -219,7 +220,7 @@ async def forward_to_space(
     elif source_type == "music":
         music = await db.get(Music, source_id)
         if music is None or not music.is_published:
-            raise BusinessError("Music not found", 404)
+            raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
         source_title = music.title
         await db.execute(
             update(Music)
@@ -229,7 +230,7 @@ async def forward_to_space(
     elif source_type == "album":
         album = await db.get(Album, source_id)
         if album is None or album.is_deleted:
-            raise BusinessError("Album not found", 404)
+            raise BusinessError("Album not found", code=ErrorCode.ALBUM_NOT_FOUND)
         source_title = album.title
         await db.execute(
             update(Album)
@@ -239,7 +240,7 @@ async def forward_to_space(
     elif source_type == "playlist":
         playlist = await db.get(Playlist, source_id)
         if playlist is None:
-            raise BusinessError("Playlist not found", 404)
+            raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
         source_title = playlist.title
         await db.execute(
             update(Playlist)

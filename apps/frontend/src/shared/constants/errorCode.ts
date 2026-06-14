@@ -1,0 +1,189 @@
+/** 统一业务错误码枚举。
+ *
+ * 与后端 `echomemory_backend.core.exceptions.codes.ErrorCode` 保持数值一致。
+ * 错误码空间分层：
+ *   0      : 成功
+ *   1xxxx  : 业务规则错误（Business）
+ *   2xxxx  : 认证 / 授权错误（Auth）
+ *   3xxxx  : 外部 / 第三方服务错误（External）
+ *   4xxxx  : 客户端请求 / 校验错误（Client）
+ *   5xxxx  : 系统内部错误（System）
+ *   9xxxx  : 未知 / 兜底错误（Unknown）
+ */
+export enum ErrorCode {
+  // 0: 成功
+  SUCCESS = 0,
+
+  // 1xxxx: 业务规则错误（Business）
+  // 10000-10099: 用户账号
+  USER_USERNAME_EXISTS = 10001,
+  USER_EMAIL_EXISTS = 10002,
+  USER_PHONE_EXISTS = 10003,
+  USER_CREDENTIAL_EXISTS = 10004,
+  USER_EMAIL_OR_PHONE_EXISTS = 10005,
+  USER_NOT_FOUND = 10010,
+  CANNOT_FOLLOW_SELF = 10021,
+  ALREADY_FOLLOWING = 10022,
+  NOT_FOLLOWING = 10023,
+  CANNOT_BLOCK_SELF = 10024,
+  BLOCKED_BY_USER = 10025,
+
+  // 10100-10199: 音乐
+  MUSIC_NOT_FOUND = 10100,
+  MUSIC_ALREADY_IN_ALBUM = 10101,
+  MUSIC_BELONGS_TO_ANOTHER_ALBUM = 10102,
+  MUSIC_ALREADY_IN_PLAYLIST = 10103,
+  MUSIC_NOT_IN_PLAYLIST = 10104,
+  MUSIC_NOT_IN_USER_PLAYLISTS = 10105,
+  LYRICS_NOT_FOUND = 10110,
+
+  // 10200-10299: 专辑
+  ALBUM_NOT_FOUND = 10200,
+  ALBUM_AUTHOR_NOT_FOUND = 10201,
+
+  // 10300-10399: 歌单
+  PLAYLIST_NOT_FOUND = 10300,
+  PLAYLIST_SYSTEM_TITLE_IMMUTABLE = 10301,
+  PLAYLIST_SYSTEM_MUST_PRIVATE = 10302,
+  PLAYLIST_SYSTEM_NOT_DELETABLE = 10303,
+  CANNOT_COLLECT_OWN_PLAYLIST = 10310,
+
+  // 10400-10499: 评论
+  COMMENT_NOT_FOUND = 10400,
+  COMMENT_TARGET_NOT_FOUND = 10401,
+  COMMENT_PARENT_NOT_FOUND = 10402,
+  COMMENT_PARENT_TARGET_MISMATCH = 10403,
+
+  // 10500-10599: 空间动态
+  SPACE_POST_NOT_FOUND = 10500,
+  SPACE_POST_SOURCE_NOT_FOUND = 10501,
+
+  // 10600-10699: 字典
+  DICTIONARY_TYPE_INVALID = 10600,
+  DICTIONARY_ITEM_NOT_FOUND = 10601,
+  DICTIONARY_NAME_EXISTS = 10602,
+  DICTIONARY_ITEM_REFERENCED = 10603,
+
+  // 10700-10799: 通知
+  NOTIFICATION_NOT_FOUND = 10700,
+  NOTIFICATION_TARGET_TYPE_INVALID = 10701,
+
+  // 10800-10899: 私信
+  MESSAGE_CANNOT_WITH_SELF = 10800,
+  MESSAGE_CANNOT_TO_SELF = 10801,
+  MESSAGE_CONVERSATION_NOT_FOUND = 10802,
+  MESSAGE_RECIPIENT_NOT_FOUND = 10803,
+
+  // 10900-10999: AI 对话
+  AI_CONVERSATION_NOT_FOUND = 10900,
+  AI_CONVERSATION_PERMISSION_DENIED = 10901,
+
+  // 10950-10999: 管理员
+  ADMIN_CANNOT_MANAGE_USER = 10950,
+  ADMIN_CANNOT_CREATE_ROLE = 10951,
+  ADMIN_CANNOT_PROMOTE_SUPER_ADMIN = 10952,
+  ADMIN_USER_STATE_INVALID = 10953,
+  ADMIN_BAN_STATE_INVALID = 10954,
+
+  // 11000-11099: 播放历史
+  PLAY_HISTORY_NOT_FOUND = 11000,
+
+  // 11100-11199: 轮播图
+  CAROUSEL_ITEM_NOT_FOUND = 11100,
+
+  // 2xxxx: 认证 / 授权错误（Auth）
+  AUTH_CREDENTIALS_INVALID = 20001,
+  AUTH_ACCOUNT_DELETED = 20002,
+  AUTH_ACCOUNT_BANNED = 20003,
+  AUTH_REFRESH_TOKEN_INVALID = 20010,
+  AUTH_TOKEN_REVOKED = 20011,
+  AUTH_USER_NOT_FOUND = 20012,
+  AUTH_ACCOUNT_INACTIVE = 20020,
+  PERMISSION_DENIED = 20100,
+  ADMIN_PRIVILEGE_REQUIRED = 20101,
+
+  // 3xxxx: 外部 / 第三方服务错误（External）
+  EXTERNAL_AI_RESPONSE_FAILED = 30001,
+  EXTERNAL_LYRICS_LOAD_FAILED = 30002,
+  EXTERNAL_FILE_UPLOAD_FAILED = 30003,
+
+  // 4xxxx: 客户端请求 / 校验错误（Client）
+  CLIENT_INVALID_AUTHOR_ID = 40001,
+  CLIENT_INVALID_INSTRUMENT_ID = 40002,
+  CLIENT_INVALID_EMOTION_TAG_ID = 40003,
+  CLIENT_INVALID_INTEREST_TAG_ID = 40004,
+  CLIENT_INVALID_REFERENCE_IN_ALBUM = 40005,
+  CLIENT_INVALID_REFERENCE_IN_MUSIC = 40006,
+  CLIENT_INVALID_TARGET_TYPE = 40007,
+  CLIENT_INVALID_SOURCE_TYPE = 40008,
+  CLIENT_INVALID_RELEASE_DATE = 40011,
+  CLIENT_INVALID_RELEASE_DATE_FROM = 40012,
+  CLIENT_INVALID_RELEASE_DATE_TO = 40013,
+  CLIENT_NAME_REQUIRED = 40021,
+  CLIENT_COVER_FILE_REQUIRED = 40022,
+  CLIENT_CONTENT_OR_FILE_REQUIRED = 40023,
+  CLIENT_AUDIO_FILE_TYPE_INVALID = 40031,
+  CLIENT_FILE_MUST_BE_IMAGE = 40032,
+  CLIENT_INVALID_IMAGE_FILE = 40033,
+  CLIENT_CAROUSEL_REORDER_MISMATCH = 40041,
+  CLIENT_INVALID_REQUEST_PARAMETERS = 40050,
+  CLIENT_RATE_LIMIT_UPLOAD = 42901,
+  CLIENT_RATE_LIMIT_LOGIN = 42902,
+
+  // 5xxxx: 系统内部错误（System）
+  SYSTEM_INTERNAL_ERROR = 50001,
+  SYSTEM_CONVERSATION_CREATE_FAILED = 50002,
+
+  // 9xxxx: 未知 / 兜底错误（Unknown）
+  UNKNOWN_ERROR = 90001,
+  RESOURCE_NOT_FOUND = 90002,
+}
+
+/** 错误码分层标签。 */
+export type ErrorCodeLayer =
+  | "success"
+  | "business"
+  | "auth"
+  | "external"
+  | "client"
+  | "system"
+  | "unknown";
+
+/** 获取错误码所属分层。 */
+export function getErrorCodeLayer(code: ErrorCode | number): ErrorCodeLayer {
+  const value = Number(code);
+  if (value === 0) return "success";
+  if (value >= 10000 && value < 20000) return "business";
+  if (value >= 20000 && value < 30000) return "auth";
+  if (value >= 30000 && value < 40000) return "external";
+  if (value >= 40000 && value < 50000) return "client";
+  if (value >= 50000 && value < 60000) return "system";
+  return "unknown";
+}
+
+/** 获取错误码的简短中文说明（兜底）。 */
+export function getErrorCodeDescription(code: ErrorCode | number): string {
+  const value = Number(code);
+  switch (value) {
+    case ErrorCode.SUCCESS:
+      return "请求成功";
+    case ErrorCode.AUTH_CREDENTIALS_INVALID:
+      return "用户名或密码错误";
+    case ErrorCode.AUTH_ACCOUNT_DELETED:
+      return "账号已被删除";
+    case ErrorCode.AUTH_ACCOUNT_BANNED:
+      return "账号已被封禁";
+    case ErrorCode.AUTH_REFRESH_TOKEN_INVALID:
+      return "刷新令牌无效或已过期";
+    case ErrorCode.AUTH_TOKEN_REVOKED:
+      return "令牌已被吊销";
+    case ErrorCode.PERMISSION_DENIED:
+      return "权限不足";
+    case ErrorCode.SYSTEM_INTERNAL_ERROR:
+      return "系统内部错误";
+    case ErrorCode.UNKNOWN_ERROR:
+      return "未知错误";
+    default:
+      return "请求失败";
+  }
+}

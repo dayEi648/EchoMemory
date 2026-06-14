@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.exceptions.codes import ErrorCode
 from echomemory_backend.models.album import AlbumEmotionTag, AlbumInterestTag
 from echomemory_backend.models.dictionary import (
     EmotionTag,
@@ -21,7 +23,6 @@ from echomemory_backend.models.music import (
 from echomemory_backend.models.playlist import PlaylistEmotionTag, PlaylistInterestTag
 from echomemory_backend.models.user import User
 from echomemory_backend.models.user_tag import UserEmotionTag, UserInterestTag
-from echomemory_backend.core.exceptions.business import BusinessError
 
 # 字典类型到 ORM 模型的映射
 _MODEL_MAP = {
@@ -71,7 +72,7 @@ def _get_model(dictionary_type: str):
         raise BusinessError(
             f"Unknown dictionary type: {dictionary_type}. "
             f"Supported: {', '.join(_MODEL_MAP.keys())}",
-            400,
+            code=ErrorCode.DICTIONARY_TYPE_INVALID,
         )
     return model
 
@@ -89,7 +90,7 @@ async def create_dictionary_item(db: AsyncSession, dictionary_type: str, name: s
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError(f"Name already exists in {dictionary_type}", 409)
+        raise BusinessError(f"Name already exists in {dictionary_type}", code=ErrorCode.DICTIONARY_NAME_EXISTS)
     await db.refresh(item)
     return item
 
@@ -111,7 +112,7 @@ async def get_dictionary_item_by_id(db: AsyncSession, dictionary_type: str, item
     model = _get_model(dictionary_type)
     item = await db.get(model, item_id)
     if item is None:
-        raise BusinessError("Dictionary item not found", 404)
+        raise BusinessError("Dictionary item not found", code=ErrorCode.DICTIONARY_ITEM_NOT_FOUND)
     return item
 
 
@@ -153,14 +154,14 @@ async def update_dictionary_item(
     model = _get_model(dictionary_type)
     item = await db.get(model, item_id)
     if item is None:
-        raise BusinessError("Dictionary item not found", 404)
+        raise BusinessError("Dictionary item not found", code=ErrorCode.DICTIONARY_ITEM_NOT_FOUND)
 
     item.name = name
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError(f"Name already exists in {dictionary_type}", 409)
+        raise BusinessError(f"Name already exists in {dictionary_type}", code=ErrorCode.DICTIONARY_NAME_EXISTS)
     await db.refresh(item)
     return item
 
@@ -174,7 +175,7 @@ async def delete_dictionary_item(db: AsyncSession, dictionary_type: str, item_id
     model = _get_model(dictionary_type)
     item = await db.get(model, item_id)
     if item is None:
-        raise BusinessError("Dictionary item not found", 404)
+        raise BusinessError("Dictionary item not found", code=ErrorCode.DICTIONARY_ITEM_NOT_FOUND)
 
     # 检查引用关系
     ref_checks = _REF_CHECKS.get(dictionary_type, [])
@@ -186,8 +187,7 @@ async def delete_dictionary_item(db: AsyncSession, dictionary_type: str, item_id
         )
         if (await db.execute(stmt)).scalar_one_or_none() is not None:
             raise BusinessError(
-                f"Cannot delete: this item is referenced by {ref_name}", 409
-            )
+                f"Cannot delete: this item is referenced by {ref_name}", code=ErrorCode.DICTIONARY_ITEM_REFERENCED)
 
     await db.delete(item)
     await db.commit()

@@ -1,4 +1,5 @@
 """音乐相关 API 端点，提供管理员导入/修改/上下架及公开搜索/列表/详情查询接口。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import os
 import uuid
@@ -55,7 +56,7 @@ def _safe_ext(filename: str | None, default: str) -> str:
 # 管理员接口
 # ---------------------------------------------------------------------------
 
-@router.post("/admin/import", response_model=MusicOut, status_code=status.HTTP_201_CREATED)
+@router.post("/admin/import", response_model=MusicOut, status_code=HttpStatus.CREATED)
 async def import_music(
     db: SessionDep,
     admin: AdminUser,
@@ -87,20 +88,20 @@ async def import_music(
         f"upload_music:{admin.id}", max_requests=10, window_seconds=3600
     ):
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=HttpStatus.TOO_MANY_REQUESTS,
             detail="Too many upload requests, please try again later",
         )
 
     # ----- 文件类型校验 -----
     if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail=f"Invalid audio file type: {audio_file.content_type}",
         )
 
     if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover icon must be an image file",
         )
 
@@ -108,7 +109,7 @@ async def import_music(
         cover_home.content_type is None or not cover_home.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover home must be an image file",
         )
 
@@ -116,7 +117,7 @@ async def import_music(
         cover_play.content_type is None or not cover_play.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover play must be an image file",
         )
 
@@ -127,7 +128,7 @@ async def import_music(
             release_date_parsed = date.fromisoformat(release_date)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                 detail="release_date must be in YYYY-MM-DD format",
             ) from exc
 
@@ -222,7 +223,7 @@ async def admin_update_music(
             release_date_parsed = date.fromisoformat(release_date)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                 detail="release_date must be in YYYY-MM-DD format",
             ) from exc
 
@@ -241,7 +242,7 @@ async def admin_update_music(
         if audio_file is not None:
             if audio_file.content_type not in _ALLOWED_AUDIO_TYPES:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                     detail=f"Invalid audio file type: {audio_file.content_type}",
                 )
             new_file_url = await oss_client.upload_audio_to_oss(
@@ -256,7 +257,7 @@ async def admin_update_music(
         if cover_icon is not None:
             if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                     detail="Cover icon must be an image file",
                 )
             new_cover_icon_url = await oss_client.upload_image_to_oss(
@@ -455,7 +456,7 @@ async def list_musics(
             release_date_from_parsed = date.fromisoformat(release_date_from)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                 detail="release_date_from must be in YYYY-MM-DD format",
             ) from exc
     if release_date_to:
@@ -463,7 +464,7 @@ async def list_musics(
             release_date_to_parsed = date.fromisoformat(release_date_to)
         except ValueError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=HttpStatus.UNPROCESSABLE_ENTITY,
                 detail="release_date_to must be in YYYY-MM-DD format",
             ) from exc
 
@@ -499,7 +500,7 @@ async def get_music_lyrics(
     )
     if not music.lyrics_url:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lyrics not found"
+            status_code=HttpStatus.NOT_FOUND, detail="Lyrics not found"
         )
     cached = await get_cached_lyrics(music_id)
     if cached is not None:
@@ -509,7 +510,7 @@ async def get_music_lyrics(
         content = await oss_client.fetch_text_by_url(music.lyrics_url)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=HttpStatus.BAD_GATEWAY,
             detail="Failed to load lyrics",
         ) from exc
     await set_cached_lyrics(music_id, content)
@@ -526,7 +527,7 @@ async def get_music(
     music = await db.get(Music, music_id)
     if music is None or not _music_published(music):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Music not found"
+            status_code=HttpStatus.NOT_FOUND, detail="Music not found"
         )
 
     cached = await get_cached_music_detail(music_id)

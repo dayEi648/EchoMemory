@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createUserApi } from "./userApi";
 import { createMemoryTokenStore } from "../auth/tokenStore";
+import { ErrorCode } from "../constants/errorCode";
+import { HttpStatus } from "../constants/httpStatus";
+
+const envelope = <T,>(data: T) => ({ code: 0, msg: "success", data });
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
+    status: init.status ?? HttpStatus.OK,
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
 
@@ -19,11 +23,13 @@ describe("userApi", () => {
   it("stores both access token and refresh token after login", async () => {
     const tokenStore = createMemoryTokenStore();
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({
-        access_token: "access-token",
-        refresh_token: "refresh-token",
-        token_type: "bearer",
-      }),
+      jsonResponse(
+        envelope({
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+          token_type: "bearer",
+        }),
+      ),
     );
 
     const api = createUserApi({ baseUrl, fetcher: fetchMock, tokenStore });
@@ -45,11 +51,13 @@ describe("userApi", () => {
   it("sends city as a string field when registering", async () => {
     const tokenStore = createMemoryTokenStore();
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({
-        access_token: "access-token",
-        refresh_token: "refresh-token",
-        token_type: "bearer",
-      }),
+      jsonResponse(
+        envelope({
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+          token_type: "bearer",
+        }),
+      ),
     );
 
     const api = createUserApi({ baseUrl, fetcher: fetchMock, tokenStore });
@@ -72,8 +80,18 @@ describe("userApi", () => {
     tokenStore.set({ accessToken: "expired", refreshToken: "refresh" });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ detail: "expired" }, { status: 401 }))
-      .mockResolvedValueOnce(jsonResponse({ detail: "invalid" }, { status: 401 }));
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { code: ErrorCode.AUTH_CREDENTIALS_INVALID, msg: "expired", data: null },
+          { status: HttpStatus.UNAUTHORIZED },
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { code: ErrorCode.AUTH_REFRESH_TOKEN_INVALID, msg: "invalid", data: null },
+          { status: HttpStatus.UNAUTHORIZED },
+        ),
+      );
 
     const api = createUserApi({ baseUrl, fetcher: fetchMock, tokenStore });
 
@@ -90,20 +108,22 @@ describe("userApi", () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access-token", refreshToken: "refresh-token" });
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({
-        id: 1,
-        username: "alice",
-        nickname: "Alice",
-        gender: 1,
-        role: 0,
-        level: 0,
-        exp: 0,
-        city: "成都",
-        is_verified: false,
-        like_count: 0,
-        status: 0,
-        safety_score: 10,
-      }),
+      jsonResponse(
+        envelope({
+          id: 1,
+          username: "alice",
+          nickname: "Alice",
+          gender: 1,
+          role: 0,
+          level: 0,
+          exp: 0,
+          city: "成都",
+          is_verified: false,
+          like_count: 0,
+          status: 0,
+          safety_score: 10,
+        }),
+      ),
     );
 
     const api = createUserApi({ baseUrl, fetcher: fetchMock, tokenStore });

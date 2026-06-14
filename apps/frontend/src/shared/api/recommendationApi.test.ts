@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createRecommendationApi } from "./recommendationApi";
 import { createMemoryTokenStore } from "../auth/tokenStore";
+import { HttpStatus } from "../constants/httpStatus";
+
+const envelope = <T,>(data: T) => ({ code: 0, msg: "success", data });
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
+    status: init.status ?? HttpStatus.OK,
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
 
@@ -16,7 +19,7 @@ describe("recommendationApi", () => {
 
   it("requests daily recommendations with authentication", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [], total: 0 }),
+      jsonResponse(envelope({ items: [], total: 0 })),
     );
     tokenStore.set({ accessToken: "token", refreshToken: "rt" });
     const api = createRecommendationApi({
@@ -37,7 +40,7 @@ describe("recommendationApi", () => {
 
   it("requests radar recommendations with authentication", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [], total: 0 }),
+      jsonResponse(envelope({ items: [], total: 0 })),
     );
     tokenStore.set({ accessToken: "token", refreshToken: "rt" });
     const api = createRecommendationApi({
@@ -56,7 +59,7 @@ describe("recommendationApi", () => {
 
   it("includes limit and offset in playlist query", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [], total: 0 }),
+      jsonResponse(envelope({ items: [], total: 0 })),
     );
     const api = createRecommendationApi({
       baseUrl,
@@ -73,7 +76,7 @@ describe("recommendationApi", () => {
 
   it("defaults limit and offset for playlists", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [], total: 0 }),
+      jsonResponse(envelope({ items: [], total: 0 })),
     );
     const api = createRecommendationApi({
       baseUrl,
@@ -90,7 +93,7 @@ describe("recommendationApi", () => {
 
   it("includes limit in albums query", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [], total: 0 }),
+      jsonResponse(envelope({ items: [], total: 0 })),
     );
     const api = createRecommendationApi({
       baseUrl,
@@ -107,7 +110,7 @@ describe("recommendationApi", () => {
 
   it("requests chart without authentication", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [] }),
+      jsonResponse(envelope({ items: [] })),
     );
     tokenStore.clear();
     const api = createRecommendationApi({

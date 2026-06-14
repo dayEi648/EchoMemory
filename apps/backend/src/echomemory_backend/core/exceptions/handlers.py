@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.exceptions.codes import ErrorCode
 from echomemory_backend.schemas.response import error_body
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def _error_response(
     status_code: int,
     msg: str,
     *,
-    code: int | None = None,
+    code: ErrorCode | int | None = None,
 ) -> JSONResponse:
     """构造统一错误 JSON 响应。
 
@@ -69,7 +70,8 @@ async def http_exception_handler(
         msg = detail
     else:
         msg = str(detail)
-    return _error_response(exc.status_code, msg)
+    code = ErrorCode.from_status(exc.status_code)
+    return _error_response(exc.status_code, msg, code=code)
 
 
 async def validation_exception_handler(
@@ -84,7 +86,11 @@ async def validation_exception_handler(
     Returns:
         状态码为 422 的错误信封 JSONResponse。
     """
-    return _error_response(422, "Invalid request parameters")
+    return _error_response(
+        ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.http_status,
+        ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.description,
+        code=ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS,
+    )
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -98,4 +104,8 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         状态码为 500 的错误信封 JSONResponse，向客户端隐藏具体异常信息。
     """
     logger.exception("Unhandled exception: %s", exc)
-    return _error_response(500, "Internal server error")
+    return _error_response(
+        ErrorCode.SYSTEM_INTERNAL_ERROR.http_status,
+        ErrorCode.SYSTEM_INTERNAL_ERROR.description,
+        code=ErrorCode.SYSTEM_INTERNAL_ERROR,
+    )

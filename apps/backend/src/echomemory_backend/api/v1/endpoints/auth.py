@@ -1,4 +1,5 @@
 """认证相关 API 端点，提供用户注册、登录、Token 刷新、登出及当前用户信息查询。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from typing import Annotated
 
@@ -57,7 +58,7 @@ def _parse_user_create_form(
     )
 
 
-@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=HttpStatus.CREATED)
 async def register(
     db: SessionDep,
     user_in: Annotated[UserCreate, Depends(_parse_user_create_form)],
@@ -97,7 +98,7 @@ async def login(
         f"login:{client_ip}", max_requests=5, window_seconds=60
     ):
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=HttpStatus.TOO_MANY_REQUESTS,
             detail="Too many login attempts, please try again later",
         )
     return await authenticate_user(db, user_in.username, user_in.password)
@@ -109,7 +110,7 @@ async def refresh_token(db: SessionDep, data: TokenRefresh) -> Token:
     return await refresh_user_token(db, data.refresh_token)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=HttpStatus.NO_CONTENT)
 async def logout(data: TokenRefresh, token: TokenDep) -> None:
     """使 refresh token 失效，并将当前 access token 加入黑名单。"""
     await logout_user(data.refresh_token, token)

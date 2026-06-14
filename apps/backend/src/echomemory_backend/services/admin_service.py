@@ -1,4 +1,5 @@
 """管理员用户管理服务模块，提供用户列表查询、信息修改、封禁与解封等功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
@@ -92,17 +93,17 @@ def _assert_can_manage(admin: User, target: User) -> None:
     """
     # 统一禁止管理员对自己执行任何管理操作
     if target.id == admin.id:
-        raise BusinessError("无权操作该用户", 403)
+        raise BusinessError("无权操作该用户", code=ErrorCode.ADMIN_CANNOT_MANAGE_USER)
 
     if admin.role == UserRole.SUPER_ADMIN:
         if target.role == UserRole.SUPER_ADMIN:
-            raise BusinessError("无权操作该用户", 403)
+            raise BusinessError("无权操作该用户", code=ErrorCode.ADMIN_CANNOT_MANAGE_USER)
         return
     if admin.role == UserRole.ADMIN:
         if target.role >= UserRole.ADMIN:
-            raise BusinessError("无权操作该用户", 403)
+            raise BusinessError("无权操作该用户", code=ErrorCode.ADMIN_CANNOT_MANAGE_USER)
         return
-    raise BusinessError("无权操作该用户", 403)
+    raise BusinessError("无权操作该用户", code=ErrorCode.ADMIN_CANNOT_MANAGE_USER)
 
 
 async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdminCreate) -> User:
@@ -123,15 +124,15 @@ async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdmin
     """
     # 权限校验：管理员不能创建同级或更高级别用户
     if admin.role == UserRole.ADMIN and user_in.role >= UserRole.ADMIN:
-        raise BusinessError("无权创建该角色的用户", 403)
+        raise BusinessError("无权创建该角色的用户", code=ErrorCode.ADMIN_CANNOT_CREATE_ROLE)
 
     # 校验用户名/邮箱/手机唯一性
     if await get_user_by_username(db, user_in.username):
-        raise BusinessError("用户名已被注册", 409)
+        raise BusinessError("用户名已被注册", code=ErrorCode.USER_USERNAME_EXISTS)
     if user_in.email and await get_user_by_email(db, user_in.email):
-        raise BusinessError("邮箱已被注册", 409)
+        raise BusinessError("邮箱已被注册", code=ErrorCode.USER_EMAIL_EXISTS)
     if user_in.phone and await get_user_by_phone(db, user_in.phone):
-        raise BusinessError("手机号已被注册", 409)
+        raise BusinessError("手机号已被注册", code=ErrorCode.USER_PHONE_EXISTS)
 
     password_hash = get_password_hash(user_in.password)
 
@@ -158,7 +159,7 @@ async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdmin
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("用户名、邮箱或手机号已被注册", 409)
+        raise BusinessError("用户名、邮箱或手机号已被注册", code=ErrorCode.USER_CREDENTIAL_EXISTS)
     await db.refresh(user)
     await invalidate_dashboard_stats()
     return user
@@ -183,7 +184,7 @@ async def update_user_as_admin(
     """
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     _assert_can_manage(admin, user)
 
@@ -193,7 +194,7 @@ async def update_user_as_admin(
         and user_in.role == UserRole.SUPER_ADMIN
         and admin.role != UserRole.SUPER_ADMIN
     ):
-        raise BusinessError("Cannot promote user to super-admin", 403)
+        raise BusinessError("Cannot promote user to super-admin", code=ErrorCode.ADMIN_CANNOT_PROMOTE_SUPER_ADMIN)
 
     # 记录是否修改了影响账户可用性的字段
     should_invalidate_tokens = False
@@ -207,12 +208,12 @@ async def update_user_as_admin(
     if user_in.email is not None and user_in.email != user.email:
         from echomemory_backend.services.user_service import get_user_by_email
         if await get_user_by_email(db, user_in.email):
-            raise BusinessError("邮箱已被注册", 409)
+            raise BusinessError("邮箱已被注册", code=ErrorCode.USER_EMAIL_EXISTS)
         user.email = user_in.email
     if user_in.phone is not None and user_in.phone != user.phone:
         from echomemory_backend.services.user_service import get_user_by_phone
         if await get_user_by_phone(db, user_in.phone):
-            raise BusinessError("手机号已被注册", 409)
+            raise BusinessError("手机号已被注册", code=ErrorCode.USER_PHONE_EXISTS)
         user.phone = user_in.phone
     if user_in.gender is not None and user_in.gender != user.gender:
         user.gender = user_in.gender
@@ -252,7 +253,7 @@ async def update_user_as_admin(
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("Invalid user state combination", 400)
+        raise BusinessError("Invalid user state combination", code=ErrorCode.ADMIN_USER_STATE_INVALID)
     await db.refresh(user)
 
     # 若修改了 status 或 role，强制该用户所有 token 失效
@@ -282,7 +283,7 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
     """
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     _assert_can_manage(admin, user)
 
@@ -298,7 +299,7 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise BusinessError("Invalid ban state or duration", 400)
+        raise BusinessError("Invalid ban state or duration", code=ErrorCode.ADMIN_BAN_STATE_INVALID)
     await db.refresh(user)
 
     # 封禁后强制该用户所有 token 失效
@@ -322,7 +323,7 @@ async def unban_user(db: AsyncSession, admin: User, target_user_id: int) -> User
     """
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     _assert_can_manage(admin, user)
 
@@ -351,7 +352,7 @@ async def get_user_full(db: AsyncSession, admin: User, target_user_id: int) -> U
     """
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     _assert_can_manage(admin, user)
     return user
@@ -373,7 +374,7 @@ async def hard_delete_user(db: AsyncSession, admin: User, target_user_id: int) -
     """
     user = await get_user_by_id(db, target_user_id)
     if not user or user.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     _assert_can_manage(admin, user)
 

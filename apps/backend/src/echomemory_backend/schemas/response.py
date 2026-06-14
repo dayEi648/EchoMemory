@@ -4,23 +4,11 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
+from echomemory_backend.core.exceptions.codes import ErrorCode
+
 # 成功响应固定业务码
 API_SUCCESS_CODE = 0
 API_SUCCESS_MSG = "success"
-
-# HTTP 状态码到默认业务错误码的映射（status * 100 + 1）
-_DEFAULT_ERROR_CODE_BY_STATUS: dict[int, int] = {
-    400: 40001,
-    401: 40101,
-    403: 40301,
-    404: 40401,
-    409: 40901,
-    422: 42201,
-    429: 42901,
-    500: 50001,
-    502: 50201,
-    503: 50301,
-}
 
 T = TypeVar("T")
 
@@ -46,9 +34,9 @@ def default_error_code(status_code: int) -> int:
         status_code: HTTP 状态码。
 
     Returns:
-        对应的默认业务错误码；未映射时返回 ``status_code * 100 + 1``。
+        对应的默认业务错误码数值。
     """
-    return _DEFAULT_ERROR_CODE_BY_STATUS.get(status_code, status_code * 100 + 1)
+    return ErrorCode.from_status(status_code).value
 
 
 def is_envelope(payload: Any) -> bool:
@@ -79,22 +67,29 @@ def ok(data: Any = None, msg: str = API_SUCCESS_MSG) -> dict[str, Any]:
 def error_body(
     msg: str,
     *,
-    status_code: int = 400,
-    code: int | None = None,
+    code: ErrorCode | int | None = None,
+    status_code: int | None = None,
     data: Any = None,
 ) -> dict[str, Any]:
     """构造失败响应信封字典。
 
     Args:
         msg: 错误提示信息。
-        status_code: HTTP 状态码，用于推导默认业务错误码。
-        code: 可选的自定义业务错误码。
+        code: 业务错误码；为空时根据 ``status_code`` 推导。
+        status_code: HTTP 状态码，用于在 ``code`` 为空时推导默认业务错误码。
         data: 可选的附加错误详情。
 
     Returns:
         包含 code、msg、data 的字典。
     """
-    resolved_code = code if code is not None else default_error_code(status_code)
+    if code is None:
+        if status_code is None:
+            status_code = ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.http_status
+        resolved_code = default_error_code(status_code)
+    elif isinstance(code, ErrorCode):
+        resolved_code = code.value
+    else:
+        resolved_code = int(code)
     return {"code": resolved_code, "msg": msg, "data": data}
 
 

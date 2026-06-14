@@ -1,4 +1,5 @@
 """专辑相关 API 端点，提供管理员专辑管理接口与公开查询接口。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
@@ -34,7 +35,7 @@ def _album_not_deleted(album: Album) -> bool:
 # 管理员接口
 # ---------------------------------------------------------------------------
 
-@router.post("/admin", response_model=AlbumOut, status_code=status.HTTP_201_CREATED)
+@router.post("/admin", response_model=AlbumOut, status_code=HttpStatus.CREATED)
 async def create_album(
     db: SessionDep,
     _: AdminUser,
@@ -53,12 +54,12 @@ async def create_album(
     # 文件类型校验
     if cover_icon.content_type is None or not cover_icon.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover icon must be an image file",
         )
     if cover.content_type is None or not cover.content_type.startswith("image/"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover must be an image file",
         )
 
@@ -161,7 +162,7 @@ async def admin_update_album_covers(
 
     if cover_icon is None and cover is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="At least one cover file must be provided",
         )
 
@@ -169,14 +170,14 @@ async def admin_update_album_covers(
         cover_icon.content_type is None or not cover_icon.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover icon must be an image file",
         )
     if cover is not None and (
         cover.content_type is None or not cover.content_type.startswith("image/")
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Cover must be an image file",
         )
 
@@ -215,7 +216,7 @@ async def admin_update_album_covers(
     return album
 
 
-@router.delete("/admin/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/admin/{album_id}", status_code=HttpStatus.NO_CONTENT)
 async def admin_delete_album(
     db: SessionDep,
     _: AdminUser,
@@ -237,7 +238,7 @@ async def admin_delete_album(
 @router.post(
     "/admin/{album_id}/musics/{music_id}",
     response_model=AlbumOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=HttpStatus.CREATED,
 )
 async def add_music_to_album(
     db: SessionDep,
@@ -262,7 +263,7 @@ async def add_music_to_album(
 
 @router.delete(
     "/admin/{album_id}/musics/{music_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=HttpStatus.NO_CONTENT,
 )
 async def remove_music_from_album(
     db: SessionDep,
@@ -332,7 +333,7 @@ async def get_album(
     album = await db.get(Album, album_id)
     if album is None or not _album_not_deleted(album):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
+            status_code=HttpStatus.NOT_FOUND, detail="Album not found"
         )
 
     cached = await get_cached_album_detail(album_id)

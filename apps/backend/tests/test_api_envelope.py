@@ -7,6 +7,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.responses import Response
 
+from echomemory_backend.core.exceptions.codes import ErrorCode
 from echomemory_backend.main import app
 from tests.api_helpers import api_body, api_data, api_error, api_msg
 
@@ -99,7 +100,7 @@ class TestApiEnvelope:
         )
         assert resp.status_code == 401
         body = api_error(resp)
-        assert body["code"] == 40101
+        assert body["code"] == ErrorCode.AUTH_CREDENTIALS_INVALID.value
         assert body["data"] is None
         assert api_msg(resp) == body["msg"]
 
@@ -136,7 +137,7 @@ class TestApiEnvelope:
         resp = client.get("/api/v1/__test_raw_error")
         assert resp.status_code == 400
         body = api_error(resp)
-        assert body["code"] == 40001
+        assert body["code"] == ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.value
         assert body["data"] is None
         assert api_msg(resp) == "raw error"
 
@@ -171,15 +172,15 @@ class TestApiEnvelope:
             resp = subclient.get("/api/v1/__test_exc")
         assert resp.status_code == 500
         body = api_error(resp)
-        assert body["code"] == 50001
-        assert "Internal server error" in api_msg(resp)
+        assert body["code"] == ErrorCode.SYSTEM_INTERNAL_ERROR.value
+        assert ErrorCode.SYSTEM_INTERNAL_ERROR.description in api_msg(resp)
 
     async def test_http_exception_with_non_string_detail(self, client: TestClient):
         """HTTPException 的 detail 为非字符串时，应被序列化为字符串。"""
         resp = client.get("/api/v1/__test_http_exc")
         assert resp.status_code == 400
         body = api_error(resp)
-        assert body["code"] == 40001
+        assert body["code"] == ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.value
         assert api_msg(resp) == str({"field": "bad"})
 
     async def test_validation_error_envelope(self, client: TestClient):
@@ -190,7 +191,7 @@ class TestApiEnvelope:
         )
         assert resp.status_code == 422
         body = api_error(resp)
-        assert body["code"] == 42201
+        assert body["code"] == ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.value
         assert body["data"] is None
 
     async def test_openapi_and_docs_disabled(self, client: TestClient):

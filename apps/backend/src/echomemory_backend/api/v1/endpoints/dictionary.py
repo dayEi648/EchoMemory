@@ -1,4 +1,5 @@
 """字典管理 API 路由端点，提供字典项的创建、查询、更新与删除接口。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -14,7 +15,7 @@ from echomemory_backend.services import dictionary_service
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
 
-@router.post("/{dictionary_type}", response_model=DictionaryItemOut, status_code=status.HTTP_201_CREATED)
+@router.post("/{dictionary_type}", response_model=DictionaryItemOut, status_code=HttpStatus.CREATED)
 async def create_dictionary_item(
     db: SessionDep,
     _: AdminUser,
@@ -65,7 +66,7 @@ async def update_dictionary_item(
     """管理员：更新字典项名称。"""
     if item_in.name is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Name is required for update",
         )
     return await dictionary_service.update_dictionary_item(
@@ -73,7 +74,7 @@ async def update_dictionary_item(
     )
 
 
-@router.delete("/{dictionary_type}/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{dictionary_type}/{item_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_dictionary_item(
     db: SessionDep,
     _: AdminUser,

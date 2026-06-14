@@ -1,4 +1,5 @@
 """评论相关 API 端点，提供评论的增删查及互动（点赞/点踩）功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -21,7 +22,7 @@ async def list_replies(
     return await comment_service.build_comment_outs(db, replies, viewer_id)
 
 
-@router.post("/", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=CommentOut, status_code=HttpStatus.CREATED)
 async def create_comment(
     db: SessionDep,
     current_user: ActiveUser,
@@ -64,7 +65,7 @@ async def list_comments(
     return PaginatedCommentOut(items=items, total=result["total"])
 
 
-@router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{comment_id}", status_code=HttpStatus.NO_CONTENT)
 async def delete_comment(
     db: SessionDep,
     current_user: ActiveUser,
@@ -75,7 +76,7 @@ async def delete_comment(
     return None
 
 
-@router.post("/{comment_id}/like", status_code=status.HTTP_201_CREATED)
+@router.post("/{comment_id}/like", status_code=HttpStatus.CREATED)
 async def like_comment(
     db: SessionDep,
     current_user: ActiveUser,
@@ -86,7 +87,7 @@ async def like_comment(
     return None
 
 
-@router.delete("/{comment_id}/like", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{comment_id}/like", status_code=HttpStatus.NO_CONTENT)
 async def unlike_comment(
     db: SessionDep,
     current_user: ActiveUser,
@@ -97,7 +98,7 @@ async def unlike_comment(
     return None
 
 
-@router.post("/{comment_id}/dislike", status_code=status.HTTP_201_CREATED)
+@router.post("/{comment_id}/dislike", status_code=HttpStatus.CREATED)
 async def dislike_comment(
     db: SessionDep,
     current_user: ActiveUser,
@@ -108,7 +109,7 @@ async def dislike_comment(
     return None
 
 
-@router.delete("/{comment_id}/dislike", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{comment_id}/dislike", status_code=HttpStatus.NO_CONTENT)
 async def undislike_comment(
     db: SessionDep,
     current_user: ActiveUser,

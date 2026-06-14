@@ -5,6 +5,7 @@
 """
 
 from __future__ import annotations
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 from typing import Any, AsyncIterator
@@ -223,9 +224,9 @@ async def get_conversation(
     """
     conversation = await db.get(AIConversation, conversation_id)
     if conversation is None or conversation.user_id != user_id:
-        raise BusinessError("Conversation not found", 404)
+        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
     if conversation.status == AIConversationStatus.DELETED:
-        raise BusinessError("Conversation not found", 404)
+        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
     return conversation
 
 
@@ -286,7 +287,7 @@ async def send_message(
         BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
     if user_id != conversation.user_id:
-        raise BusinessError("Permission denied", 403)
+        raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
@@ -299,14 +300,14 @@ async def send_message(
     )
     messages: list[BaseMessage] = final_state.get("messages", [])
     if not messages:
-        raise BusinessError("Failed to get AI response", 500)
+        raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
 
     await ai_cache_module.invalidate_messages(conversation.id)
     await ai_cache_module.invalidate_conversation_list(conversation.user_id)
 
     ai_message = messages[-1]
     if not isinstance(ai_message, AIMessage):
-        raise BusinessError("Failed to get AI response", 500)
+        raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
     return AIConversationMessageOut(**_message_to_dict(ai_message))
 
 
@@ -335,7 +336,7 @@ async def stream_message(
         BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
     if user_id != conversation.user_id:
-        raise BusinessError("Permission denied", 403)
+        raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
@@ -387,7 +388,7 @@ async def delete_conversation(
         BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
     if user_id != conversation.user_id:
-        raise BusinessError("Permission denied", 403)
+        raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     conversation.status = AIConversationStatus.DELETED
     await db.commit()

@@ -2,6 +2,7 @@
 
 提供歌单的创建、查询、更新、删除，以及歌曲在歌单中的添加与移除等操作。
 """
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import delete, desc, exists, func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -404,9 +405,9 @@ async def update_playlist(
     """
     if playlist.is_like:
         if title is not None and title != playlist.title:
-            raise BusinessError("系统歌单不可修改标题", 403)
+            raise BusinessError("系统歌单不可修改标题", code=ErrorCode.PLAYLIST_SYSTEM_TITLE_IMMUTABLE)
         if is_private is not None and not is_private:
-            raise BusinessError("系统歌单必须保持私密", 403)
+            raise BusinessError("系统歌单必须保持私密", code=ErrorCode.PLAYLIST_SYSTEM_MUST_PRIVATE)
 
     if title is not None:
         playlist.title = title
@@ -437,7 +438,7 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
         BusinessError: 系统喜欢歌单不可删除时抛出，状态码 403。
     """
     if playlist.is_like:
-        raise BusinessError("系统歌单不可删除", 403)
+        raise BusinessError("系统歌单不可删除", code=ErrorCode.PLAYLIST_SYSTEM_NOT_DELETABLE)
 
     # 若 musics 关系已预加载，显式删除关联条目以避免 ORM 级联冲突
     if "musics" not in sa_inspect(playlist).unloaded:
@@ -470,11 +471,11 @@ async def add_music_to_playlist(
     """
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
-        raise BusinessError("Music not found", 404)
+        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
 
     existing = await db.get(PlaylistMusic, (playlist_id, music_id))
     if existing is not None:
-        raise BusinessError("Music already in playlist", 409)
+        raise BusinessError("Music already in playlist", code=ErrorCode.MUSIC_ALREADY_IN_PLAYLIST)
 
     stmt = select(func.max(PlaylistMusic.ordinal)).where(
         PlaylistMusic.playlist_id == playlist_id
@@ -536,7 +537,7 @@ async def remove_music_from_playlist(
     """
     playlist_music = await db.get(PlaylistMusic, (playlist_id, music_id))
     if playlist_music is None:
-        raise BusinessError("Music not found in playlist", 404)
+        raise BusinessError("Music not found in playlist", code=ErrorCode.MUSIC_NOT_FOUND)
 
     await db.delete(playlist_music)
     await db.flush()

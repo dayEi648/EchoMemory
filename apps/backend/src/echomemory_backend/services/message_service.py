@@ -1,4 +1,5 @@
 """私信业务服务模块，提供会话查询/创建、消息发送/分页、用户屏蔽等核心操作。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 import logging
 
@@ -79,12 +80,12 @@ async def _get_or_create_conversation(
         # 并发场景下被另一事务抢先插入，回查
         existing = await _get_conversation_pair(db, user_a, user_b)
         if existing is None:
-            raise BusinessError("Failed to create conversation", 500)
+            raise BusinessError("Failed to create conversation", code=ErrorCode.SYSTEM_CONVERSATION_CREATE_FAILED)
         return existing
     await db.flush()
     conversation = await db.get(Conversation, inserted_id)
     if conversation is None:
-        raise BusinessError("Failed to create conversation", 500)
+        raise BusinessError("Failed to create conversation", code=ErrorCode.SYSTEM_CONVERSATION_CREATE_FAILED)
     return conversation
 
 
@@ -124,10 +125,10 @@ async def block_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> None
         BusinessError: 自我屏蔽或目标用户不存在时抛出 400/404。
     """
     if blocker_id == blocked_id:
-        raise BusinessError("Cannot block yourself", 400)
+        raise BusinessError("Cannot block yourself", code=ErrorCode.CANNOT_BLOCK_SELF)
     target = await db.get(User, blocked_id)
     if target is None or target.is_deleted:
-        raise BusinessError("User not found", 404)
+        raise BusinessError("User not found", code=ErrorCode.USER_NOT_FOUND)
 
     db.add(UserBlock(blocker_id=blocker_id, blocked_id=blocked_id))
     try:
@@ -175,12 +176,12 @@ async def send_message(
         BusinessError: 自我发送、目标用户不存在或被对方屏蔽时抛出 400/403/404。
     """
     if sender_id == recipient_id:
-        raise BusinessError("Cannot send message to yourself", 400)
+        raise BusinessError("Cannot send message to yourself", code=ErrorCode.MESSAGE_CANNOT_TO_SELF)
     recipient = await db.get(User, recipient_id)
     if recipient is None or recipient.is_deleted:
-        raise BusinessError("Recipient not found", 404)
+        raise BusinessError("Recipient not found", code=ErrorCode.MESSAGE_RECIPIENT_NOT_FOUND)
     if await is_blocked(db, recipient_id, sender_id):
-        raise BusinessError("You have been blocked by this user", 403)
+        raise BusinessError("You have been blocked by this user", code=ErrorCode.BLOCKED_BY_USER)
 
     conversation = await _get_or_create_conversation(db, sender_id, recipient_id)
 
@@ -321,7 +322,7 @@ async def list_messages(
         conversation.user1_id,
         conversation.user2_id,
     ):
-        raise BusinessError("Conversation not found", 404)
+        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
 
     where_clause = DirectMessage.conversation_id == conversation_id
     stmt = (
@@ -361,7 +362,7 @@ async def mark_conversation_read(
         conversation.user1_id,
         conversation.user2_id,
     ):
-        raise BusinessError("Conversation not found", 404)
+        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
 
     field = (
         Conversation.user1_unread_count
