@@ -7,9 +7,15 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.ai.llm import _filter_llm_messages
+from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
+from echomemory_backend.ai.langchain.deepseek_chat import _filter_llm_messages
 from echomemory_backend.core.config import settings
+from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.models.ai_conversation import AIConversation, AIConversationStatus
+from echomemory_backend.models.user import User
+from echomemory_backend.services import ai_conversation_service
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 AI_CONVERSATIONS_URL = "/api/v1/ai/conversations"
@@ -28,6 +34,19 @@ def _register_and_login(client: TestClient, username: str) -> str:
     )
     assert resp.status_code == 200
     return resp.json()["access_token"]
+
+
+async def _create_user(db_session: AsyncSession, username: str) -> User:
+    """在数据库中直接创建测试用户，返回 User 实例。"""
+    user = User(
+        username=username,
+        password_hash="hashed-secret",
+        nickname=username,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
 
 
 class TestAIConversationCreate:
@@ -338,3 +357,72 @@ class TestContextTrimming:
             assert result[1].content == "msg3"
         finally:
             settings.ai_max_context_messages = original_max
+
+
+class TestAIConversationServiceSecurity:
+    """测试 AI 对话服务层的权限校验与状态用户隔离。"""
+
+    async def test_send_message_rejects_wrong_user_id(
+        self,
+        db_session: AsyncSession,
+        fake_ai_checkpointer,
+        fake_deepseek_client,
+        fake_ai_cache,
+    ):
+        """服务层显式校验 user_id，禁止用他人身份发送消息。"""
+        owner = await _create_user(db_session, "owner")
+        attacker = await _create_user(db_session, "attacker")
+        conversation, _ = await ai_conversation_service.create_conversation(
+            db_session, user_id=owner.id, title="owner-conv"
+        )
+
+        with pytest.raises(BusinessError) as exc_info:
+            await ai_conversation_service.send_message(
+                db_session,
+                user_id=attacker.id,
+                conversation=conversation,
+                content="你好",
+            )
+        assert exc_info.value.status_code == 403
+
+    async def test_user_id_persists_in_graph_state(
+        self,
+        db_session: AsyncSession,
+        fake_ai_checkpointer,
+        fake_deepseek_client,
+        fake_ai_cache,
+    ):
+        """创建会话后，user_id 应写入 LangGraph checkpoint 状态。"""
+        user = await _create_user(db_session, "state_owner")
+        conversation, _ = await ai_conversation_service.create_conversation(
+            db_session, user_id=user.id, first_message="你好"
+        )
+
+        graph = build_graph(conversation.model)
+        config = get_thread_config(conversation.thread_id)
+        state = await graph.aget_state(config)
+
+        assert state is not None
+        assert state.values.get("user_id") == user.id
+
+    async def test_delete_conversation_rejects_wrong_user_id(
+        self,
+        db_session: AsyncSession,
+        fake_ai_checkpointer,
+        fake_deepseek_client,
+        fake_ai_cache,
+    ):
+        """服务层显式校验 user_id，禁止用他人身份删除会话。"""
+        owner = await _create_user(db_session, "delete_owner")
+        attacker = await _create_user(db_session, "delete_attacker")
+        conversation, _ = await ai_conversation_service.create_conversation(
+            db_session, user_id=owner.id, title="owner-conv"
+        )
+
+        with pytest.raises(BusinessError) as exc_info:
+            await ai_conversation_service.delete_conversation(
+                db_session,
+                user_id=attacker.id,
+                conversation=conversation,
+            )
+        assert exc_info.value.status_code == 403

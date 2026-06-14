@@ -46,16 +46,29 @@
 │   │   │       │       ├── common.py       # 通用工具（如 ISO 8601 duration 解析）
 │   │   │       │       ├── image_utils.py  # 图片压缩与格式转换
 │   │   │       │       └── seed_data.py    # 字典表种子数据管理
-│   │   │       ├── ai/             # AI 对话基础设施
+│   │   │       ├── ai/             # AI 基础设施
 │   │   │       │   ├── __init__.py
-│   │   │       │   ├── cache.py            # AI 对话 Redis 缓存
-│   │   │       │   ├── checkpointer.py     # LangGraph Postgres Checkpointer 生命周期
-│   │   │       │   ├── graph.py            # LangGraph 状态图定义
-│   │   │       │   ├── llm.py              # LangChain 兼容 DeepSeek 封装
-│   │   │       │   ├── llm_client.py       # DeepSeek 异步/同步客户端
-│   │   │       │   ├── prompts.py          # 提示词加载器
-│   │   │       │   └── prompts/
-│   │   │       │       └── system.md       # 系统提示词
+│   │   │       │   ├── clients/            # 底层 LLM HTTP 客户端
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── deepseek.py     # DeepSeek 异步/同步客户端
+│   │   │       │   ├── langchain/          # LangChain 兼容模型/适配器
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── deepseek_chat.py # DeepSeek ChatModel 适配器
+│   │   │       │   ├── tools/              # 跨 Graph/Chain 复用的工具
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   └── ...             # 未来：music.py, playlist.py 等
+│   │   │       │   └── graphs/             # LangGraph 工作流与共享设施
+│   │   │       │       ├── __init__.py
+│   │   │       │       ├── checkpointer.py # Postgres Checkpointer 生命周期
+│   │   │       │       └── conversation/   # AI 对话工作流
+│   │   │       │           ├── __init__.py
+│   │   │       │           ├── state.py    # 对话状态定义
+│   │   │       │           ├── nodes/      # 普通节点目录
+│   │   │       │           │   ├── __init__.py
+│   │   │       │           │   └── chatbot.py
+│   │   │       │           ├── builder.py  # 状态图构建器
+│   │   │       │           ├── cache.py    # 对话 Redis 缓存
+│   │   │       │           └── prompts.py  # 对话提示词常量
 │   │   │       ├── api/            # API 层
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── deps.py     # FastAPI 依赖注入（SessionDep、CurrentUser 等）

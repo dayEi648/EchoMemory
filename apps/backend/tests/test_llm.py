@@ -8,12 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from echomemory_backend.core.config import settings
-from echomemory_backend.ai.llm_client import (
+from echomemory_backend.ai.clients.deepseek import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_TEMPERATURE,
     REASONING_EFFORT,
-    STREAM_OPTIONS_INCLUDE_USAGE,
-    THINKING_EXTRA_BODY,
+    THINKING_TYPE,
     ChatMessage,
     ChatResponse,
     DeepSeekClient,
@@ -70,7 +69,7 @@ def test_pro_request_enables_thinking():
 
     assert body["model"] == "deepseek-v4-pro"
     assert body["reasoning_effort"] == REASONING_EFFORT
-    assert body["extra_body"] == THINKING_EXTRA_BODY
+    assert body["extra_body"] == {"thinking": {"type": THINKING_TYPE}}
 
 
 def test_flash_request_disables_thinking():
@@ -91,7 +90,7 @@ def test_stream_request_includes_usage_option():
     body = client._build_request(messages, temperature=DEFAULT_TEMPERATURE, max_tokens=128, stream=True)
 
     assert body["stream"] is True
-    assert body["stream_options"] == STREAM_OPTIONS_INCLUDE_USAGE
+    assert body["stream_options"] == {"include_usage": True}
 
 
 async def test_chat_returns_parsed_response():

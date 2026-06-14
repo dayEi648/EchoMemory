@@ -34,11 +34,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from echomemory_backend.ai import checkpointer as ai_checkpointer
-from echomemory_backend.ai import llm as ai_llm
+from echomemory_backend.ai import langchain as ai_langchain
+from echomemory_backend.ai.clients.deepseek import ChatResponse
+from echomemory_backend.ai.graphs import checkpointer as ai_checkpointer
+from echomemory_backend.ai.graphs.conversation import cache as ai_cache_module
 from echomemory_backend.api.deps import get_db
 from echomemory_backend.core.clients import redis_client as rc
-from echomemory_backend.ai.llm_client import ChatResponse
 from echomemory_backend.core.utils.seed_data import get_dictionary_seed_sql
 from echomemory_backend.db.base import Base
 from echomemory_backend.main import app
@@ -183,15 +184,13 @@ def fake_deepseek_client(monkeypatch):
             for text in ["你好", "，", "我是", " AI 助手。"]:
                 yield ChatResponse(content=text, model=self.model)
 
-    monkeypatch.setattr(ai_llm, "DeepSeekClient", _FakeDeepSeekClient)
+    monkeypatch.setattr(ai_langchain.deepseek_chat, "DeepSeekClient", _FakeDeepSeekClient)
     yield _FakeDeepSeekClient
 
 
 @pytest.fixture
 def fake_ai_cache(monkeypatch):
     """使用内存字典替代 Redis 缓存 AI 会话相关数据，避免 FakeRedis 事件循环冲突。"""
-    from echomemory_backend import ai as ai_module
-
     _store: dict[str, Any] = {}
 
     async def _get_conversation_list(user_id: int):
@@ -212,12 +211,12 @@ def fake_ai_cache(monkeypatch):
     async def _invalidate_messages(conversation_id: int):
         _store.pop(f"msgs:{conversation_id}", None)
 
-    monkeypatch.setattr(ai_module.cache, "get_conversation_list", _get_conversation_list)
-    monkeypatch.setattr(ai_module.cache, "set_conversation_list", _set_conversation_list)
-    monkeypatch.setattr(ai_module.cache, "invalidate_conversation_list", _invalidate_conversation_list)
-    monkeypatch.setattr(ai_module.cache, "get_messages", _get_messages)
-    monkeypatch.setattr(ai_module.cache, "set_messages", _set_messages)
-    monkeypatch.setattr(ai_module.cache, "invalidate_messages", _invalidate_messages)
+    monkeypatch.setattr(ai_cache_module, "get_conversation_list", _get_conversation_list)
+    monkeypatch.setattr(ai_cache_module, "set_conversation_list", _set_conversation_list)
+    monkeypatch.setattr(ai_cache_module, "invalidate_conversation_list", _invalidate_conversation_list)
+    monkeypatch.setattr(ai_cache_module, "get_messages", _get_messages)
+    monkeypatch.setattr(ai_cache_module, "set_messages", _set_messages)
+    monkeypatch.setattr(ai_cache_module, "invalidate_messages", _invalidate_messages)
     yield _store
 
 

@@ -20,9 +20,9 @@ from langchain_core.messages import (
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.ai.graph import build_graph, get_thread_config
-from echomemory_backend.ai.prompts import get_system_prompt
-from echomemory_backend.ai import cache as ai_cache_module
+from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
+from echomemory_backend.ai.graphs.conversation import cache as ai_cache_module
+from echomemory_backend.ai.graphs.conversation.prompts import get_system_prompt
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.models.ai_conversation import AIConversation, AIConversationStatus
@@ -128,7 +128,10 @@ async def create_conversation(
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
     await graph.ainvoke(
-        {"messages": [SystemMessage(content=get_system_prompt())]},
+        {
+            "messages": [SystemMessage(content=get_system_prompt())],
+            "user_id": user_id,
+        },
         config,
     )
 
@@ -136,7 +139,9 @@ async def create_conversation(
 
     ai_reply: AIConversationMessageOut | None = None
     if first_message:
-        ai_reply = await send_message(db, conversation=conversation, content=first_message)
+        ai_reply = await send_message(
+            db, user_id=user_id, conversation=conversation, content=first_message
+        )
 
     return conversation, ai_reply
 
@@ -262,6 +267,7 @@ async def get_messages(
 async def send_message(
     db: AsyncSession,
     *,
+    user_id: int,
     conversation: AIConversation,
     content: str,
 ) -> AIConversationMessageOut:
@@ -269,16 +275,26 @@ async def send_message(
 
     参数:
         db: SQLAlchemy 异步 Session。
+        user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
         conversation: AIConversation 实例。
         content: 用户消息内容。
 
     返回:
         AI 回复消息输出。
+
+    异常:
+        BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
+    if user_id != conversation.user_id:
+        raise BusinessError("Permission denied", 403)
+
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
     final_state = await graph.ainvoke(
-        {"messages": [HumanMessage(content=content)]},
+        {
+            "messages": [HumanMessage(content=content)],
+            "user_id": user_id,
+        },
         config,
     )
     messages: list[BaseMessage] = final_state.get("messages", [])
@@ -297,6 +313,7 @@ async def send_message(
 async def stream_message(
     db: AsyncSession,
     *,
+    user_id: int,
     conversation: AIConversation,
     content: str,
 ) -> AsyncIterator[AIStreamChunkOut]:
@@ -307,19 +324,29 @@ async def stream_message(
 
     参数:
         db: SQLAlchemy 异步 Session。
+        user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
         conversation: AIConversation 实例。
         content: 用户消息内容。
 
     返回:
         异步迭代器，产出 AIStreamChunkOut 数据包。
+
+    异常:
+        BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
+    if user_id != conversation.user_id:
+        raise BusinessError("Permission denied", 403)
+
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
 
     model_name: str | None = None
 
     async for chunk in graph.astream(
-        {"messages": [HumanMessage(content=content)]},
+        {
+            "messages": [HumanMessage(content=content)],
+            "user_id": user_id,
+        },
         config,
         stream_mode="messages",
     ):
@@ -346,14 +373,22 @@ async def stream_message(
 async def delete_conversation(
     db: AsyncSession,
     *,
+    user_id: int,
     conversation: AIConversation,
 ) -> None:
     """软删除 AI 会话。
 
     参数:
         db: SQLAlchemy 异步 Session。
+        user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
         conversation: AIConversation 实例。
+
+    异常:
+        BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
     """
+    if user_id != conversation.user_id:
+        raise BusinessError("Permission denied", 403)
+
     conversation.status = AIConversationStatus.DELETED
     await db.commit()
     await ai_cache_module.invalidate_conversation_list(conversation.user_id)

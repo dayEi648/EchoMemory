@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import AsyncIterator, Iterator, Literal
 
 from openai import AsyncOpenAI, OpenAI
@@ -19,17 +20,13 @@ DEFAULT_TEMPERATURE: float = settings.deepseek_default_temperature
 DEFAULT_TIMEOUT: float = settings.deepseek_default_timeout
 REASONING_EFFORT: str = settings.deepseek_reasoning_effort
 THINKING_TYPE: str = settings.deepseek_thinking_type
-THINKING_EXTRA_BODY: dict = {"thinking": {"type": THINKING_TYPE}}
-
-# 流式输出时请求服务端在最后一个空 choice 块中返回总 usage
-STREAM_OPTIONS_INCLUDE_USAGE: dict = {"include_usage": True}
 
 # DeepSeek V4 系列官方上下文窗口长度（来源：官方定价页）。
 # 该值为模型固定规格，API 不会返回；需要用于计算上下文占用百分比。
-MODEL_CONTEXT_WINDOWS: dict[str, int] = {
+MODEL_CONTEXT_WINDOWS: MappingProxyType[str, int] = MappingProxyType({
     "deepseek-v4-pro": 1_000_000,
     "deepseek-v4-flash": 1_000_000,
-}
+})
 DEFAULT_CONTEXT_WINDOW: int = 1_000_000
 
 
@@ -191,10 +188,10 @@ class DeepSeekClient:
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
         if stream:
-            body["stream_options"] = STREAM_OPTIONS_INCLUDE_USAGE
+            body["stream_options"] = {"include_usage": True}
         if self._enable_thinking:
             body["reasoning_effort"] = REASONING_EFFORT
-            body["extra_body"] = THINKING_EXTRA_BODY
+            body["extra_body"] = {"thinking": {"type": THINKING_TYPE}}
         return body
 
     async def chat(

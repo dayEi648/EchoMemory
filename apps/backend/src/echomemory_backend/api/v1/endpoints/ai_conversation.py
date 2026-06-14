@@ -103,6 +103,7 @@ async def send_ai_message(
     if data.stream:
         stream = ai_conversation_service.stream_message(
             db,
+            user_id=current_user.id,
             conversation=conversation,
             content=data.content,
         )
@@ -113,6 +114,7 @@ async def send_ai_message(
 
     ai_message = await ai_conversation_service.send_message(
         db,
+        user_id=current_user.id,
         conversation=conversation,
         content=data.content,
     )
@@ -129,5 +131,7 @@ async def delete_ai_conversation(
     conversation = await ai_conversation_service.get_conversation(
         db, user_id=current_user.id, conversation_id=conversation_id
     )
-    await ai_conversation_service.delete_conversation(db, conversation=conversation)
+    await ai_conversation_service.delete_conversation(
+        db, user_id=current_user.id, conversation=conversation
+    )
     return None

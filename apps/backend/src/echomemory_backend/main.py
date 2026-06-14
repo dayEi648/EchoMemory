@@ -18,7 +18,7 @@ from echomemory_backend.core.exceptions.handlers import (
     validation_exception_handler,
 )
 from echomemory_backend.core.exceptions.business import BusinessError
-from echomemory_backend.ai.checkpointer import close_checkpointer, setup_checkpointer
+from echomemory_backend.ai.graphs.checkpointer import close_checkpointer, setup_checkpointer
 from echomemory_backend.core.clients.redis_client import redis_client
 from echomemory_backend.core.utils.seed_data import seed_dictionary_tables
 from echomemory_backend.db.session import AsyncSessionLocal, async_engine
