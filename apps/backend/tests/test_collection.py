@@ -15,6 +15,7 @@ from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/collections"
 
@@ -109,7 +110,7 @@ class TestCollectMusic:
             headers=_auth_header(user),
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["music"]["id"] == music.id
         assert data["music"]["title"] == "SongToCollect"
         assert "created_at" in data
@@ -189,7 +190,8 @@ class TestUncollectMusic:
             f"{BASE_URL}/musics/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 验证歌曲已从用户全部歌单中移除
         result = await db_session.execute(
@@ -211,7 +213,8 @@ class TestUncollectMusic:
             f"{BASE_URL}/musics/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_uncollect_music_unauthorized(self, client: TestClient, db_session: AsyncSession):
         """测试未登录用户取消收藏时返回 401。"""
@@ -238,7 +241,7 @@ class TestListMusicCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         titles = {item["music"]["title"] for item in data["items"]}
@@ -254,7 +257,7 @@ class TestListMusicCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -271,7 +274,7 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 5
         assert len(data["items"]) == 2
 
@@ -281,7 +284,7 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 5
         assert len(data["items"]) == 2
 
@@ -291,7 +294,7 @@ class TestListMusicCollections:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 5
         assert len(data["items"]) == 1
 
@@ -308,7 +311,7 @@ class TestListMusicCollections:
             headers=_auth_header(user_b),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -331,7 +334,7 @@ class TestCollectAlbum:
             headers=_auth_header(user),
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["album"]["id"] == album.id
         assert data["album"]["title"] == "AlbumToCollect"
 
@@ -395,7 +398,8 @@ class TestUncollectAlbum:
             f"{BASE_URL}/albums/{album.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_uncollect_album_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试取消未收藏专辑的幂等性。"""
@@ -406,7 +410,8 @@ class TestUncollectAlbum:
             f"{BASE_URL}/albums/{album.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 class TestListAlbumCollections:
@@ -426,7 +431,7 @@ class TestListAlbumCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         titles = {item["album"]["title"] for item in data["items"]}
@@ -442,7 +447,7 @@ class TestListAlbumCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -466,7 +471,7 @@ class TestCollectPlaylist:
             headers=_auth_header(user),
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["playlist"]["id"] == playlist.id
         assert data["playlist"]["title"] == "PlaylistToCollect"
         assert data["playlist"]["user"]["id"] == owner.id
@@ -546,7 +551,8 @@ class TestUncollectPlaylist:
             f"{BASE_URL}/playlists/{playlist.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_uncollect_playlist_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试取消未收藏歌单的幂等性。"""
@@ -558,7 +564,8 @@ class TestUncollectPlaylist:
             f"{BASE_URL}/playlists/{playlist.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 class TestListPlaylistCollections:
@@ -579,7 +586,7 @@ class TestListPlaylistCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         titles = {item["playlist"]["title"] for item in data["items"]}
@@ -595,7 +602,7 @@ class TestListPlaylistCollections:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -618,7 +625,7 @@ class TestReleaseMusic:
             headers=_auth_header(user),
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["music"]["id"] == music.id
         assert data["music"]["title"] == "SongToRelease"
 
@@ -679,7 +686,8 @@ class TestUnreleaseMusic:
             f"{BASE_URL}/releases/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         result = await db_session.execute(
             select(UserMusicRelease).where(
@@ -698,7 +706,8 @@ class TestUnreleaseMusic:
             f"{BASE_URL}/releases/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 class TestListReleases:
@@ -718,7 +727,7 @@ class TestListReleases:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         titles = {item["music"]["title"] for item in data["items"]}
@@ -734,6 +743,6 @@ class TestListReleases:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []

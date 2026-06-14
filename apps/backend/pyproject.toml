@@ -38,6 +38,7 @@ start = "echomemory_backend.cli:start"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "httpx2",
     "fakeredis",
 ]

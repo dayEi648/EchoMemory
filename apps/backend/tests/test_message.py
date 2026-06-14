@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.message import Conversation, DirectMessage, UserBlock
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/messages"
 
@@ -40,7 +41,7 @@ async def test_send_message_creates_conversation_and_message(
         headers=_auth_header(alice),
     )
     assert resp.status_code == 201
-    body = resp.json()
+    body = api_data(resp)
     assert body["content"] == "hello"
     assert body["sender_id"] == alice.id
 
@@ -78,7 +79,8 @@ async def test_send_message_blocked_returns_403(
     resp = client.post(
         f"/api/v1/users/{alice.id}/block", headers=_auth_header(bob)
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert api_data(resp) is None
 
     resp = client.post(
         f"{BASE_URL}/{bob.id}",
@@ -124,14 +126,18 @@ async def test_unread_count_and_mark_read(
         headers=_auth_header(alice),
     )
 
-    summary = client.get(
-        "/api/v1/notifications/unread-summary", headers=_auth_header(bob)
-    ).json()
+    summary = api_data(
+        client.get(
+            "/api/v1/notifications/unread-summary", headers=_auth_header(bob)
+        )
+    )
     assert summary["message_unread"] == 2
 
-    convs = client.get(
-        f"{BASE_URL}/conversations", headers=_auth_header(bob)
-    ).json()
+    convs = api_data(
+        client.get(
+            f"{BASE_URL}/conversations", headers=_auth_header(bob)
+        )
+    )
     assert convs["total"] == 1
     conv_id = convs["items"][0]["id"]
     assert convs["items"][0]["unread_count"] == 2
@@ -139,11 +145,14 @@ async def test_unread_count_and_mark_read(
     resp = client.post(
         f"{BASE_URL}/conversations/{conv_id}/read", headers=_auth_header(bob)
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert api_data(resp) is None
 
-    summary = client.get(
-        "/api/v1/notifications/unread-summary", headers=_auth_header(bob)
-    ).json()
+    summary = api_data(
+        client.get(
+            "/api/v1/notifications/unread-summary", headers=_auth_header(bob)
+        )
+    )
     assert summary["message_unread"] == 0
 
 
@@ -160,15 +169,19 @@ async def test_list_messages_returns_desc_order(
             headers=_auth_header(alice),
         )
 
-    convs = client.get(
-        f"{BASE_URL}/conversations", headers=_auth_header(alice)
-    ).json()
+    convs = api_data(
+        client.get(
+            f"{BASE_URL}/conversations", headers=_auth_header(alice)
+        )
+    )
     conv_id = convs["items"][0]["id"]
 
-    body = client.get(
-        f"{BASE_URL}/conversations/{conv_id}/messages",
-        headers=_auth_header(alice),
-    ).json()
+    body = api_data(
+        client.get(
+            f"{BASE_URL}/conversations/{conv_id}/messages",
+            headers=_auth_header(alice),
+        )
+    )
     assert body["total"] == 3
     assert [m["content"] for m in body["items"]] == ["msg2", "msg1", "msg0"]
 
@@ -199,9 +212,11 @@ async def test_list_messages_for_other_user_conversation_forbidden(
         json={"content": "secret"},
         headers=_auth_header(alice),
     )
-    convs = client.get(
-        f"{BASE_URL}/conversations", headers=_auth_header(alice)
-    ).json()
+    convs = api_data(
+        client.get(
+            f"{BASE_URL}/conversations", headers=_auth_header(alice)
+        )
+    )
     conv_id = convs["items"][0]["id"]
 
     resp = client.get(

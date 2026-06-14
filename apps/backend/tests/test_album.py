@@ -15,6 +15,7 @@ from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/albums"
 ADMIN_BASE_URL = f"{BASE_URL}/admin"
@@ -175,7 +176,7 @@ class TestAdminCreateAlbum:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "MyAlbum"
         assert data["description"] == "A test album"
         assert data["source"] == "TestSource"
@@ -198,7 +199,7 @@ class TestPublicGetAlbum:
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "PublicAlbum"
         assert data["is_collected_by_me"] is False
 
@@ -214,7 +215,7 @@ class TestPublicGetAlbum:
         )
         resp = client.get(f"{BASE_URL}/{album.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["is_collected_by_me"] is True
+        assert api_data(resp)["is_collected_by_me"] is True
 
     async def test_get_album_detail_cache_hit(
         self, client: TestClient, db_session: AsyncSession
@@ -223,14 +224,14 @@ class TestPublicGetAlbum:
         album = await _create_album_directly(db_session, title="CachedAlbum")
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedAlbum"
+        assert api_data(resp)["title"] == "CachedAlbum"
 
         album.title = "ModifiedAlbum"
         await db_session.commit()
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedAlbum"
+        assert api_data(resp)["title"] == "CachedAlbum"
 
     async def test_get_album_detail_cache_invalidated_on_update(
         self, client: TestClient, db_session: AsyncSession, fake_redis
@@ -271,7 +272,8 @@ class TestAdminSoftDeleteAlbum:
             f"{ADMIN_BASE_URL}/{album.id}",
             headers=_auth_header(admin),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 404
@@ -294,7 +296,7 @@ class TestAdminAddMusicToAlbum:
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        assert len(resp.json()["musics"]) >= 1
+        assert len(api_data(resp)["musics"]) >= 1
 
     async def test_add_music_already_in_another_album(
         self, client: TestClient, db_session: AsyncSession
@@ -366,7 +368,7 @@ class TestAlbumTagSync:
         # 验证专辑详情中包含该歌曲的标签
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         emotion_tag_ids = {t["id"] for t in data["emotion_tags"]}
         interest_tag_ids = {t["id"] for t in data["interest_tags"]}
         assert emotion_tag.id in emotion_tag_ids
@@ -395,19 +397,20 @@ class TestAlbumTagSync:
         assert resp.status_code == 201
         # 确认专辑已有标签
         resp = client.get(f"{BASE_URL}/{album.id}")
-        assert resp.json()["emotion_tags"] != []
+        assert api_data(resp)["emotion_tags"] != []
 
         # 通过 API 移除歌曲
         resp = client.delete(
             f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
             headers=_auth_header(admin),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 验证专辑标签已清空
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["emotion_tags"] == []
         assert data["interest_tags"] == []
 
@@ -445,7 +448,7 @@ class TestAlbumTagSync:
         # 验证情感标签只出现一次（去重）
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["emotion_tags"]) == 1
         assert data["emotion_tags"][0]["id"] == emotion_tag.id
         assert len(data["interest_tags"]) == 1
@@ -481,7 +484,7 @@ class TestAlbumTagSync:
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        assert first_tag.id in {t["id"] for t in resp.json()["emotion_tags"]}
+        assert first_tag.id in {t["id"] for t in api_data(resp)["emotion_tags"]}
 
         cache_key = build_cache_key(ALBUM_DETAIL_PREFIX, album.id)
         assert await fake_redis.exists(cache_key) == 1
@@ -497,7 +500,7 @@ class TestAlbumTagSync:
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert second_tag.id in {t["id"] for t in data["emotion_tags"]}
         assert first_tag.id not in {t["id"] for t in data["emotion_tags"]}
 
@@ -516,11 +519,12 @@ class TestAdminRemoveMusicFromAlbum:
             f"{ADMIN_BASE_URL}/{album.id}/musics/{music.id}",
             headers=_auth_header(admin),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(f"{BASE_URL}/{album.id}")
         assert resp.status_code == 200
-        assert resp.json()["musics"] == []
+        assert api_data(resp)["musics"] == []
 
     async def test_remove_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
         """测试从专辑移除不存在的歌曲时返回 404。"""
@@ -552,7 +556,7 @@ class TestAdminUpdateAlbum:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "NewAlbumTitle"
         assert data["description"] == "Updated description"
         assert data["source"] == "UpdatedSource"
@@ -627,7 +631,7 @@ class TestListAlbums:
 
         resp = client.get(BASE_URL + "/")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {a["title"] for a in data["items"]}
         assert "VisibleAlbum1" in titles
         assert "VisibleAlbum2" in titles
@@ -640,7 +644,7 @@ class TestListAlbums:
 
         resp = client.get(BASE_URL + "/", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 2
         assert data["total"] == 5
 
@@ -655,7 +659,7 @@ class TestSearchAlbums:
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Amazing"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         items = data["items"]
         assert data["total"] == 1
         assert len(items) == 1
@@ -668,7 +672,7 @@ class TestSearchAlbums:
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Search"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         items = data["items"]
         titles = {a["title"] for a in items}
         assert "SearchableAlbum" in titles
@@ -692,7 +696,7 @@ class TestAdminListAlbums:
 
         resp = client.get(f"{ADMIN_BASE_URL}/list", headers=_auth_header(admin))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] >= 1
         item = next((a for a in data["items"] if a["id"] == album.id), None)
         assert item is not None
@@ -713,7 +717,7 @@ class TestAdminListAlbums:
             params={"q": "Target"},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert data["items"][0]["title"] == "TargetAlbum"
 
@@ -729,7 +733,7 @@ class TestAdminListAlbums:
             params={"limit": 1, "offset": 0},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 1
         assert data["total"] == 3
 
@@ -741,7 +745,7 @@ class TestAdminListAlbums:
 
         resp = client.get(f"{ADMIN_BASE_URL}/list", headers=_auth_header(admin))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {a["title"] for a in data["items"]}
         assert "AliveAlbum" in titles
         assert "DeletedAlbum" not in titles
@@ -773,7 +777,7 @@ class TestAdminUpdateAlbumCovers:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["cover_icon_url"] == "https://fake-oss.example.com/albums/cover.jpg"
 
     async def test_update_cover_image(self, client: TestClient, db_session: AsyncSession):
@@ -793,7 +797,7 @@ class TestAdminUpdateAlbumCovers:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["cover_url"] == "https://fake-oss.example.com/albums/cover.jpg"
 
     async def test_update_both_covers(self, client: TestClient, db_session: AsyncSession):
@@ -815,7 +819,7 @@ class TestAdminUpdateAlbumCovers:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["cover_icon_url"] == "https://fake-oss.example.com/albums/cover.jpg"
         assert data["cover_url"] == "https://fake-oss.example.com/albums/cover.jpg"
 
@@ -892,7 +896,7 @@ class TestHomeAlbumsCache:
 
         resp = client.get(BASE_URL + "/", params={"limit": 10})
         assert resp.status_code == 200
-        first_data = resp.json()
+        first_data = api_data(resp)
         assert any(a["title"] == "CachedAlbum" for a in first_data["items"])
 
         # 软删除该专辑，若缓存命中则第二次请求仍能看到
@@ -901,7 +905,7 @@ class TestHomeAlbumsCache:
 
         resp = client.get(BASE_URL + "/", params={"limit": 10})
         assert resp.status_code == 200
-        cached_data = resp.json()
+        cached_data = api_data(resp)
         assert any(a["title"] == "CachedAlbum" for a in cached_data["items"])
 
     async def test_home_albums_cache_invalidated_on_update(

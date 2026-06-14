@@ -15,6 +15,7 @@ from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/play-history"
 
@@ -125,7 +126,7 @@ class TestRecordPlay:
             json={"music_id": music.id},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["music"]["id"] == music.id
         assert data["music"]["title"] == music.title
         assert "played_at" in data
@@ -143,8 +144,8 @@ class TestRecordPlay:
             json={"music_id": music.id},
         )
         assert first_resp.status_code == 201
-        first_id = first_resp.json()["id"]
-        assert first_resp.json()["play_count"] == 1
+        first_id = api_data(first_resp)["id"]
+        assert api_data(first_resp)["play_count"] == 1
 
         second_resp = client.post(
             BASE_URL + "/",
@@ -152,14 +153,14 @@ class TestRecordPlay:
             json={"music_id": music.id},
         )
         assert second_resp.status_code == 201
-        second_id = second_resp.json()["id"]
-        assert second_resp.json()["play_count"] == 2
+        second_id = api_data(second_resp)["id"]
+        assert api_data(second_resp)["play_count"] == 2
 
         assert second_id == first_id
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["id"] == first_id
@@ -251,7 +252,7 @@ class TestRecordPlay:
             json={"music_id": music.id},
         )
         assert resp.status_code == 201
-        assert resp.json()["play_count"] == 4
+        assert api_data(resp)["play_count"] == 4
 
         result = await db_session.execute(
             select(PlayHistory).where(
@@ -391,7 +392,7 @@ class TestListPlayHistory:
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["play_count"] == 5
@@ -419,7 +420,7 @@ class TestListPlayHistory:
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 3
         assert len(data["items"]) == 3
         # 验证倒序：最新的在前
@@ -444,8 +445,8 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert resp.json()["total"] == 5
-        assert len(resp.json()["items"]) == 2
+        assert api_data(resp)["total"] == 5
+        assert len(api_data(resp)["items"]) == 2
 
         resp = client.get(
             BASE_URL + "/",
@@ -453,7 +454,7 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()["items"]) == 2
+        assert len(api_data(resp)["items"]) == 2
 
         resp = client.get(
             BASE_URL + "/",
@@ -461,7 +462,7 @@ class TestListPlayHistory:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()["items"]) == 1
+        assert len(api_data(resp)["items"]) == 1
 
     async def test_list_play_history_only_own(
         self, client: TestClient, db_session: AsyncSession
@@ -476,7 +477,7 @@ class TestListPlayHistory:
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user_a))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
 
@@ -505,12 +506,13 @@ class TestDeletePlayHistory:
             f"{BASE_URL}/{history.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 再次查询应为空
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -558,11 +560,12 @@ class TestClearPlayHistory:
             await _create_play_history_directly(db_session, user.id, music.id)
 
         resp = client.delete(BASE_URL + "/", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 

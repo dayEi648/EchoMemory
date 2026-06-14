@@ -28,6 +28,7 @@ from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInterestTag
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/music"
 ADMIN_IMPORT_URL = f"{BASE_URL}/admin/import"
@@ -204,7 +205,7 @@ class TestAdminImportMusic:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "MySong"
         assert data["is_published"] is False
         assert data["style"]["name"] == style.name
@@ -234,7 +235,7 @@ class TestAdminImportMusic:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["lyrics_url"] == "https://fake-oss.example.com/lyrics/test.lrc"
         assert data["cover_home_url"] == "https://fake-oss.example.com/covers/test.jpg"
         assert data["cover_play_url"] == "https://fake-oss.example.com/covers/test.jpg"
@@ -390,7 +391,7 @@ class TestAdminUpdateMusic:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "NewTitle"
         assert data["is_vip"] is True
         assert data["style"]["name"] == new_style.name
@@ -429,7 +430,7 @@ class TestAdminPublishUnpublish:
             headers=_auth_header(admin),
         )
         assert resp.status_code == 200
-        assert resp.json()["is_published"] is True
+        assert api_data(resp)["is_published"] is True
 
     async def test_unpublish_music(self, client: TestClient, db_session: AsyncSession):
         """测试管理员将已上架音乐变为下架状态。"""
@@ -440,7 +441,7 @@ class TestAdminPublishUnpublish:
             headers=_auth_header(admin),
         )
         assert resp.status_code == 200
-        assert resp.json()["is_published"] is False
+        assert api_data(resp)["is_published"] is False
 
     async def test_normal_user_cannot_publish(self, client: TestClient, db_session: AsyncSession):
         """测试普通用户无权限调用管理员上架接口。"""
@@ -465,7 +466,7 @@ class TestGetMusic:
         music = await _create_music_directly(db_session, title="PublishedSong")
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 200
-        assert resp.json()["title"] == "PublishedSong"
+        assert api_data(resp)["title"] == "PublishedSong"
 
     async def test_get_unpublished_music_returns_404(self, client: TestClient, db_session: AsyncSession):
         """测试获取未上架音乐时返回 404。"""
@@ -485,7 +486,7 @@ class TestGetMusic:
         music = await _create_music_directly(db_session, title="PublicSong")
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 200
-        assert resp.json()["is_collected_by_me"] is False
+        assert api_data(resp)["is_collected_by_me"] is False
 
     async def test_get_music_collection_status_collected(
         self, client: TestClient, db_session: AsyncSession
@@ -499,7 +500,7 @@ class TestGetMusic:
         )
         resp = client.get(f"{BASE_URL}/{music.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["is_collected_by_me"] is True
+        assert api_data(resp)["is_collected_by_me"] is True
 
     async def test_get_music_collection_status_not_collected(
         self, client: TestClient, db_session: AsyncSession
@@ -509,7 +510,7 @@ class TestGetMusic:
         music = await _create_music_directly(db_session, title="UncollectedSong")
         resp = client.get(f"{BASE_URL}/{music.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["is_collected_by_me"] is False
+        assert api_data(resp)["is_collected_by_me"] is False
 
     async def test_get_music_detail_cache_hit(
         self, client: TestClient, db_session: AsyncSession
@@ -518,7 +519,7 @@ class TestGetMusic:
         music = await _create_music_directly(db_session, title="CachedDetailSong")
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedDetailSong"
+        assert api_data(resp)["title"] == "CachedDetailSong"
 
         # 直接修改 DB 标题，若缓存命中则第二次请求仍返回旧标题
         music.title = "ModifiedSong"
@@ -526,7 +527,7 @@ class TestGetMusic:
 
         resp = client.get(f"{BASE_URL}/{music.id}")
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedDetailSong"
+        assert api_data(resp)["title"] == "CachedDetailSong"
 
     async def test_get_music_detail_cache_invalidated_on_update(
         self, client: TestClient, db_session: AsyncSession, fake_redis
@@ -574,7 +575,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert "Test lyrics" in resp.json()["content"]
+        assert "Test lyrics" in api_data(resp)["content"]
 
     async def test_get_lyrics_no_url_returns_404(
         self, client: TestClient, db_session: AsyncSession
@@ -619,14 +620,14 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert resp.json()["content"] == "[00:00.00]First lyrics"
+        assert api_data(resp)["content"] == "[00:00.00]First lyrics"
 
         cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
         assert await fake_redis.exists(cache_key) == 1
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert resp.json()["content"] == "[00:00.00]First lyrics"
+        assert api_data(resp)["content"] == "[00:00.00]First lyrics"
         assert len(fetch_calls) == 1
 
     async def test_get_lyrics_cache_invalidated_on_update(
@@ -657,7 +658,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert resp.json()["content"] == "[00:00.00]Old lyrics"
+        assert api_data(resp)["content"] == "[00:00.00]Old lyrics"
 
         cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
         assert await fake_redis.exists(cache_key) == 1
@@ -675,7 +676,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert resp.json()["content"] == "[00:00.00]New lyrics"
+        assert api_data(resp)["content"] == "[00:00.00]New lyrics"
 
 
 class TestListMusics:
@@ -688,7 +689,7 @@ class TestListMusics:
         await _create_music_directly(db_session, title="Hidden", is_published=False)
         resp = client.get(f"{BASE_URL}/")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {m["title"] for m in data["items"]}
         assert "Pub1" in titles
         assert "Pub2" in titles
@@ -701,7 +702,7 @@ class TestListMusics:
         await _create_music_directly(db_session, title="OtherSong")
         resp = client.get(f"{BASE_URL}/", params={"style_id": style.id})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 1
         assert data["total"] == 1
         assert data["items"][0]["title"] == "PopSong"
@@ -712,7 +713,7 @@ class TestListMusics:
         await _create_music_directly(db_session, title="FreeSong", is_vip=False)
         resp = client.get(f"{BASE_URL}/", params={"is_vip": True})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {m["title"] for m in data["items"]}
         assert "VipSong" in titles
         assert "FreeSong" not in titles
@@ -723,7 +724,7 @@ class TestListMusics:
             await _create_music_directly(db_session, title=f"Song{i}")
         resp = client.get(f"{BASE_URL}/", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 2
         assert data["total"] == 5
 
@@ -737,7 +738,7 @@ class TestSearchMusics:
         await _create_music_directly(db_session, title="Boring Tune")
         resp = client.get(f"{BASE_URL}/search", params={"q": "Amazing"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "Amazing Grace"
         assert data["total"] == 1
@@ -746,7 +747,7 @@ class TestSearchMusics:
         """测试无匹配结果时返回空列表。"""
         resp = client.get(f"{BASE_URL}/search", params={"q": "zzzzzzzzz"})
         assert resp.status_code == 200
-        assert resp.json() == {"items": [], "total": 0}
+        assert api_data(resp) == {"items": [], "total": 0}
 
     async def test_search_empty_query_returns_all(self, client: TestClient, db_session: AsyncSession):
         """测试空查询时返回全部已上架音乐。"""
@@ -754,7 +755,7 @@ class TestSearchMusics:
         await _create_music_directly(db_session, title="SongB")
         resp = client.get(f"{BASE_URL}/search")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {m["title"] for m in data["items"]}
         assert "SongA" in titles
         assert "SongB" in titles
@@ -816,7 +817,7 @@ class TestMusicTagCascadeUpdate:
         # 验证专辑标签已更新
         resp = client.get(f"/api/v1/albums/{album.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         album_etag_ids = {t["id"] for t in data["emotion_tags"]}
         album_itag_ids = {t["id"] for t in data["interest_tags"]}
         assert old_etag.id not in album_etag_ids
@@ -827,7 +828,7 @@ class TestMusicTagCascadeUpdate:
         # 验证歌单标签已更新
         resp = client.get(f"/api/v1/playlists/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         pl_etag_ids = {t["id"] for t in data["emotion_tags"]}
         pl_itag_ids = {t["id"] for t in data["interest_tags"]}
         assert old_etag.id not in pl_etag_ids
@@ -856,7 +857,7 @@ class TestChartCache:
 
         resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 2})
         assert resp.status_code == 200
-        first_data = resp.json()
+        first_data = api_data(resp)
         assert [m["title"] for m in first_data["items"]] == ["Hot30", "Hot20"]
 
         # 直接修改 DB 热度，若第二次请求命中缓存则应返回旧数据
@@ -865,7 +866,7 @@ class TestChartCache:
 
         resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 2})
         assert resp.status_code == 200
-        cached_data = resp.json()
+        cached_data = api_data(resp)
         assert [m["title"] for m in cached_data["items"]] == ["Hot30", "Hot20"]
 
     async def test_hot_songs_cache_invalidated_on_update(
@@ -879,7 +880,7 @@ class TestChartCache:
 
         resp = client.get(f"{BASE_URL}/", params={"sort_by": "hot", "limit": 1})
         assert resp.status_code == 200
-        assert resp.json()["items"][0]["title"] == "OldHot"
+        assert api_data(resp)["items"][0]["title"] == "OldHot"
 
         # 管理员修改标题
         resp = client.patch(
@@ -909,7 +910,7 @@ class TestChartCache:
             params={"sort_by": "hot", "release_date_from": date_from, "limit": 2},
         )
         assert resp.status_code == 200
-        first_data = resp.json()
+        first_data = api_data(resp)
         assert [m["title"] for m in first_data["items"]] == ["New20", "New10"]
 
         m2.hot = 5
@@ -920,7 +921,7 @@ class TestChartCache:
             params={"sort_by": "hot", "release_date_from": date_from, "limit": 2},
         )
         assert resp.status_code == 200
-        assert [m["title"] for m in resp.json()["items"]] == ["New20", "New10"]
+        assert [m["title"] for m in api_data(resp)["items"]] == ["New20", "New10"]
 
     async def test_filtered_list_not_cached(
         self, client: TestClient, db_session: AsyncSession, fake_redis

@@ -11,6 +11,7 @@ from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/comments"
 
@@ -137,7 +138,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["content"] == "Great song!"
         assert data["user"]["id"] == user.id
         assert data["parent_id"] is None
@@ -158,7 +159,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["content"] == "Nice playlist"
+        assert api_data(resp)["content"] == "Nice playlist"
 
     async def test_create_comment_on_space_post(self, client: TestClient, db_session: AsyncSession):
         """测试正常在动态下发表评论。"""
@@ -176,7 +177,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["content"] == "Nice post"
+        assert api_data(resp)["content"] == "Nice post"
 
     async def test_create_reply_to_root(self, client: TestClient, db_session: AsyncSession):
         """测试对根评论发起一级回复。"""
@@ -197,7 +198,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["content"] == "This is a reply"
         assert data["parent_id"] == root.id
         assert data["root_id"] == root.id
@@ -225,7 +226,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["parent_id"] == reply.id
         assert data["root_id"] == root.id
         assert data["is_nested_reply"] is True
@@ -314,7 +315,7 @@ class TestCreateComment:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["content"] == "My private comment"
+        assert api_data(resp)["content"] == "My private comment"
 
     async def test_create_comment_empty_content(self, client: TestClient, db_session: AsyncSession):
         """测试发表空内容评论时返回 422。"""
@@ -402,7 +403,7 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         contents = {c["content"] for c in data["items"]}
@@ -429,7 +430,7 @@ class TestListComments:
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
-        item = resp.json()["items"][0]
+        item = api_data(resp)["items"][0]
         assert item["liked_by_me"] is True
         assert item["disliked_by_me"] is False
 
@@ -444,7 +445,7 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["content"] == "Root"
@@ -460,7 +461,7 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["content"] == "Visible"
@@ -472,7 +473,7 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -488,22 +489,22 @@ class TestListComments:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        assert resp.json()["total"] == 5
-        assert len(resp.json()["items"]) == 2
+        assert api_data(resp)["total"] == 5
+        assert len(api_data(resp)["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        assert len(resp.json()["items"]) == 2
+        assert len(api_data(resp)["items"]) == 2
 
         resp = client.get(
             f"{BASE_URL}/music/{music.id}",
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        assert len(resp.json()["items"]) == 1
+        assert len(api_data(resp)["items"]) == 1
 
     async def test_list_comments_unauthorized(self, client: TestClient, db_session: AsyncSession):
         """测试未登录用户可正常获取评论列表（公开访问）。"""
@@ -511,7 +512,7 @@ class TestListComments:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -540,7 +541,8 @@ class TestDeleteComment:
             f"{BASE_URL}/{comment.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 验证软删除（identity map 缓存可能过期，重新查询）
         result = await db_session.execute(select(Comment).where(Comment.id == comment.id))
@@ -678,7 +680,8 @@ class TestUnlikeComment:
             f"{BASE_URL}/{comment.id}/like",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         result = await db_session.execute(
             select(CommentLike).where(
@@ -700,7 +703,8 @@ class TestUnlikeComment:
             f"{BASE_URL}/{comment.id}/like",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 # ============================================================================
@@ -792,7 +796,8 @@ class TestUndislikeComment:
             f"{BASE_URL}/{comment.id}/dislike",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         result = await db_session.execute(
             select(CommentDislike).where(
@@ -814,7 +819,8 @@ class TestUndislikeComment:
             f"{BASE_URL}/{comment.id}/dislike",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 # ============================================================================
@@ -953,13 +959,14 @@ class TestCommentCountOnDelete:
             json={"target_type": "music", "target_id": music.id, "content": "To delete"},
         )
         assert resp.status_code == 201
-        comment_id = resp.json()["id"]
+        comment_id = api_data(resp)["id"]
 
         await db_session.refresh(music)
         assert music.comment_count == 1
 
         resp = client.delete(f"{BASE_URL}/{comment_id}", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(music)
         assert music.comment_count == 0
@@ -986,13 +993,14 @@ class TestCommentCountOnDelete:
             },
         )
         assert resp.status_code == 201
-        reply_id = resp.json()["id"]
+        reply_id = api_data(resp)["id"]
 
         await db_session.refresh(root)
         assert root.reply_count == 1
 
         resp = client.delete(f"{BASE_URL}/{reply_id}", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(root)
         assert root.reply_count == 0
@@ -1048,7 +1056,8 @@ class TestLikeCount:
         assert comment.like_count == 1
 
         resp = client.delete(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(comment)
         assert comment.like_count == 0
@@ -1104,7 +1113,8 @@ class TestDislikeCount:
         assert comment.dislike_count == 1
 
         resp = client.delete(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(comment)
         assert comment.dislike_count == 0
@@ -1189,7 +1199,7 @@ class TestCommentSortBy:
             params={"sort_by": "latest"},
         )
         assert resp.status_code == 200
-        items = resp.json()["items"]
+        items = api_data(resp)["items"]
         # 最新的在前
         assert items[0]["content"] == "Second"
         assert items[1]["content"] == "First"
@@ -1213,7 +1223,7 @@ class TestCommentSortBy:
             f"{BASE_URL}/music/{music.id}", params={"sort_by": "likes"}
         )
         assert resp.status_code == 200
-        items = resp.json()["items"]
+        items = api_data(resp)["items"]
         # 点赞多的在前
         assert items[0]["content"] == "High"
         assert items[1]["content"] == "Low"
@@ -1227,4 +1237,4 @@ class TestCommentSortBy:
 
         resp = client.get(f"{BASE_URL}/music/{music.id}")
         assert resp.status_code == 200
-        assert resp.json()["total"] == 2
+        assert api_data(resp)["total"] == 2

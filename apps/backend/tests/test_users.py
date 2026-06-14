@@ -9,6 +9,7 @@ from echomemory_backend.core.security.security import create_access_token, get_p
 from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User, UserFollow
+from tests.api_helpers import api_data
 
 BASE = "/api/v1/users"
 ME_URL = f"{BASE}/me"
@@ -59,7 +60,7 @@ class TestUpdateMe:
             data={"nickname": "NewName"},
         )
         assert resp.status_code == 200
-        assert resp.json()["nickname"] == "NewName"
+        assert api_data(resp)["nickname"] == "NewName"
 
     async def test_update_email_conflict(self, client: TestClient, db_session: AsyncSession):
         """测试更新邮箱时与已有邮箱冲突返回 409。"""
@@ -95,7 +96,7 @@ class TestUpdateMe:
             files={"avatar": ("avatar.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg")},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["nickname"] == "NewName"
         assert data["avatar_url"] == "https://fake-oss.example.com/avatars/updated.jpg"
 
@@ -119,7 +120,7 @@ class TestGetUser:
         user = await _create_user(db_session, "public_user")
         resp = client.get(f"{BASE}/{user.id}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["username"] == "public_user"
         # sensitive fields should not be present
         assert "email" not in data
@@ -140,15 +141,15 @@ class TestGetUser:
         user = await _create_user(db_session, "public_cache_hit")
         resp = client.get(f"{BASE}/{user.id}")
         assert resp.status_code == 200
-        assert resp.json()["username"] == "public_cache_hit"
-        cached_nickname = resp.json()["nickname"]
+        assert api_data(resp)["username"] == "public_cache_hit"
+        cached_nickname = api_data(resp)["nickname"]
 
         user.nickname = "ModifiedNickname"
         await db_session.commit()
 
         resp = client.get(f"{BASE}/{user.id}")
         assert resp.status_code == 200
-        assert resp.json()["nickname"] == cached_nickname
+        assert api_data(resp)["nickname"] == cached_nickname
 
     async def test_get_public_profile_cache_invalidated_on_update(
         self, client: TestClient, db_session: AsyncSession, fake_redis
@@ -182,7 +183,7 @@ class TestSearchUsers:
         await _create_user(db_session, "searchable")
         resp = client.get(SEARCH_URL, params={"q": "search"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) >= 1
         assert data["items"][0]["username"] == "searchable"
 
@@ -190,7 +191,7 @@ class TestSearchUsers:
         """测试搜索无匹配结果时返回空列表。"""
         resp = client.get(SEARCH_URL, params={"q": "zzzzzzzzz"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
 
@@ -210,7 +211,7 @@ class TestSearchUsers:
             headers=_auth_header(me),
         )
         assert resp.status_code == 200
-        by_username = {item["username"]: item for item in resp.json()["items"]}
+        by_username = {item["username"]: item for item in api_data(resp)["items"]}
         assert by_username["search_followed"]["is_followed_by_me"] is True
         assert by_username["search_stranger"]["is_followed_by_me"] is False
 
@@ -229,7 +230,7 @@ class TestGetUserFollowStatus:
 
         resp = client.get(f"{BASE}/{target.id}", headers=_auth_header(me))
         assert resp.status_code == 200
-        assert resp.json()["is_followed_by_me"] is True
+        assert api_data(resp)["is_followed_by_me"] is True
 
     async def test_profile_not_followed_status(
         self, client: TestClient, db_session: AsyncSession
@@ -240,7 +241,7 @@ class TestGetUserFollowStatus:
 
         resp = client.get(f"{BASE}/{target.id}", headers=_auth_header(me))
         assert resp.status_code == 200
-        assert resp.json()["is_followed_by_me"] is False
+        assert api_data(resp)["is_followed_by_me"] is False
 
     async def test_own_profile_follow_status_false(
         self, client: TestClient, db_session: AsyncSession
@@ -249,7 +250,7 @@ class TestGetUserFollowStatus:
         me = await _create_user(db_session, "profile_self")
         resp = client.get(f"{BASE}/{me.id}", headers=_auth_header(me))
         assert resp.status_code == 200
-        assert resp.json()["is_followed_by_me"] is False
+        assert api_data(resp)["is_followed_by_me"] is False
 
 
 class TestFollow:
@@ -262,7 +263,8 @@ class TestFollow:
         resp = client.post(
             FOLLOW_URL, headers=_auth_header(me), json={"followee_id": target.id}
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_follow_self_fails(self, client: TestClient, db_session: AsyncSession):
         """测试关注自己时返回 400。"""
@@ -291,7 +293,8 @@ class TestFollow:
         resp = client.post(
             UNFOLLOW_URL, headers=_auth_header(me), json={"followee_id": target.id}
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_unfollow_not_following_fails(self, client: TestClient, db_session: AsyncSession):
         """测试取消未关注的用户时返回 404。"""
@@ -310,7 +313,7 @@ class TestFollow:
         await db_session.commit()
         resp = client.get(f"{BASE}/{me.id}/followees")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["username"] == "list_followee"
@@ -323,7 +326,7 @@ class TestFollow:
         await db_session.commit()
         resp = client.get(f"{BASE}/{me.id}/followers")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["username"] == "fan"
@@ -338,7 +341,7 @@ class TestAdmin:
         await _create_user(db_session, "regular")
         resp = client.get(ADMIN_LIST_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert "items" in data
         assert "total" in data
         assert len(data["items"]) >= 1
@@ -360,7 +363,7 @@ class TestAdmin:
             json={"status": UserStatus.BANNED.value},
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == UserStatus.BANNED.value
+        assert api_data(resp)["status"] == UserStatus.BANNED.value
 
     async def test_admin_unban_user(self, client: TestClient, db_session: AsyncSession):
         """测试管理员解封用户。"""
@@ -374,7 +377,7 @@ class TestAdmin:
             headers=_auth_header(admin),
         )
         assert resp.status_code == 200
-        assert resp.json()["status"] == UserStatus.ACTIVE.value
+        assert api_data(resp)["status"] == UserStatus.ACTIVE.value
 
     async def test_admin_cannot_ban_super_admin(self, client: TestClient, db_session: AsyncSession):
         """测试管理员无法封禁超级管理员。"""
@@ -397,7 +400,7 @@ class TestAdmin:
             json={"role": UserRole.VIP.value, "safety_score": 5},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["role"] == UserRole.VIP.value
         assert data["safety_score"] == 5
 
@@ -458,7 +461,7 @@ class TestAdmin:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["username"] == "newuser1"
         assert data["nickname"] == "New User"
         assert data["role"] == UserRole.USER.value
@@ -496,7 +499,7 @@ class TestAdmin:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["username"] == "fulluser"
         assert data["role"] == UserRole.ADMIN.value
         assert data["safety_score"] == 8
@@ -547,7 +550,7 @@ class TestAdmin:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["role"] == UserRole.ADMIN.value
+        assert api_data(resp)["role"] == UserRole.ADMIN.value
 
     async def test_admin_create_duplicate_username(self, client: TestClient, db_session: AsyncSession):
         """测试管理员创建用户名已存在的用户返回 409。"""
@@ -612,7 +615,7 @@ class TestAdminDashboardStats:
 
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert "users" in data
         assert "music" in data
         assert "albums" in data
@@ -644,7 +647,7 @@ class TestAdminDashboardStats:
 
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        first_count = resp.json()["users"]
+        first_count = api_data(resp)["users"]
 
         # 绕过业务层直接写入用户，避免触发缓存失效
         from echomemory_backend.core.security.security import get_password_hash
@@ -660,7 +663,7 @@ class TestAdminDashboardStats:
 
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        assert resp.json()["users"] == first_count
+        assert api_data(resp)["users"] == first_count
 
     async def test_stats_cache_invalidated_on_user_register(
         self, client: TestClient, db_session: AsyncSession, fake_redis
@@ -674,7 +677,7 @@ class TestAdminDashboardStats:
 
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        first_count = resp.json()["users"]
+        first_count = api_data(resp)["users"]
 
         cache_key = build_cache_key(ADMIN_DASHBOARD_STATS_PREFIX)
         assert await fake_redis.exists(cache_key) == 1
@@ -693,4 +696,4 @@ class TestAdminDashboardStats:
 
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
-        assert resp.json()["users"] == first_count + 1
+        assert api_data(resp)["users"] == first_count + 1

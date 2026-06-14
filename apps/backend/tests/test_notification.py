@@ -10,6 +10,7 @@ from echomemory_backend.models.enums import NotificationType
 from echomemory_backend.models.notification import Notification
 from echomemory_backend.models.space_post import SpacePost
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/notifications"
 
@@ -50,7 +51,8 @@ async def test_follow_creates_notification(
         json={"followee_id": bob.id},
         headers=_auth_header(alice),
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert api_data(resp) is None
 
     notifications = (
         await db_session.execute(
@@ -163,7 +165,7 @@ async def test_comment_reply_triggers_notification(
         },
         headers=_auth_header(alice),
     )
-    parent_id = resp.json()["id"]
+    parent_id = api_data(resp)["id"]
     rows = (
         await db_session.execute(
             select(Notification).where(Notification.recipient_id == alice.id)
@@ -205,17 +207,22 @@ async def test_unread_summary_and_mark_all_read(
         json={"followee_id": alice.id},
         headers=_auth_header(bob),
     )
-    summary = client.get(
-        f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
-    ).json()
+    summary = api_data(
+        client.get(
+            f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
+        )
+    )
     assert summary["notification_unread"] == 1
     assert summary["message_unread"] == 0
 
     resp = client.post(f"{BASE_URL}/read-all", headers=_auth_header(alice))
-    assert resp.status_code == 204
-    summary = client.get(
-        f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
-    ).json()
+    assert resp.status_code == 200
+    assert api_data(resp) is None
+    summary = api_data(
+        client.get(
+            f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
+        )
+    )
     assert summary["notification_unread"] == 0
 
 
@@ -231,9 +238,11 @@ async def test_list_notifications_pagination(
             json={"followee_id": alice.id},
             headers=_auth_header(u),
         )
-    body = client.get(
-        f"{BASE_URL}/?limit=2&offset=0", headers=_auth_header(alice)
-    ).json()
+    body = api_data(
+        client.get(
+            f"{BASE_URL}/?limit=2&offset=0", headers=_auth_header(alice)
+        )
+    )
     assert body["total"] == 3
     assert len(body["items"]) == 2
 
@@ -258,10 +267,13 @@ async def test_mark_single_notification_read(
     resp = client.post(
         f"{BASE_URL}/{notif.id}/read", headers=_auth_header(alice)
     )
-    assert resp.status_code == 204
-    summary = client.get(
-        f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
-    ).json()
+    assert resp.status_code == 200
+    assert api_data(resp) is None
+    summary = api_data(
+        client.get(
+            f"{BASE_URL}/unread-summary", headers=_auth_header(alice)
+        )
+    )
     assert summary["notification_unread"] == 0
 
 

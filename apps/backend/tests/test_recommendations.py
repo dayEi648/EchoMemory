@@ -39,6 +39,7 @@ from echomemory_backend.services.recommendation_service import (
     _today,
     refresh_all_daily_and_radar_recommendations,
 )
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/recommendations"
 
@@ -232,7 +233,7 @@ async def test_daily_recommendations_up_to_10_and_deduped(
 
     response = client.get(f"{BASE_URL}/daily", headers=_auth_header(user))
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     items = data["items"]
     assert len(items) <= 10
     assert len({m["id"] for m in items}) == len(items)
@@ -252,7 +253,7 @@ async def test_daily_recommendations_cold_start(
 
     response = client.get(f"{BASE_URL}/daily", headers=_auth_header(user))
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert 1 <= len(data["items"]) <= 5
 
 
@@ -282,7 +283,7 @@ async def test_radar_recommendations_up_to_20_unique(
 
     response = client.get(f"{BASE_URL}/radar", headers=_auth_header(user))
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     items = data["items"]
     assert len(items) == 20
     assert len({m["id"] for m in items}) == 20
@@ -324,7 +325,7 @@ async def test_recommendation_chart_counts_users(
 
     response = client.get(f"{BASE_URL}/chart")
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     chart_item = next((m for m in data["items"] if m["id"] == music.id), None)
     assert chart_item is not None
     assert chart_item["recommend_count"] == 2
@@ -375,7 +376,7 @@ async def test_recommended_playlists_excludes_own_and_private(
         f"{BASE_URL}/playlists?limit=20&offset=0", headers=_auth_header(user)
     )
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     ids = {pl["id"] for pl in data["items"]}
     assert other_public.id in ids
     assert private_pl.id not in ids
@@ -403,7 +404,7 @@ async def test_recommended_albums(
         f"{BASE_URL}/albums?limit=20&offset=0", headers=_auth_header(user)
     )
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     ids = {a["id"] for a in data["items"]}
     assert album.id in ids
 @pytest.mark.asyncio
@@ -421,7 +422,7 @@ async def test_daily_recommendations_idempotent(
 
     assert response1.status_code == 200
     assert response2.status_code == 200
-    assert response1.json()["items"] == response2.json()["items"]
+    assert api_data(response1)["items"] == api_data(response2)["items"]
 
     rows = (
         await db_session.execute(
@@ -445,7 +446,7 @@ async def test_daily_recommendations_empty(
     response = client.get(f"{BASE_URL}/daily", headers=_auth_header(user))
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert data["items"] == []
     assert data["total"] == 0
 
@@ -463,7 +464,7 @@ async def test_daily_recommendations_collected_flag(
     response = client.get(f"{BASE_URL}/daily", headers=_auth_header(user))
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == music.id
     assert data["items"][0]["is_collected_by_me"] is True
@@ -484,7 +485,7 @@ async def test_radar_recommendations_idempotent(
 
     assert response1.status_code == 200
     assert response2.status_code == 200
-    assert response1.json()["items"] == response2.json()["items"]
+    assert api_data(response1)["items"] == api_data(response2)["items"]
 
     rows = (
         await db_session.execute(
@@ -512,7 +513,7 @@ async def test_radar_recommendations_no_tags(
     response = client.get(f"{BASE_URL}/radar", headers=_auth_header(user))
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert len(data["items"]) == 5
     returned_ids = {m["id"] for m in data["items"]}
     assert returned_ids == set(created_ids)
@@ -536,7 +537,7 @@ async def test_radar_limits_collected_to_ten(
     response = client.get(f"{BASE_URL}/radar", headers=_auth_header(user))
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert len(data["items"]) == 20
     collected_in_result = {
         m["id"] for m in data["items"] if m["is_collected_by_me"]
@@ -589,7 +590,7 @@ async def test_recommended_playlists_pagination_crosses_fallback(
             headers=_auth_header(user),
         )
         assert response.status_code == 200
-        data = response.json()
+        data = api_data(response)
         assert len(data["items"]) <= 2
         assert data["total"] == 6
         returned_ids.update(pl["id"] for pl in data["items"])
@@ -644,7 +645,7 @@ async def test_recommended_albums_pagination_crosses_fallback(
             headers=_auth_header(user),
         )
         assert response.status_code == 200
-        data = response.json()
+        data = api_data(response)
         assert len(data["items"]) <= 2
         assert data["total"] == 6
         returned_ids.update(a["id"] for a in data["items"])
@@ -685,7 +686,7 @@ async def test_recommendation_chart_distinct_and_published(
     response = client.get(f"{BASE_URL}/chart")
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     chart_item = next((m for m in data["items"] if m["id"] == published.id), None)
     assert chart_item is not None
     assert chart_item["recommend_count"] == 2
@@ -760,7 +761,7 @@ async def test_recommended_playlists_fallback_by_hotness(
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert [pl["id"] for pl in data["items"]] == [high_hot.id, low_hot.id]
 
 
@@ -781,7 +782,7 @@ async def test_recommended_playlists_broadens_to_own_when_no_others(
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == own_playlist.id
 
@@ -808,7 +809,7 @@ async def test_recommended_albums_fallback_by_hotness(
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert [a["id"] for a in data["items"]] == [high_hot.id, low_hot.id]
 
 
@@ -829,6 +830,6 @@ async def test_recommended_albums_broadens_to_empty_albums(
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = api_data(response)
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == empty_album.id

@@ -9,6 +9,7 @@ from echomemory_backend.core.security.security import create_access_token, get_p
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.space_post import SpacePost, SpacePostImage, SpacePostLike
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE = "/api/v1/space-posts"
 
@@ -63,7 +64,7 @@ class TestCreateSpacePost:
             data={"content": "My first post", "is_private": "false"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["content"] == "My first post"
         assert data["user_id"] == user.id
         assert data["is_private"] is False
@@ -94,7 +95,7 @@ class TestCreateSpacePost:
             ],
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["images"]) == 2
         assert data["images"][0]["ordinal"] == 0
         assert data["images"][1]["ordinal"] == 1
@@ -161,7 +162,7 @@ class TestGetSpacePost:
 
         resp = client.get(f"{BASE}/{post.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["content"] == "Public content"
         assert len(data["images"]) == 1
 
@@ -171,7 +172,7 @@ class TestGetSpacePost:
         post = await _create_post(db_session, user.id, "Private", is_private=True)
         resp = client.get(f"{BASE}/{post.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["content"] == "Private"
+        assert api_data(resp)["content"] == "Private"
 
     async def test_get_private_post_by_other(self, client: TestClient, db_session: AsyncSession):
         """测试其他用户获取私有动态返回 403。"""
@@ -200,7 +201,7 @@ class TestListSpacePosts:
 
         resp = client.get(BASE, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
         for item in data["items"]:
@@ -218,7 +219,7 @@ class TestListSpacePosts:
 
         resp = client.get(BASE, headers=_auth_header(user))
         assert resp.status_code == 200
-        item = next(i for i in resp.json()["items"] if i["id"] == post.id)
+        item = next(i for i in api_data(resp)["items"] if i["id"] == post.id)
         assert item["like_count"] == 1
         assert item["liked_by_me"] is True
 
@@ -231,7 +232,7 @@ class TestListSpacePosts:
 
         resp = client.get(BASE, params={"user_id": owner.id}, headers=_auth_header(viewer))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["content"] == "Public"
@@ -244,7 +245,7 @@ class TestListSpacePosts:
 
         resp = client.get(BASE, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["content"] == "Active"
@@ -258,7 +259,8 @@ class TestSoftDelete:
         user = await _create_user(db_session, "soft_deleter")
         post = await _create_post(db_session, user.id, "To delete")
         resp = client.delete(f"{BASE}/{post.id}", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp2 = client.get(f"{BASE}/{post.id}", headers=_auth_header(user))
         assert resp2.status_code == 404
@@ -298,14 +300,16 @@ class TestLike:
         await db_session.commit()
 
         resp = client.delete(f"{BASE}/{post.id}/like", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
     async def test_unlike_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试重复取消点赞保持幂等性（不会报错）。"""
         user = await _create_user(db_session, "unliker2")
         post = await _create_post(db_session, user.id, "Unlike me2")
         resp = client.delete(f"{BASE}/{post.id}/like", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
 
 class TestAdminHardDelete:
@@ -329,7 +333,8 @@ class TestAdminHardDelete:
         await db_session.commit()
 
         resp = client.delete(f"{BASE}/admin/{post.id}", headers=_auth_header(admin))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
         assert "https://oss.example.com/1.jpg" in deleted_urls
 
         resp2 = client.get(f"{BASE}/{post.id}", headers=_auth_header(user))
@@ -401,7 +406,7 @@ class TestForwardToSpace:
             data={"source_type": "space_post", "source_id": post.id, "content": "Check this!"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["user_id"] == forwarder.id
         assert data["content"] == "Check this!"
 

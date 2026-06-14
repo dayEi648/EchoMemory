@@ -20,6 +20,7 @@ from echomemory_backend.models.user_tag import (
     UserStyle,
 )
 from echomemory_backend.services.user_tag_service import recalculate_user_tags
+from tests.api_helpers import api_data
 
 BASE = "/api/v1/users"
 EMOTION_TAGS_URL = f"{BASE}/me/emotion-tags"
@@ -109,7 +110,7 @@ class TestEmotionTags:
         user = await _create_user(db_session, "empty_emotion")
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
     async def test_list_with_tags(self, client: TestClient, db_session: AsyncSession):
         """测试情绪标签列表正确返回用户已有的标签。"""
@@ -120,7 +121,7 @@ class TestEmotionTags:
 
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 2
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2}
@@ -141,7 +142,7 @@ class TestInterestTags:
         user = await _create_user(db_session, "empty_interest")
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
     async def test_list_with_tags(self, client: TestClient, db_session: AsyncSession):
         """测试兴趣标签列表正确返回用户已有的标签。"""
@@ -152,7 +153,7 @@ class TestInterestTags:
 
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 2
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2}
@@ -175,11 +176,11 @@ class TestRecalculateUserTags:
 
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
     async def test_only_play_history(self, client: TestClient, db_session: AsyncSession):
         """仅听歌历史 → 标签按历史音乐标签频率计算。"""
@@ -194,13 +195,13 @@ class TestRecalculateUserTags:
 
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2}
 
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2}
 
@@ -217,13 +218,13 @@ class TestRecalculateUserTags:
 
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {3, 4}
 
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {3, 4}
 
@@ -260,14 +261,14 @@ class TestRecalculateUserTags:
         # 情绪合并频率：1(3), 2(1), 3(1) → 全部 <=5 保留
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2, 3}
 
         # 兴趣同理
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2, 3}
 
@@ -307,7 +308,7 @@ class TestRecalculateUserTags:
         # threshold = 第5个频率 = 2，保留 >=2 的 → 6 个
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {1, 2, 3, 4, 5, 6}
         assert len(data) == 6
@@ -334,14 +335,14 @@ class TestRecalculateUserTags:
         # 验证情绪标签已自动更新
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {8, 9}
 
         # 验证兴趣标签已自动更新
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         tag_ids = {item["tag_id"] for item in data}
         assert tag_ids == {8, 9}
 
@@ -372,7 +373,7 @@ class TestRecalculateUserTags:
         # 情绪标签按 play_count 加权后：1(1), 2(5)
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 2
         assert data[0]["tag_id"] == 2
         assert data[1]["tag_id"] == 1
@@ -380,7 +381,7 @@ class TestRecalculateUserTags:
         # 兴趣标签同理
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 2
         assert data[0]["tag_id"] == 2
         assert data[1]["tag_id"] == 1
@@ -399,18 +400,19 @@ class TestRecalculateUserTags:
 
         # 调用手动刷新
         resp = client.post(RECALCULATE_URL, headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 验证标签已更新
         resp = client.get(EMOTION_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == 10
 
         resp = client.get(INTEREST_TAGS_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == 10
 
@@ -600,7 +602,7 @@ class TestUserStyleAndLanguageEndpoints:
 
         resp = client.get(STYLES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == style.id
         assert data[0]["name"] == "Metal"
@@ -610,7 +612,7 @@ class TestUserStyleAndLanguageEndpoints:
         user = await _create_user(db_session, "endpoint_styles_empty")
         resp = client.get(STYLES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
     async def test_get_my_languages(self, client: TestClient, db_session: AsyncSession):
         """获取当前用户的语言偏好列表。"""
@@ -624,7 +626,7 @@ class TestUserStyleAndLanguageEndpoints:
 
         resp = client.get(LANGUAGES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == language.id
         assert data[0]["name"] == "Korean"
@@ -634,7 +636,7 @@ class TestUserStyleAndLanguageEndpoints:
         user = await _create_user(db_session, "endpoint_languages_empty")
         resp = client.get(LANGUAGES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert api_data(resp) == []
 
     async def test_get_my_styles_unauthorized(self, client: TestClient):
         """未授权访问风格偏好接口时返回 401。"""
@@ -801,12 +803,12 @@ class TestUserStyleAndLanguageEndpoints:
 
         resp = client.get(STYLES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == style.id
 
         resp = client.get(LANGUAGES_URL, headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data) == 1
         assert data[0]["tag_id"] == language.id

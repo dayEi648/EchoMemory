@@ -8,6 +8,7 @@ from echomemory_backend.models.enums import UserRole, UserStatus
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User
 from echomemory_backend.services.playlist_service import DEFAULT_LIKE_PLAYLIST_TITLE
+from tests.api_helpers import api_data
 
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
@@ -40,7 +41,7 @@ class TestRegister:
             data={"username": "alice", "password": "secret123", "nickname": "Alice"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
 
         # Both tokens returned
         assert "access_token" in data
@@ -52,7 +53,7 @@ class TestRegister:
             ME_URL, headers={"Authorization": f"Bearer {data['access_token']}"}
         )
         assert me_resp.status_code == 200
-        me_data = me_resp.json()
+        me_data = api_data(me_resp)
         assert me_data["username"] == "alice"
         assert me_data["nickname"] == "Alice"
         assert "id" in me_data
@@ -67,10 +68,12 @@ class TestRegister:
             data={"username": "like_pl_user", "password": "secret123", "nickname": "Like"},
         )
         assert resp.status_code == 201
-        me_data = client.get(
-            ME_URL,
-            headers={"Authorization": f"Bearer {resp.json()['access_token']}"},
-        ).json()
+        me_data = api_data(
+            client.get(
+                ME_URL,
+                headers={"Authorization": f"Bearer {api_data(resp)['access_token']}"},
+            )
+        )
 
         stmt = select(Playlist).where(
             Playlist.user_id == me_data["id"],
@@ -134,7 +137,7 @@ class TestLogin:
             json={"username": "login_user", "password": "mypassword"},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert "access_token" in data
         assert "refresh_token" in data
 
@@ -183,7 +186,7 @@ class TestRefresh:
 
         resp = client.post(REFRESH_URL, json={"refresh_token": "valid_rt"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert "access_token" in data
         assert "refresh_token" in data
 
@@ -221,7 +224,8 @@ class TestLogout:
             headers={"Authorization": f"Bearer {token}"},
             json={"refresh_token": "logout_rt"},
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         assert await rc.get_refresh_token_user_id("logout_rt") is None
         assert await rc.is_access_token_blacklisted(token) is True
@@ -240,7 +244,8 @@ class TestLogout:
             headers={"Authorization": f"Bearer {token}"},
             json={"refresh_token": "logout_rt2"},
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # version 已递增，旧 token 失效
         me_resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
@@ -261,7 +266,7 @@ class TestGetMe:
         token = create_access_token(subject=user.id, version=0)
         resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["username"] == "me_user"
         assert data["id"] == user.id
 

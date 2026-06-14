@@ -15,6 +15,7 @@ from echomemory_backend.models.music import Music, MusicEmotionTag, MusicInteres
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
 from echomemory_backend.services.playlist_service import DEFAULT_LIKE_PLAYLIST_TITLE
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/playlists"
 
@@ -170,7 +171,7 @@ class TestCreatePlaylist:
             },
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "MyPlaylist"
         assert data["description"] == "A test playlist"
         assert data["is_private"] is False
@@ -189,7 +190,7 @@ class TestCreatePlaylist:
             data={"title": "NoCoverPlaylist"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "NoCoverPlaylist"
         assert data["cover_icon_url"] is None
 
@@ -231,7 +232,7 @@ class TestListPlaylists:
 
         resp = client.get(BASE_URL + "/", headers=_auth_header(user_a))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         items = data["items"]
         titles = {p["title"] for p in items}
         assert "PlaylistA1" in titles
@@ -250,7 +251,7 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 0},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 2
         assert data["total"] == 5
 
@@ -260,7 +261,7 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 2},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 2
         assert data["total"] == 5
 
@@ -270,7 +271,7 @@ class TestListPlaylists:
             params={"limit": 2, "offset": 4},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 1
         assert data["total"] == 5
 
@@ -291,7 +292,7 @@ class TestGetPlaylist:
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "OwnPlaylist"
         assert data["user"]["id"] == user.id
         assert len(data["musics"]) == 1
@@ -307,8 +308,8 @@ class TestGetPlaylist:
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(viewer))
         assert resp.status_code == 200
-        assert resp.json()["title"] == "PublicPlaylist"
-        assert resp.json()["is_collected_by_me"] is False
+        assert api_data(resp)["title"] == "PublicPlaylist"
+        assert api_data(resp)["is_collected_by_me"] is False
 
     async def test_get_playlist_collection_status_collected(
         self, client: TestClient, db_session: AsyncSession
@@ -325,7 +326,7 @@ class TestGetPlaylist:
         )
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(viewer))
         assert resp.status_code == 200
-        assert resp.json()["is_collected_by_me"] is True
+        assert api_data(resp)["is_collected_by_me"] is True
 
     async def test_get_private_playlist_of_others(self, client: TestClient, db_session: AsyncSession):
         """测试非所有者访问他人私有歌单时返回 403。"""
@@ -355,14 +356,14 @@ class TestGetPlaylist:
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedPlaylist"
+        assert api_data(resp)["title"] == "CachedPlaylist"
 
         playlist.title = "ModifiedPlaylist"
         await db_session.commit()
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["title"] == "CachedPlaylist"
+        assert api_data(resp)["title"] == "CachedPlaylist"
 
     async def test_get_playlist_detail_cache_invalidated_on_update(
         self, client: TestClient, db_session: AsyncSession, fake_redis
@@ -415,7 +416,7 @@ class TestUpdatePlaylist:
             },
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["title"] == "NewTitle"
         assert data["description"] == "Updated desc"
         assert data["is_private"] is True
@@ -447,7 +448,8 @@ class TestDeletePlaylist:
         playlist = await _create_playlist_directly(db_session, user.id, title="ToDelete")
 
         resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 404
@@ -501,7 +503,7 @@ class TestAddRemoveMusic:
         # 验证歌单详情中已包含该歌曲
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert len(resp.json()["musics"]) == 1
+        assert len(api_data(resp)["musics"]) == 1
 
         # 验证 collect_count 同步
         await db_session.refresh(music)
@@ -560,11 +562,12 @@ class TestAddRemoveMusic:
             f"{BASE_URL}/{playlist.id}/musics/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        assert resp.json()["musics"] == []
+        assert api_data(resp)["musics"] == []
 
         # 验证 collect_count 不变（只增不减）
         await db_session.refresh(music)
@@ -614,7 +617,7 @@ class TestPlaylistTagSync:
         # 验证歌单详情中包含该歌曲的标签
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         emotion_tag_ids = {t["id"] for t in data["emotion_tags"]}
         interest_tag_ids = {t["id"] for t in data["interest_tags"]}
         assert emotion_tag.id in emotion_tag_ids
@@ -643,19 +646,20 @@ class TestPlaylistTagSync:
         assert resp.status_code == 201
         # 确认歌单已有标签
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
-        assert resp.json()["emotion_tags"] != []
+        assert api_data(resp)["emotion_tags"] != []
 
         # 通过 API 移除歌曲
         resp = client.delete(
             f"{BASE_URL}/{playlist.id}/musics/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         # 验证歌单标签已清空
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["emotion_tags"] == []
         assert data["interest_tags"] == []
 
@@ -693,7 +697,7 @@ class TestPlaylistTagSync:
         # 验证情感标签只出现一次（去重）
         resp = client.get(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["emotion_tags"]) == 1
         assert data["emotion_tags"][0]["id"] == emotion_tag.id
         assert len(data["interest_tags"]) == 1
@@ -735,7 +739,8 @@ class TestCollectCountOnAddRemove:
 
         # 删除歌单
         resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(music1)
         await db_session.refresh(music2)
@@ -772,7 +777,8 @@ class TestCollectCountOnAddRemove:
             f"{BASE_URL}/{playlist1.id}/musics/{music.id}",
             headers=_auth_header(user),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         await db_session.refresh(music)
         # collect_count 只增不减，从歌单移除后不递减
@@ -794,7 +800,7 @@ class TestSearchPlaylists:
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Summer"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "Summer Vibes"
@@ -813,7 +819,7 @@ class TestSearchPlaylists:
 
         resp = client.get(f"{BASE_URL}/search", params={"q": "Hidden"})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         titles = {item["title"] for item in data["items"]}
         assert "Hidden Public" in titles
         assert "Hidden Mix" not in titles
@@ -834,7 +840,7 @@ class TestListPublicPlaylists:
 
         resp = client.get(f"{BASE_URL}/public", params={"user_id": owner.id})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert data["items"][0]["title"] == "Public One"
 
@@ -849,5 +855,5 @@ class TestListPublicPlaylists:
 
         resp = client.get(f"{BASE_URL}/public", params={"user_id": owner.id})
         assert resp.status_code == 200
-        assert resp.json()["total"] == 0
-        assert resp.json()["items"] == []
+        assert api_data(resp)["total"] == 0
+        assert api_data(resp)["items"] == []

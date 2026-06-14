@@ -17,6 +17,7 @@ from echomemory_backend.models.ai_conversation import AIConversation, AIConversa
 from echomemory_backend.models.user import User
 from echomemory_backend.services import ai_conversation_service
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from tests.api_helpers import api_data
 
 AI_CONVERSATIONS_URL = "/api/v1/ai/conversations"
 
@@ -33,7 +34,7 @@ def _register_and_login(client: TestClient, username: str) -> str:
         json={"username": username, "password": "secret123"},
     )
     assert resp.status_code == 200
-    return resp.json()["access_token"]
+    return api_data(resp)["access_token"]
 
 
 async def _create_user(db_session: AsyncSession, username: str) -> User:
@@ -61,7 +62,7 @@ class TestAIConversationCreate:
             json={},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["conversation"]["title"] == "新对话"
         assert data["conversation"]["model"] == "deepseek-v4-flash"
         assert data["ai_message"] is None
@@ -75,7 +76,7 @@ class TestAIConversationCreate:
             json={"first_message": "你好"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["conversation"]["title"] == "新对话"
         assert data["ai_message"] is not None
         assert data["ai_message"]["role"] == "ai"
@@ -90,7 +91,7 @@ class TestAIConversationCreate:
             json={"model": "deepseek-v4-pro"},
         )
         assert resp.status_code == 201
-        assert resp.json()["conversation"]["model"] == "deepseek-v4-pro"
+        assert api_data(resp)["conversation"]["model"] == "deepseek-v4-pro"
 
 
 class TestAIConversationList:
@@ -109,7 +110,7 @@ class TestAIConversationList:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "新对话"
@@ -129,8 +130,8 @@ class TestAIConversationList:
             headers={"Authorization": f"Bearer {token_b}"},
         )
         assert resp.status_code == 200
-        assert resp.json()["total"] == 0
-        assert len(resp.json()["items"]) == 0
+        assert api_data(resp)["total"] == 0
+        assert len(api_data(resp)["items"]) == 0
 
 
 class TestAIConversationMessages:
@@ -144,7 +145,7 @@ class TestAIConversationMessages:
             headers={"Authorization": f"Bearer {token}"},
             json={},
         )
-        conversation_id = create_resp.json()["conversation"]["id"]
+        conversation_id = api_data(create_resp)["conversation"]["id"]
 
         resp = client.post(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
@@ -152,7 +153,7 @@ class TestAIConversationMessages:
             json={"content": "今天天气如何？", "stream": False},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert data["role"] == "ai"
         assert "你好，我是 AI 助手。" in data["content"]
 
@@ -164,14 +165,14 @@ class TestAIConversationMessages:
             headers={"Authorization": f"Bearer {token}"},
             json={"first_message": "你好"},
         )
-        conversation_id = create_resp.json()["conversation"]["id"]
+        conversation_id = api_data(create_resp)["conversation"]["id"]
 
         resp = client.get(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         messages = data["messages"]
         roles = [m["role"] for m in messages]
         assert "system" in roles
@@ -186,7 +187,7 @@ class TestAIConversationMessages:
             headers={"Authorization": f"Bearer {token}"},
             json={},
         )
-        conversation_id = create_resp.json()["conversation"]["id"]
+        conversation_id = api_data(create_resp)["conversation"]["id"]
 
         resp = client.post(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
@@ -222,7 +223,7 @@ class TestAIConversationSecurity:
             headers={"Authorization": f"Bearer {token_a}"},
             json={},
         )
-        conversation_id = create_resp.json()["conversation"]["id"]
+        conversation_id = api_data(create_resp)["conversation"]["id"]
 
         resp = client.get(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
@@ -272,13 +273,14 @@ class TestAIConversationDelete:
             headers={"Authorization": f"Bearer {token}"},
             json={},
         )
-        conversation_id = create_resp.json()["conversation"]["id"]
+        conversation_id = api_data(create_resp)["conversation"]["id"]
 
         resp = client.delete(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}",
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
 
         resp = client.get(
             f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
@@ -304,7 +306,7 @@ class TestAICache:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp1.status_code == 200
-        assert fake_ai_cache.get(f"list:{resp1.json()['items'][0]['user_id']}") is not None
+        assert fake_ai_cache.get(f"list:{api_data(resp1)['items'][0]['user_id']}") is not None
 
         # 第二次查询从缓存读取，结果一致
         resp2 = client.get(
@@ -312,7 +314,7 @@ class TestAICache:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp2.status_code == 200
-        assert resp2.json() == resp1.json()
+        assert api_data(resp2) == api_data(resp1)
 
 
 class TestContextTrimming:

@@ -9,6 +9,7 @@ from echomemory_backend.models.dictionary import EmotionTag, Instrument, Interes
 from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.user import User
+from tests.api_helpers import api_data
 
 BASE_URL = "/api/v1/dictionary"
 
@@ -63,7 +64,7 @@ class TestListDictionaryItems:
         await _create_style(db_session, "Jazz")
         resp = client.get(f"{BASE_URL}/styles")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         names = {item["name"] for item in data["items"]}
         assert "Rock" in names
         assert "Jazz" in names
@@ -73,7 +74,7 @@ class TestListDictionaryItems:
         await _create_language(db_session, "English")
         resp = client.get(f"{BASE_URL}/languages")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         names = {item["name"] for item in data["items"]}
         assert "English" in names
 
@@ -88,7 +89,7 @@ class TestListDictionaryItems:
             await _create_style(db_session, f"Style{i}")
         resp = client.get(f"{BASE_URL}/styles", params={"limit": 2, "offset": 0})
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         assert len(data["items"]) == 2
         assert data["total"] >= 5
 
@@ -101,7 +102,7 @@ class TestGetDictionaryItem:
         style = await _create_style(db_session, "Blues")
         resp = client.get(f"{BASE_URL}/styles/{style.id}")
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Blues"
+        assert api_data(resp)["name"] == "Blues"
 
     async def test_get_nonexistent_item(self, client: TestClient):
         """测试获取不存在的字典项时返回 404。"""
@@ -130,7 +131,7 @@ class TestCreateDictionaryItem:
             json={"name": "Pop"},
         )
         assert resp.status_code == 201
-        data = resp.json()
+        data = api_data(resp)
         assert data["name"] == "Pop"
         assert "id" in data
 
@@ -179,7 +180,7 @@ class TestUpdateDictionaryItem:
             json={"name": "NewName"},
         )
         assert resp.status_code == 200
-        assert resp.json()["name"] == "NewName"
+        assert api_data(resp)["name"] == "NewName"
 
     async def test_normal_user_cannot_update(self, client: TestClient, db_session: AsyncSession):
         """测试普通用户无权限更新字典项时返回 403。"""
@@ -225,7 +226,8 @@ class TestDeleteDictionaryItem:
             f"{BASE_URL}/styles/{style.id}",
             headers=_auth_header(admin),
         )
-        assert resp.status_code == 204
+        assert resp.status_code == 200
+        assert api_data(resp) is None
         # 确认已删除（使用 select 避免 identity map 缓存）
         from sqlalchemy import select
         stmt = select(Style).where(Style.id == style.id)
@@ -292,16 +294,16 @@ class TestAllDictionaryTypes:
             json={"name": f"Test{dtype}"},
         )
         assert resp.status_code == 201
-        item_id = resp.json()["id"]
+        item_id = api_data(resp)["id"]
 
         # 列表（不假设表为空，只验证刚创建的元素存在）
         resp = client.get(f"{BASE_URL}/{dtype}")
         assert resp.status_code == 200
-        data = resp.json()
+        data = api_data(resp)
         names = {item["name"] for item in data["items"]}
         assert f"Test{dtype}" in names
 
         # 详情
         resp = client.get(f"{BASE_URL}/{dtype}/{item_id}")
         assert resp.status_code == 200
-        assert resp.json()["name"] == f"Test{dtype}"
+        assert api_data(resp)["name"] == f"Test{dtype}"

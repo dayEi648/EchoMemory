@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from echomemory_backend.api.envelope_middleware import ApiEnvelopeMiddleware
 from echomemory_backend.api.v1.router import router as api_v1_router
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.handlers import (
@@ -136,12 +137,20 @@ async def lifespan(app: FastAPI):
     await redis_client.close()
 
 
-app = FastAPI(title="echomemory backend", lifespan=lifespan)
+app = FastAPI(
+    title="echomemory backend",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 # 注册全局异常处理器
 app.add_exception_handler(BusinessError, business_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
+
+app.add_middleware(ApiEnvelopeMiddleware)
 
 app.include_router(api_v1_router, prefix="/api")
