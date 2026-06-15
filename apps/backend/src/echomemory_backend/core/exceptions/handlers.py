@@ -7,6 +7,7 @@
 import logging
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -23,6 +24,7 @@ def _error_response(
     msg: str,
     *,
     code: ErrorCode | int | None = None,
+    data: object | None = None,
 ) -> JSONResponse:
     """构造统一错误 JSON 响应。
 
@@ -36,7 +38,7 @@ def _error_response(
     """
     return JSONResponse(
         status_code=status_code,
-        content=error_body(msg, status_code=status_code, code=code),
+        content=error_body(msg, status_code=status_code, code=code, data=data),
     )
 
 
@@ -86,10 +88,12 @@ async def validation_exception_handler(
     Returns:
         状态码为 422 的错误信封 JSONResponse。
     """
+    errors = jsonable_encoder(exc.errors())
     return _error_response(
         ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.http_status,
         ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.description,
         code=ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS,
+        data={"errors": errors},
     )
 
 

@@ -3,7 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.collection import (
     AlbumCollectionOut,
     MusicCollectionOut,
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 async def collect_music(
     db: SessionDep,
     current_user: ActiveUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """收藏音乐。已收藏则静默返回。"""
     return await collection_service.collect_music(db, current_user.id, music_id)
@@ -38,7 +38,7 @@ async def collect_music(
 async def uncollect_music(
     db: SessionDep,
     current_user: ActiveUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """取消收藏音乐。未收藏则静默成功。"""
     await collection_service.uncollect_music(db, current_user.id, music_id)
@@ -67,7 +67,7 @@ async def list_music_collections(
 async def collect_album(
     db: SessionDep,
     current_user: ActiveUser,
-    album_id: int,
+    album_id: PositiveIntPath,
 ):
     """收藏专辑。已收藏则静默返回。"""
     return await collection_service.collect_album(db, current_user.id, album_id)
@@ -77,7 +77,7 @@ async def collect_album(
 async def uncollect_album(
     db: SessionDep,
     current_user: ActiveUser,
-    album_id: int,
+    album_id: PositiveIntPath,
 ):
     """取消收藏专辑。未收藏则静默成功。"""
     await collection_service.uncollect_album(db, current_user.id, album_id)
@@ -108,7 +108,7 @@ async def list_album_collections(
 async def collect_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
+    playlist_id: PositiveIntPath,
 ):
     """收藏歌单。已收藏则静默返回。"""
     return await collection_service.collect_playlist(db, current_user.id, playlist_id)
@@ -118,7 +118,7 @@ async def collect_playlist(
 async def uncollect_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
+    playlist_id: PositiveIntPath,
 ):
     """取消收藏歌单。未收藏则静默成功。"""
     await collection_service.uncollect_playlist(db, current_user.id, playlist_id)
@@ -147,7 +147,7 @@ async def list_playlist_collections(
 async def release_music(
     db: SessionDep,
     current_user: ActiveUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """标记音乐为已发布。已标记则静默返回。"""
     return await collection_service.release_music(db, current_user.id, music_id)
@@ -157,7 +157,7 @@ async def release_music(
 async def unrelease_music(
     db: SessionDep,
     current_user: ActiveUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """取消已发布音乐标记。未标记则静默成功。"""
     await collection_service.unrelease_music(db, current_user.id, music_id)

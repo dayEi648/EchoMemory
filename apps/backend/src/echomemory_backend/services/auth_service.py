@@ -3,6 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from datetime import datetime, timezone
 
+import anyio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.clients.redis_client import (
@@ -49,7 +50,7 @@ async def register_user(db: AsyncSession, user_in: UserCreate, avatar_url: str |
     Raises:
         BusinessError: 唯一性约束冲突时抛出。
     """
-    password_hash = get_password_hash(user_in.password)
+    password_hash = await anyio.to_thread.run_sync(get_password_hash, user_in.password)
     user = await create_user(db, user_in, password_hash, avatar_url)
     return await _issue_tokens(user.id)
 
@@ -66,7 +67,7 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> T
         BusinessError: 凭据无效或账号被禁用时抛出。
     """
     user = await get_user_by_username(db, username)
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not await anyio.to_thread.run_sync(verify_password, password, user.password_hash):
         raise BusinessError("用户名或密码错误", code=ErrorCode.AUTH_CREDENTIALS_INVALID)
     if user.is_deleted:
         raise BusinessError("账号已被删除", code=ErrorCode.AUTH_ACCOUNT_DELETED)
@@ -91,9 +92,9 @@ async def refresh_user_token(db: AsyncSession, refresh_token: str) -> Token:
     if user_id is None:
         raise BusinessError("刷新令牌无效或已过期", code=ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
-    # 校验 refresh token 的 version 是否匹配当前用户 version
+    # 校验 refresh token 的 version 是否匹配当前用户 version（旧格式 token 无 version 视为无效）
     current_version = await get_user_token_version(user_id)
-    if token_version is not None and token_version != current_version:
+    if token_version is None or token_version != current_version:
         raise BusinessError("刷新令牌无效或已过期", code=ErrorCode.AUTH_REFRESH_TOKEN_INVALID)
 
     user = await get_user_by_id(db, user_id)

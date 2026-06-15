@@ -1,12 +1,13 @@
 """AI 对话相关的 API 路由端点。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
+import logging
 from typing import AsyncIterator
 
 from fastapi import APIRouter, Query, status
 from fastapi.responses import StreamingResponse
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.ai_conversation import (
     AIConversationCreate,
     AIConversationMessageCreate,
@@ -17,6 +18,8 @@ from echomemory_backend.schemas.ai_conversation import (
     PaginatedAIConversationOut,
 )
 from echomemory_backend.services import ai_conversation_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai/conversations", tags=["ai-conversations"])
 
@@ -30,8 +33,15 @@ async def _stream_response(
     stream: AsyncIterator[AIStreamChunkOut],
 ) -> AsyncIterator[str]:
     """将服务层流式迭代器转换为 SSE 文本流。"""
-    async for chunk in stream:
-        yield _format_sse(chunk)
+    try:
+        async for chunk in stream:
+            yield _format_sse(chunk)
+    except Exception:
+        logger.exception("AI stream response generator failed")
+        yield _format_sse(
+            AIStreamChunkOut(type="error", data="流式响应异常")
+        )
+        yield _format_sse(AIStreamChunkOut(type="done"))
 
 
 @router.get("", response_model=PaginatedAIConversationOut)
@@ -75,7 +85,7 @@ async def create_ai_conversation(
 async def list_ai_messages(
     db: SessionDep,
     current_user: ActiveUser,
-    conversation_id: int,
+    conversation_id: PositiveIntPath,
 ):
     """获取指定 AI 会话的消息列表。"""
     conversation = await ai_conversation_service.get_conversation(
@@ -89,7 +99,7 @@ async def list_ai_messages(
 async def send_ai_message(
     db: SessionDep,
     current_user: ActiveUser,
-    conversation_id: int,
+    conversation_id: PositiveIntPath,
     data: AIConversationMessageCreate,
 ):
     """向指定 AI 会话发送消息。
@@ -126,7 +136,7 @@ async def send_ai_message(
 async def delete_ai_conversation(
     db: SessionDep,
     current_user: ActiveUser,
-    conversation_id: int,
+    conversation_id: PositiveIntPath,
 ):
     """软删除指定 AI 会话。"""
     conversation = await ai_conversation_service.get_conversation(

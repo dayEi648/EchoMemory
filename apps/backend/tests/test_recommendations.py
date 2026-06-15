@@ -135,7 +135,7 @@ async def _collect_music_for_user(
     like_playlist = await playlist_service.create_default_like_playlist(
         db, user_id, commit=False
     )
-    await playlist_service.add_music_to_playlist(db, like_playlist.id, music_id)
+    await playlist_service.add_music_to_playlist(db, like_playlist.id, music_id, user_id)
 
 
 async def _create_public_playlist(

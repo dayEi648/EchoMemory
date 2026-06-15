@@ -104,6 +104,58 @@ def _resolve_ext(file: BinaryIO, fallback_ext: str) -> str:
     return fallback_ext
 
 
+def _resolve_audio_ext(file: BinaryIO, fallback_ext: str) -> str:
+    """根据 magic header 检测音频真实格式并决定扩展名。
+
+    若声明的 content_type 与检测结果不兼容则拒绝上传。
+
+    Args:
+        file: 类文件对象。
+        fallback_ext: 无法从 content_type 校验时使用的回退扩展名。
+
+    Returns:
+        安全的音频文件扩展名。
+
+    Raises:
+        ValueError: 无法识别音频格式或 content_type 与检测结果不兼容时抛出。
+    """
+    detected = _detect_audio_format(file)
+    if detected is None:
+        raise ValueError(
+            "Invalid audio file: format not recognized from file header"
+        )
+
+    content_type = getattr(file, "content_type", None)
+    if content_type is not None:
+        expected_ext = _CONTENT_TYPE_TO_EXT.get(content_type)
+        if expected_ext is not None and expected_ext != detected:
+            raise ValueError(
+                f"content_type {content_type} does not match detected audio format {detected}"
+            )
+
+    return detected
+
+
+def _decode_text_bytes(raw: bytes) -> str:
+    """尝试多种常见编码解码文本字节。
+
+    Args:
+        raw: 原始字节内容。
+
+    Returns:
+        解码后的文本。
+
+    Raises:
+        ValueError: 所有编码均失败时抛出。
+    """
+    for encoding in ("utf-8-sig", "utf-8", "gbk"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Unable to decode text content with supported encodings")
+
+
 # ---------------------------------------------------------------------------
 # 同步内部实现
 # ---------------------------------------------------------------------------
@@ -167,16 +219,11 @@ def _upload_file_to_oss_sync(
             f"File too large: {size} bytes. Maximum allowed: {max_size} bytes"
         )
 
-    # 对音频文件做 magic header 校验，防止客户端伪造 content_type
+    # 对音频文件做 magic header 校验，扩展名以检测结果为准
     if allowed_types == _ALLOWED_AUDIO_TYPES:
-        detected = _detect_audio_format(file)
-        if detected is None:
-            raise ValueError(
-                "Invalid audio file: format not recognized from file header"
-            )
-
-    # 根据 content_type 映射扩展名，优先于客户端传入的 fallback
-    resolved_ext = _resolve_ext(file, ext)
+        resolved_ext = _resolve_audio_ext(file, ext)
+    else:
+        resolved_ext = _resolve_ext(file, ext)
     if resolved_ext.lower() in _DANGEROUS_EXTS:
         raise ValueError(f"Dangerous file extension not allowed: {resolved_ext}")
 
@@ -218,10 +265,10 @@ def _fetch_text_by_url_sync(url: str) -> str:
         url: OSS 对象的公开访问 URL。
 
     Returns:
-        解码后的 UTF-8 文本。
+        解码后的文本（优先 UTF-8，回退 GBK）。
 
     Raises:
-        ValueError: URL 非法或对象不存在时抛出。
+        ValueError: URL 非法、对象不存在或无法解码时抛出。
         RuntimeError: OSS 读取失败时抛出。
     """
     object_key = _object_key_from_url(url)
@@ -235,7 +282,7 @@ def _fetch_text_by_url_sync(url: str) -> str:
     except oss2.exceptions.OssError as exc:
         raise RuntimeError(f"OSS fetch failed: {exc}") from exc
 
-    return raw.decode("utf-8-sig")
+    return _decode_text_bytes(raw)
 
 
 def _delete_object_by_url_sync(url: str) -> None:
@@ -252,6 +299,8 @@ def _delete_object_by_url_sync(url: str) -> None:
     # 校验 object_key 是否以允许的业务前缀开头
     _ALLOWED_PREFIXES = (
         "avatars/",
+        "album_covers/",
+        "playlist_covers/",
         "music_covers/",
         "musics/",
         "lyrics/",
@@ -352,7 +401,7 @@ async def fetch_text_by_url(url: str) -> str:
         url: OSS 对象的公开访问 URL。
 
     Returns:
-        解码后的 UTF-8 文本。
+        解码后的文本（优先 UTF-8，回退 GBK）。
 
     Raises:
         ValueError: URL 非法时抛出。

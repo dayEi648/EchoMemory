@@ -5,6 +5,8 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import anyio
+
 from echomemory_backend.core.clients.redis_client import increment_user_token_version
 from echomemory_backend.core.security.security import get_password_hash
 from echomemory_backend.core.utils.common import escape_like, parse_iso8601_duration
@@ -134,7 +136,7 @@ async def create_user_as_admin(db: AsyncSession, admin: User, user_in: UserAdmin
     if user_in.phone and await get_user_by_phone(db, user_in.phone):
         raise BusinessError("手机号已被注册", code=ErrorCode.USER_PHONE_EXISTS)
 
-    password_hash = get_password_hash(user_in.password)
+    password_hash = await anyio.to_thread.run_sync(get_password_hash, user_in.password)
 
     user = User(
         username=user_in.username,
@@ -230,6 +232,8 @@ async def update_user_as_admin(
 
     # 权限与状态字段
     if user_in.role is not None and user_in.role != user.role:
+        if admin.role == UserRole.ADMIN and user_in.role >= UserRole.ADMIN:
+            raise BusinessError("无权将该用户提升为管理员", code=ErrorCode.ADMIN_CANNOT_CREATE_ROLE)
         user.role = user_in.role
         should_invalidate_tokens = True
         public_profile_changed = True
@@ -249,16 +253,15 @@ async def update_user_as_admin(
     if user_in.ban_duration is not None:
         user.ban_duration = parse_iso8601_duration(user_in.ban_duration)
 
+    if should_invalidate_tokens:
+        await increment_user_token_version(target_user_id)
+
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise BusinessError("Invalid user state combination", code=ErrorCode.ADMIN_USER_STATE_INVALID)
     await db.refresh(user)
-
-    # 若修改了 status 或 role，强制该用户所有 token 失效
-    if should_invalidate_tokens:
-        await increment_user_token_version(target_user_id)
 
     # 若修改了公开资料字段，失效用户公开资料缓存
     if public_profile_changed:
@@ -295,15 +298,14 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
         else None
     )
 
+    await increment_user_token_version(target_user_id)
+
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise BusinessError("Invalid ban state or duration", code=ErrorCode.ADMIN_BAN_STATE_INVALID)
     await db.refresh(user)
-
-    # 封禁后强制该用户所有 token 失效
-    await increment_user_token_version(target_user_id)
 
     return user
 

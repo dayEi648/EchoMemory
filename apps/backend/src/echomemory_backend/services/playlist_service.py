@@ -452,23 +452,35 @@ async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
 
 
 async def add_music_to_playlist(
-    db: AsyncSession, playlist_id: int, music_id: int
+    db: AsyncSession,
+    playlist_id: int,
+    music_id: int,
+    user_id: int,
+    *,
+    commit: bool = True,
 ) -> PlaylistMusic:
     """添加一首音乐到歌单。
 
-    校验音乐存在且已发布；查询当前最大 ordinal 并 +1；拒绝重复添加。
+    校验歌单归属、音乐存在且已发布；查询当前最大 ordinal 并 +1；拒绝重复添加。
 
     Args:
         db: SQLAlchemy 异步 Session。
         playlist_id: 目标歌单 ID。
         music_id: 要添加的音乐 ID。
+        user_id: 操作用户 ID，须与歌单所有者一致。
+        commit: 是否立即提交事务，默认 True。
 
     Returns:
         创建的 PlaylistMusic 关联实例。
 
     Raises:
-        BusinessError: 音乐不存在或未发布时抛出 404；音乐已在歌单中时抛出 409。
+        BusinessError: 歌单不存在或无权限时抛出 404；音乐不存在或未发布时抛出 404；
+            音乐已在歌单中时抛出 409。
     """
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is None or playlist.user_id != user_id:
+        raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
+
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
         raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
@@ -494,12 +506,9 @@ async def add_music_to_playlist(
         .values(collect_count=Music.collect_count + 1)
     )
 
-    # 自动重新计算歌单创建者的用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
-    playlist = await db.get(Playlist, playlist_id)
-    if playlist is not None:
-        await recalculate_user_tags(db, playlist.user_id, commit=False)
+    await recalculate_user_tags(db, playlist.user_id, commit=False)
 
     # 自动重新计算热度
     from echomemory_backend.services.hotness_service import (
@@ -510,15 +519,21 @@ async def add_music_to_playlist(
     await recalculate_music_hot(db, music_id)
     await recalculate_playlist_hot(db, playlist_id)
 
-    await db.commit()
-    await db.refresh(playlist_music)
-    await invalidate_music_detail(music_id)
-    await invalidate_playlist_detail(playlist_id)
+    if commit:
+        await db.commit()
+        await db.refresh(playlist_music)
+        await invalidate_music_detail(music_id)
+        await invalidate_playlist_detail(playlist_id)
     return playlist_music
 
 
 async def remove_music_from_playlist(
-    db: AsyncSession, playlist_id: int, music_id: int
+    db: AsyncSession,
+    playlist_id: int,
+    music_id: int,
+    user_id: int,
+    *,
+    commit: bool = True,
 ) -> None:
     """从歌单移除一首音乐。
 
@@ -528,13 +543,19 @@ async def remove_music_from_playlist(
         db: SQLAlchemy 异步 Session。
         playlist_id: 目标歌单 ID。
         music_id: 要移除的音乐 ID。
+        user_id: 操作用户 ID，须与歌单所有者一致。
+        commit: 是否立即提交事务，默认 True。
 
     Returns:
         None。
 
     Raises:
-        BusinessError: 关联记录不存在时抛出，状态码 404。
+        BusinessError: 歌单不存在或无权限时抛出 404；关联记录不存在时抛出 404。
     """
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is None or playlist.user_id != user_id:
+        raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
+
     playlist_music = await db.get(PlaylistMusic, (playlist_id, music_id))
     if playlist_music is None:
         raise BusinessError("Music not found in playlist", code=ErrorCode.MUSIC_NOT_FOUND)
@@ -546,14 +567,13 @@ async def remove_music_from_playlist(
     # 自动重新计算歌单创建者的用户标签（与主业务同事务提交）
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
-    playlist = await db.get(Playlist, playlist_id)
-    if playlist is not None:
-        await recalculate_user_tags(db, playlist.user_id, commit=False)
+    await recalculate_user_tags(db, playlist.user_id, commit=False)
 
     # 自动重新计算歌单热度
     from echomemory_backend.services.hotness_service import recalculate_playlist_hot
 
     await recalculate_playlist_hot(db, playlist_id)
 
-    await db.commit()
-    await invalidate_playlist_detail(playlist_id)
+    if commit:
+        await db.commit()
+        await invalidate_playlist_detail(playlist_id)

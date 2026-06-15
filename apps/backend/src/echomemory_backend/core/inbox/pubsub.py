@@ -5,9 +5,12 @@ WebSocket 监听端通过订阅 ``inbox:user:{id}`` 频道实时收到推送。
 """
 
 import json
+import logging
 from typing import Any
 
 from echomemory_backend.core.clients.redis_client import redis_client, with_redis_retry
+
+logger = logging.getLogger(__name__)
 
 INBOX_CHANNEL_PREFIX = "inbox:user"
 
@@ -32,10 +35,17 @@ async def publish_inbox_event(user_id: int, event: dict[str, Any]) -> None:
         event: 事件字典，必须包含 ``type`` 字段（如 ``notification`` / ``message``）。
 
     Returns:
-        None。Redis 发布失败会抛出异常，由调用方决定是否吞掉以避免影响主业务。
+        None。Redis 发布失败仅记录日志，不影响主业务事务。
     """
     payload = json.dumps(event, ensure_ascii=False, default=str)
-    await _publish(inbox_channel(user_id), payload)
+    try:
+        await _publish(inbox_channel(user_id), payload)
+    except Exception:
+        logger.exception(
+            "Failed to publish inbox event for user %s: %s",
+            user_id,
+            event.get("type"),
+        )
 
 
 @with_redis_retry

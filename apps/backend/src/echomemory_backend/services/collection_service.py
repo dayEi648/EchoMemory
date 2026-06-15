@@ -4,7 +4,8 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import desc, func, select, update
+from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -97,12 +98,24 @@ async def collect_music(db: AsyncSession, user_id: int, music_id: int) -> MusicC
         return await _get_music_collection_view(db, user_id, music_id)
 
     like_playlist = await playlist_service.create_default_like_playlist(db, user_id)
-    await playlist_service.add_music_to_playlist(db, like_playlist.id, music_id)
+    try:
+        await playlist_service.add_music_to_playlist(
+            db, like_playlist.id, music_id, user_id
+        )
+    except IntegrityError:
+        await db.rollback()
+        return await _get_music_collection_view(db, user_id, music_id)
+    except BusinessError as exc:
+        if exc.code == ErrorCode.MUSIC_ALREADY_IN_PLAYLIST:
+            return await _get_music_collection_view(db, user_id, music_id)
+        raise
     return await _get_music_collection_view(db, user_id, music_id)
 
 
 async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None:
     """取消收藏音乐：从用户全部歌单中移除该歌曲。
+
+    在同一事务内批量删除各歌单中的关联记录，避免部分成功。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -112,7 +125,10 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
     Returns:
         None。
     """
-    from echomemory_backend.services import playlist_service
+    from echomemory_backend.services.cache_service import invalidate_playlist_detail
+    from echomemory_backend.services.hotness_service import recalculate_playlist_hot
+    from echomemory_backend.services.playlist_service import _sync_playlist_tags_from_musics
+    from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
     stmt = (
         select(PlaylistMusic.playlist_id)
@@ -123,8 +139,26 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
         )
     )
     playlist_ids = list((await db.execute(stmt)).scalars().all())
+    if not playlist_ids:
+        return
+
+    await db.execute(
+        delete(PlaylistMusic).where(
+            PlaylistMusic.playlist_id.in_(playlist_ids),
+            PlaylistMusic.music_id == music_id,
+        )
+    )
+    await db.flush()
+
     for playlist_id in playlist_ids:
-        await playlist_service.remove_music_from_playlist(db, playlist_id, music_id)
+        await _sync_playlist_tags_from_musics(db, playlist_id)
+        await recalculate_playlist_hot(db, playlist_id)
+
+    await recalculate_user_tags(db, user_id, commit=False)
+    await db.commit()
+
+    for playlist_id in playlist_ids:
+        await invalidate_playlist_detail(playlist_id)
 
 
 async def list_music_collections(
@@ -249,7 +283,11 @@ async def collect_album(db: AsyncSession, user_id: int, album_id: int) -> UserAl
         .where(Album.id == album_id)
         .values(collect_count=Album.collect_count + 1)
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        return await _get_album_collection_with_relations(db, user_id, album_id)
     return await _get_album_collection_with_relations(db, user_id, album_id)
 
 
@@ -357,7 +395,11 @@ async def collect_playlist(
         .where(Playlist.id == playlist_id)
         .values(collect_count=Playlist.collect_count + 1)
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        return await _get_playlist_collection_with_relations(db, user_id, playlist_id)
     return await _get_playlist_collection_with_relations(db, user_id, playlist_id)
 
 

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Path
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from echomemory_backend.core.clients.redis_client import (
     get_user_token_version,
     is_access_token_blacklisted,
 )
+from redis.exceptions import RedisError
 from echomemory_backend.core.security.security import decode_access_token
 from echomemory_backend.db.session import AsyncSessionLocal
 from echomemory_backend.models.enums import UserRole, UserStatus
@@ -31,6 +32,9 @@ async def get_db() -> AsyncSession:
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 """数据库会话依赖类型，用于在路由中注入异步 SQLAlchemy Session。"""
+
+PositiveIntPath = Annotated[int, Path(ge=1)]
+"""路径参数正整数 ID 类型，拒绝 0 或负数。"""
 
 TokenDep = Annotated[str, Depends(oauth2_scheme)]
 """JWT Token 依赖类型，用于从请求中提取 OAuth2 Bearer Token。"""
@@ -143,7 +147,7 @@ async def get_current_user_optional(
         return None
     try:
         return await get_current_user(db, token)
-    except HTTPException:
+    except (HTTPException, RedisError):
         return None
 
 

@@ -7,7 +7,10 @@
 import json
 import logging
 from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
 from typing import Any
+from uuid import UUID
 
 from echomemory_backend.core.clients import redis_client as redis_client_module
 from echomemory_backend.core.clients.redis_client import with_redis_retry
@@ -53,14 +56,22 @@ CACHE_MISS = _CacheMiss()
 
 
 class _CacheJSONEncoder(json.JSONEncoder):
-    """扩展 JSON 编码器，支持 datetime/date 对象序列化为 ISO 8601 字符串。"""
+    """扩展 JSON 编码器，支持 datetime/date、Decimal、UUID、bytes、枚举等类型。"""
 
     def default(self, obj: Any) -> Any:
-        """将 datetime/date 转为 ISO 格式；其余对象走默认序列化。"""
+        """将常见非 JSON 原生类型转为可序列化形式。"""
         if isinstance(obj, datetime):
             return obj.isoformat()
         if isinstance(obj, date):
             return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return str(obj)
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8", errors="replace")
+        if isinstance(obj, Enum):
+            return obj.value
         return super().default(obj)
 
 

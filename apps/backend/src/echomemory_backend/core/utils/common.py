@@ -10,7 +10,7 @@ def escape_like(value: str) -> str:
     Returns:
         转义后的字符串，可安全用于 ilike 模式。
     """
-    return value.replace("%", "\\%").replace("_", "\\_")
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def timedelta_to_iso8601_duration(td: timedelta | None) -> str | None:

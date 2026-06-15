@@ -3,7 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
+from echomemory_backend.api.deps import AdminUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.helpers import (
     build_detail_response_from_schema,
     require_entity,
@@ -114,7 +114,7 @@ async def admin_list_albums(
 async def admin_update_album(
     db: SessionDep,
     _: AdminUser,
-    album_id: int,
+    album_id: PositiveIntPath,
     update_in: AlbumUpdate,
 ):
     """管理员修改专辑信息（不含文件替换和标签编辑）。"""
@@ -143,7 +143,7 @@ async def admin_update_album(
 async def admin_update_album_covers(
     db: SessionDep,
     _: AdminUser,
-    album_id: int,
+    album_id: PositiveIntPath,
     cover_icon: UploadFile | None = File(None),
     cover: UploadFile | None = File(None),
 ):
@@ -220,7 +220,7 @@ async def admin_update_album_covers(
 async def admin_delete_album(
     db: SessionDep,
     _: AdminUser,
-    album_id: int,
+    album_id: PositiveIntPath,
 ):
     """管理员软删除专辑。"""
     album = await require_entity(
@@ -243,8 +243,8 @@ async def admin_delete_album(
 async def add_music_to_album(
     db: SessionDep,
     _: AdminUser,
-    album_id: int,
-    music_id: int,
+    album_id: PositiveIntPath,
+    music_id: PositiveIntPath,
 ):
     """将一首已上架音乐加入专辑。"""
     await require_entity(
@@ -268,8 +268,8 @@ async def add_music_to_album(
 async def remove_music_from_album(
     db: SessionDep,
     _: AdminUser,
-    album_id: int,
-    music_id: int,
+    album_id: PositiveIntPath,
+    music_id: PositiveIntPath,
 ):
     """从专辑移除一首音乐。"""
     await require_entity(
@@ -326,7 +326,7 @@ async def list_albums(
 @router.get("/{album_id}", response_model=AlbumOut)
 async def get_album(
     db: SessionDep,
-    album_id: int,
+    album_id: PositiveIntPath,
     current_user: OptionalUser = None,
 ):
     """获取未删除专辑的详情（优先命中 Redis 缓存）。"""

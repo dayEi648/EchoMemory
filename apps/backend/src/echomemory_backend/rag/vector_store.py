@@ -30,6 +30,27 @@ class VectorStore:
         """
         self._embedding_client = embedding_client
 
+    def _validate_embedding(self, embedding: list[float]) -> list[float]:
+        """校验向量维度与内容。
+
+        参数:
+            embedding: 待校验的向量。
+
+        返回:
+            校验通过的向量。
+
+        异常:
+            ValueError: 向量为空或维度与配置不一致时抛出。
+        """
+        expected = self._embedding_client.dimensions
+        if not embedding:
+            raise ValueError("embedding 不能为空")
+        if len(embedding) != expected:
+            raise ValueError(
+                f"embedding 维度应为 {expected}，实际为 {len(embedding)}"
+            )
+        return embedding
+
     async def add(
         self,
         session: AsyncSession,
@@ -51,7 +72,9 @@ class VectorStore:
         注意:
             本方法不会提交 session，调用方需自行调用 ``await session.commit()``。
         """
-        embedding = await self._embedding_client.embed_one(content)
+        embedding = self._validate_embedding(
+            await self._embedding_client.embed_one(content)
+        )
         doc = VectorDocument(
             namespace=namespace,
             content=content,
@@ -102,7 +125,7 @@ class VectorStore:
                 namespace=namespace,
                 content=content,
                 meta=meta,
-                embedding=embedding,
+                embedding=self._validate_embedding(embedding),
             )
             session.add(doc)
             docs.append(doc)
@@ -138,7 +161,9 @@ class VectorStore:
         if top_k <= 0:
             raise ValueError("top_k 必须大于 0")
 
-        query_embedding = await self._embedding_client.embed_one(query)
+        query_embedding = self._validate_embedding(
+            await self._embedding_client.embed_one(query)
+        )
         stmt = (
             select(VectorDocument)
             .where(VectorDocument.namespace == namespace)

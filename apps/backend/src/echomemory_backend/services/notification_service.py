@@ -61,18 +61,30 @@ async def create_notification(
         "is_read": False,
         "extra": extra or {},
     }
+    if actor_id is not None:
+        conflict_elements = [
+            Notification.recipient_id,
+            Notification.actor_id,
+            Notification.type,
+            Notification.target_type,
+            Notification.target_id,
+        ]
+        conflict_where = text("is_read = false AND actor_id IS NOT NULL")
+    else:
+        conflict_elements = [
+            Notification.recipient_id,
+            Notification.type,
+            Notification.target_type,
+            Notification.target_id,
+        ]
+        conflict_where = text("is_read = false AND actor_id IS NULL")
+
     stmt = (
         pg_insert(Notification)
         .values(**payload)
         .on_conflict_do_nothing(
-            index_elements=[
-                Notification.recipient_id,
-                Notification.actor_id,
-                Notification.type,
-                Notification.target_type,
-                Notification.target_id,
-            ],
-            index_where=text("is_read = false"),
+            index_elements=conflict_elements,
+            index_where=conflict_where,
         )
         .returning(Notification.id)
     )

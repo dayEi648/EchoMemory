@@ -1,9 +1,11 @@
 """空间动态（Space Post）API 路由端点，支持用户发布、查看、点赞、删除动态及管理员硬删除。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
+from typing import Literal
+
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import ActiveUser, AdminUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, AdminUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
     upload_optional_image,
@@ -14,6 +16,8 @@ from echomemory_backend.services import space_post_service
 from echomemory_backend.services.space_post_service import can_view_space_post
 
 router = APIRouter(prefix="/space-posts", tags=["space-posts"])
+
+ForwardSourceType = Literal["space_post", "music", "album", "playlist"]
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +37,11 @@ async def create_space_post(
         raise HTTPException(
             status_code=HttpStatus.UNPROCESSABLE_ENTITY,
             detail="Content or at least one file is required",
+        )
+    if len(files) > 9:
+        raise HTTPException(
+            status_code=HttpStatus.UNPROCESSABLE_ENTITY,
+            detail="At most 9 images are allowed",
         )
     async with UploadCollector() as uploads:
         for file in files:
@@ -63,7 +72,7 @@ async def create_space_post(
 async def get_space_post(
     db: SessionDep,
     current_user: ActiveUser,
-    post_id: int,
+    post_id: PositiveIntPath,
 ):
     """获取动态详情。已删除或无权查看 private 时返回 404/403。"""
     post = await space_post_service.get_space_post_by_id(db, post_id)
@@ -112,7 +121,7 @@ async def list_space_posts(
 async def delete_space_post(
     db: SessionDep,
     current_user: ActiveUser,
-    post_id: int,
+    post_id: PositiveIntPath,
 ):
     """软删除自己的动态。"""
     post = await space_post_service.get_space_post_by_id(db, post_id)
@@ -126,7 +135,9 @@ async def delete_space_post(
             status_code=HttpStatus.FORBIDDEN,
             detail="You do not have permission to delete this post",
         )
-    await space_post_service.soft_delete_space_post(db, post)
+    await space_post_service.soft_delete_space_post(
+        db, user_id=current_user.id, post=post
+    )
     return None
 
 
@@ -134,7 +145,7 @@ async def delete_space_post(
 async def like_space_post(
     db: SessionDep,
     current_user: ActiveUser,
-    post_id: int,
+    post_id: PositiveIntPath,
 ):
     """点赞动态。"""
     post = await space_post_service.get_space_post_by_id(db, post_id)
@@ -151,7 +162,7 @@ async def like_space_post(
 async def unlike_space_post(
     db: SessionDep,
     current_user: ActiveUser,
-    post_id: int,
+    post_id: PositiveIntPath,
 ):
     """取消点赞。"""
     await space_post_service.unlike_space_post(db, current_user.id, post_id)
@@ -162,7 +173,7 @@ async def unlike_space_post(
 async def forward_to_space(
     db: SessionDep,
     current_user: ActiveUser,
-    source_type: str = Form(..., description="space_post / music / album / playlist"),
+    source_type: ForwardSourceType = Form(..., description="space_post / music / album / playlist"),
     source_id: int = Form(..., gt=0),
     content: str | None = Form(None, max_length=2000),
 ):
@@ -187,7 +198,7 @@ async def forward_to_space(
 async def admin_hard_delete_space_post(
     db: SessionDep,
     _: AdminUser,
-    post_id: int,
+    post_id: PositiveIntPath,
 ):
     """管理员硬删除动态，并清理已上传的 OSS 图片。"""
     image_urls = await space_post_service.hard_delete_space_post(db, post_id)

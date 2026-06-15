@@ -3,7 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from echomemory_backend.api.deps import AdminUser, SessionDep
+from echomemory_backend.api.deps import AdminUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.dictionary import (
     DictionaryItemCreate,
     DictionaryItemListOut,
@@ -46,7 +46,7 @@ async def list_dictionary_items(
 async def get_dictionary_item(
     db: SessionDep,
     dictionary_type: str,
-    item_id: int,
+    item_id: PositiveIntPath,
 ):
     """公开：获取单个字典项。"""
     item = await dictionary_service.get_dictionary_item_by_id(
@@ -60,7 +60,7 @@ async def update_dictionary_item(
     db: SessionDep,
     _: AdminUser,
     dictionary_type: str,
-    item_id: int,
+    item_id: PositiveIntPath,
     item_in: DictionaryItemUpdate,
 ):
     """管理员：更新字典项名称。"""
@@ -79,7 +79,7 @@ async def delete_dictionary_item(
     db: SessionDep,
     _: AdminUser,
     dictionary_type: str,
-    item_id: int,
+    item_id: PositiveIntPath,
 ):
     """管理员：删除字典项（仅当未被引用时）。"""
     await dictionary_service.delete_dictionary_item(db, dictionary_type, item_id)

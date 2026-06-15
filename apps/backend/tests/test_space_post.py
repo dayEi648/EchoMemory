@@ -279,18 +279,27 @@ class TestLike:
 
     async def test_like_success(self, client: TestClient, db_session: AsyncSession):
         """测试对动态点赞成功。"""
-        user = await _create_user(db_session, "liker")
-        post = await _create_post(db_session, user.id, "Like me")
-        resp = client.post(f"{BASE}/{post.id}/like", headers=_auth_header(user))
+        author = await _create_user(db_session, "post_author")
+        liker = await _create_user(db_session, "liker")
+        post = await _create_post(db_session, author.id, "Like me")
+        resp = client.post(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
         assert resp.status_code == 201
 
     async def test_like_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试重复点赞保持幂等性（不会报错）。"""
-        user = await _create_user(db_session, "liker2")
-        post = await _create_post(db_session, user.id, "Like me2")
-        client.post(f"{BASE}/{post.id}/like", headers=_auth_header(user))
-        resp = client.post(f"{BASE}/{post.id}/like", headers=_auth_header(user))
+        author = await _create_user(db_session, "post_author2")
+        liker = await _create_user(db_session, "liker2")
+        post = await _create_post(db_session, author.id, "Like me2")
+        client.post(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
+        resp = client.post(f"{BASE}/{post.id}/like", headers=_auth_header(liker))
         assert resp.status_code == 201
+
+    async def test_like_own_post_rejected(self, client: TestClient, db_session: AsyncSession):
+        """测试不能点赞自己的动态。"""
+        user = await _create_user(db_session, "self_liker")
+        post = await _create_post(db_session, user.id, "My post")
+        resp = client.post(f"{BASE}/{post.id}/like", headers=_auth_header(user))
+        assert resp.status_code == 403
 
     async def test_unlike_success(self, client: TestClient, db_session: AsyncSession):
         """测试取消点赞成功。"""
@@ -428,11 +437,11 @@ class TestForwardToSpace:
         assert resp.status_code == 404
 
     async def test_forward_invalid_source_type(self, client: TestClient, db_session: AsyncSession):
-        """测试转发无效 source_type 返回 400。"""
+        """测试转发无效 source_type 在路由层返回 422。"""
         user = await _create_user(db_session, "fw_invalid")
         resp = client.post(
             f"{BASE}/forward",
             headers=_auth_header(user),
             data={"source_type": "invalid", "source_id": 1},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 422

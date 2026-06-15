@@ -429,12 +429,12 @@ async def list_musics(
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     result = {"items": page.items, "total": page.total}
+    serialized = PaginatedMusicListOut.model_validate(result).model_dump()
 
     if should_cache and offset == 0:
-        serialized = PaginatedMusicListOut.model_validate(result).model_dump()
         await cache_set(cache_key, serialized, _CHART_CACHE_TTL_SECONDS)
 
-    return result
+    return serialized
 
 
 async def search_musics(

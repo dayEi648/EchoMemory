@@ -450,6 +450,46 @@ class TestListComments:
         assert len(data["items"]) == 1
         assert data["items"][0]["content"] == "Root"
 
+    async def test_list_replies_total_ignores_unrelated_comments(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试回复列表 total 仅统计该根评论下的回复，不受其他评论影响。"""
+        user = await _create_user(db_session, "replies_total_user")
+        music = await _create_music_directly(db_session)
+        root = await _create_comment_directly(db_session, user.id, "Root", music_id=music.id)
+        await _create_comment_directly(
+            db_session, user.id, "Reply 1", music_id=music.id, parent_id=root.id, root_id=root.id
+        )
+        await _create_comment_directly(
+            db_session, user.id, "Reply 2", music_id=music.id, parent_id=root.id, root_id=root.id
+        )
+        await _create_comment_directly(db_session, user.id, "Other root", music_id=music.id)
+
+        resp = client.get(f"{BASE_URL}/replies/{root.id}")
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+
+    async def test_list_replies_empty_when_root_deleted(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试根评论软删除后回复列表为空且 total 为 0。"""
+        user = await _create_user(db_session, "replies_deleted_root_user")
+        music = await _create_music_directly(db_session)
+        root = await _create_comment_directly(
+            db_session, user.id, "Root", music_id=music.id, is_deleted=True
+        )
+        await _create_comment_directly(
+            db_session, user.id, "Reply", music_id=music.id, parent_id=root.id, root_id=root.id
+        )
+
+        resp = client.get(f"{BASE_URL}/replies/{root.id}")
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["total"] == 0
+        assert data["items"] == []
+
     async def test_list_comments_excludes_deleted(self, client: TestClient, db_session: AsyncSession):
         """测试评论列表排除已删除的评论。"""
         user = await _create_user(db_session, "list_del_user")
@@ -601,42 +641,44 @@ class TestLikeComment:
 
     async def test_like_comment_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常点赞评论。"""
-        user = await _create_user(db_session, "like_user")
+        author = await _create_user(db_session, "comment_author")
+        liker = await _create_user(db_session, "like_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Like me", music_id=music.id
+            db_session, author.id, "Like me", music_id=music.id
         )
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/like",
-            headers=_auth_header(user),
+            headers=_auth_header(liker),
         )
         assert resp.status_code == 201
 
     async def test_like_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试重复点赞具有幂等性，仅生成一条记录。"""
-        user = await _create_user(db_session, "like_idem_user")
+        author = await _create_user(db_session, "comment_author_idem")
+        liker = await _create_user(db_session, "like_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Like idem", music_id=music.id
+            db_session, author.id, "Like idem", music_id=music.id
         )
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/like",
-            headers=_auth_header(user),
+            headers=_auth_header(liker),
         )
         assert resp.status_code == 201
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/like",
-            headers=_auth_header(user),
+            headers=_auth_header(liker),
         )
         assert resp.status_code == 201
 
         result = await db_session.execute(
             select(CommentLike).where(
                 CommentLike.comment_id == comment.id,
-                CommentLike.user_id == user.id,
+                CommentLike.user_id == liker.id,
             )
         )
         assert len(result.scalars().all()) == 1
@@ -668,17 +710,18 @@ class TestUnlikeComment:
 
     async def test_unlike_comment_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常取消点赞并删除记录。"""
-        user = await _create_user(db_session, "unlike_user")
+        author = await _create_user(db_session, "comment_author_unlike")
+        liker = await _create_user(db_session, "unlike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Unlike me", music_id=music.id
+            db_session, author.id, "Unlike me", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
 
         resp = client.delete(
             f"{BASE_URL}/{comment.id}/like",
-            headers=_auth_header(user),
+            headers=_auth_header(liker),
         )
         assert resp.status_code == 200
         assert api_data(resp) is None
@@ -686,7 +729,7 @@ class TestUnlikeComment:
         result = await db_session.execute(
             select(CommentLike).where(
                 CommentLike.comment_id == comment.id,
-                CommentLike.user_id == user.id,
+                CommentLike.user_id == liker.id,
             )
         )
         assert result.scalar_one_or_none() is None
@@ -1013,13 +1056,14 @@ class TestLikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试点赞后评论点赞计数增加。"""
-        user = await _create_user(db_session, "like_count_user")
+        author = await _create_user(db_session, "like_count_author")
+        liker = await _create_user(db_session, "like_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Like me", music_id=music.id
+            db_session, author.id, "Like me", music_id=music.id
         )
 
-        resp = client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
+        resp = client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
         assert resp.status_code == 201
 
         await db_session.refresh(comment)
@@ -1029,14 +1073,15 @@ class TestLikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试重复点赞不会导致点赞计数异常增加。"""
-        user = await _create_user(db_session, "like_count_idem_user")
+        author = await _create_user(db_session, "like_count_author_idem")
+        liker = await _create_user(db_session, "like_count_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Like idem", music_id=music.id
+            db_session, author.id, "Like idem", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
-        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
 
         await db_session.refresh(comment)
         assert comment.like_count == 1
@@ -1045,17 +1090,18 @@ class TestLikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试取消点赞后评论点赞计数减少。"""
-        user = await _create_user(db_session, "unlike_count_user")
+        author = await _create_user(db_session, "unlike_count_author")
+        liker = await _create_user(db_session, "unlike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Unlike me", music_id=music.id
+            db_session, author.id, "Unlike me", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
         await db_session.refresh(comment)
         assert comment.like_count == 1
 
-        resp = client.delete(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(user))
+        resp = client.delete(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(liker))
         assert resp.status_code == 200
         assert api_data(resp) is None
 
@@ -1164,19 +1210,22 @@ class TestUserLikeCountFromComment:
         await db_session.refresh(author)
         assert author.like_count == 0
 
-    async def test_like_own_comment_no_self_increment(
+    async def test_like_own_comment_rejected(
         self, client: TestClient, db_session: AsyncSession
     ):
-        """测试点赞自己的评论时虽然不触发通知，但 like_count 仍正常增加。"""
+        """测试不能点赞自己的评论。"""
         author = await _create_user(db_session, "self_liker")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
             db_session, author.id, "My own", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/like", headers=_auth_header(author))
+        resp = client.post(
+            f"{BASE_URL}/{comment.id}/like", headers=_auth_header(author)
+        )
+        assert resp.status_code == 403
         await db_session.refresh(author)
-        assert author.like_count == 1
+        assert author.like_count == 0
 
 
 # ============================================================================

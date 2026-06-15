@@ -77,6 +77,33 @@ def _escape_sql_string(value: str) -> str:
     return value.replace("'", "''")
 
 
+def _validate_level_config_row(row: dict) -> tuple[int, int, str]:
+    """校验并规范化 level_config 种子行。
+
+    Args:
+        row: 含 level、min_exp、title 的字典。
+
+    Returns:
+        (level, min_exp, title) 三元组。
+
+    Raises:
+        ValueError: 字段类型或范围非法时抛出。
+    """
+    try:
+        level = int(row["level"])
+        min_exp = int(row["min_exp"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid level_config row: {row}") from exc
+    if not 0 <= level <= 10:
+        raise ValueError(f"level must be 0-10, got {level}")
+    if min_exp < 0:
+        raise ValueError(f"min_exp must be non-negative, got {min_exp}")
+    title = row.get("title")
+    if not isinstance(title, str) or not title:
+        raise ValueError(f"title must be a non-empty string: {row}")
+    return level, min_exp, title
+
+
 def get_dictionary_seed_sql() -> str:
     """生成用于测试初始化的字典表种子 SQL。
 
@@ -90,8 +117,10 @@ def get_dictionary_seed_sql() -> str:
     level_rows = data.get("level_config", [])
     if level_rows:
         values = ",\n    ".join(
-            f"({row['level']}, {row['min_exp']}, '{_escape_sql_string(row['title'])}')"
-            for row in level_rows
+            f"({level}, {min_exp}, '{_escape_sql_string(title)}')"
+            for level, min_exp, title in (
+                _validate_level_config_row(row) for row in level_rows
+            )
         )
         statements.append(
             f"INSERT INTO level_config (level, min_exp, title) VALUES\n    {values}\n"

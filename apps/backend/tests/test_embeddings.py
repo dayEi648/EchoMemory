@@ -48,11 +48,13 @@ def test_embedding_client_requires_positive_batch_size():
 async def test_embed_returns_vectors():
     """批量嵌入应返回与输入顺序一致的向量列表。"""
     client = EmbeddingClient(api_key="test-key")
+    vec1 = [0.1] * client.dimensions
+    vec2 = [0.4] * client.dimensions
 
     item1 = MagicMock()
-    item1.embedding = [0.1, 0.2, 0.3]
+    item1.embedding = vec1
     item2 = MagicMock()
-    item2.embedding = [0.4, 0.5, 0.6]
+    item2.embedding = vec2
     response = MagicMock()
     response.data = [item1, item2]
 
@@ -61,15 +63,16 @@ async def test_embed_returns_vectors():
     ):
         result = await client.embed(["hello", "world"])
 
-    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    assert result == [vec1, vec2]
 
 
 async def test_embed_one_returns_single_vector():
     """单条嵌入应返回单个向量。"""
     client = EmbeddingClient(api_key="test-key")
+    vec = [0.1] * client.dimensions
 
     item = MagicMock()
-    item.embedding = [0.1, 0.2, 0.3]
+    item.embedding = vec
     response = MagicMock()
     response.data = [item]
 
@@ -78,7 +81,7 @@ async def test_embed_one_returns_single_vector():
     ):
         result = await client.embed_one("hello")
 
-    assert result == [0.1, 0.2, 0.3]
+    assert result == vec
 
 
 async def test_embed_rejects_empty_list():
@@ -90,7 +93,7 @@ async def test_embed_rejects_empty_list():
 
 async def test_embed_batches_requests_by_batch_size():
     """输入超过 batch_size 时应分多次调用 API。"""
-    client = EmbeddingClient(api_key="test-key", batch_size=2)
+    client = EmbeddingClient(api_key="test-key", dimensions=4, batch_size=2)
 
     call_count = 0
     async def _fake_create(*, input, **kwargs):
@@ -99,7 +102,7 @@ async def test_embed_batches_requests_by_batch_size():
         call_count += 1
         response = MagicMock()
         response.data = [
-            MagicMock(embedding=[start_index + i, start_index + i + 1])
+            MagicMock(embedding=[float(start_index + i)] * client.dimensions)
             for i in range(len(input))
         ]
         return response
@@ -109,8 +112,8 @@ async def test_embed_batches_requests_by_batch_size():
 
     assert call_count == 2
     assert len(result) == 4
-    assert result[0] == [0, 1]
-    assert result[3] == [3, 4]
+    assert result[0] == [0.0] * client.dimensions
+    assert result[3] == [3.0] * client.dimensions
 
 
 def test_embedding_client_accepts_custom_params():

@@ -122,19 +122,23 @@ async def create_conversation(
     db.add(conversation)
     await db.flush()
     conversation.thread_id = str(conversation.id)
-    await db.commit()
-    await db.refresh(conversation)
 
-    # 在 checkpoint 中写入系统消息，初始化对话状态
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
-    await graph.ainvoke(
-        {
-            "messages": [SystemMessage(content=get_system_prompt())],
-            "user_id": user_id,
-        },
-        config,
-    )
+    try:
+        await graph.ainvoke(
+            {
+                "messages": [SystemMessage(content=get_system_prompt())],
+                "user_id": user_id,
+            },
+            config,
+        )
+    except Exception:
+        await db.rollback()
+        raise
+
+    await db.commit()
+    await db.refresh(conversation)
 
     await ai_cache_module.invalidate_conversation_list(user_id)
 
@@ -224,9 +228,9 @@ async def get_conversation(
     """
     conversation = await db.get(AIConversation, conversation_id)
     if conversation is None or conversation.user_id != user_id:
-        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
+        raise BusinessError("Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND)
     if conversation.status == AIConversationStatus.DELETED:
-        raise BusinessError("Conversation not found", code=ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND)
+        raise BusinessError("Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND)
     return conversation
 
 
@@ -343,32 +347,43 @@ async def stream_message(
 
     model_name: str | None = None
 
-    async for chunk in graph.astream(
-        {
-            "messages": [HumanMessage(content=content)],
-            "user_id": user_id,
-        },
-        config,
-        stream_mode="messages",
-    ):
-        message_chunk, metadata = chunk
-        if model_name is None:
-            model_name = metadata.get("model") if isinstance(metadata, dict) else None
+    try:
+        async for chunk in graph.astream(
+            {
+                "messages": [HumanMessage(content=content)],
+                "user_id": user_id,
+            },
+            config,
+            stream_mode="messages",
+        ):
+            message_chunk, metadata = chunk
+            if model_name is None:
+                model_name = metadata.get("model") if isinstance(metadata, dict) else None
 
-        if isinstance(message_chunk, AIMessageChunk):
-            reasoning = message_chunk.additional_kwargs.get("reasoning_content")
-            if reasoning:
-                yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
-            if message_chunk.content:
-                yield AIStreamChunkOut(
-                    type="content",
-                    data=message_chunk.content,
-                    model=model_name,
-                )
+            if isinstance(message_chunk, AIMessageChunk):
+                reasoning = message_chunk.additional_kwargs.get("reasoning_content")
+                if reasoning:
+                    yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
+                if message_chunk.content:
+                    yield AIStreamChunkOut(
+                        type="content",
+                        data=message_chunk.content,
+                        model=model_name,
+                    )
 
-    await ai_cache_module.invalidate_messages(conversation.id)
-    await ai_cache_module.invalidate_conversation_list(conversation.user_id)
-    yield AIStreamChunkOut(type="done", data="", model=model_name)
+        await ai_cache_module.invalidate_messages(conversation.id)
+        await ai_cache_module.invalidate_conversation_list(conversation.user_id)
+    except Exception:
+        logger.exception(
+            "AI stream failed for conversation %s", conversation.id
+        )
+        yield AIStreamChunkOut(
+            type="error",
+            data="AI 流式响应失败",
+            model=model_name,
+        )
+    finally:
+        yield AIStreamChunkOut(type="done", data="", model=model_name)
 
 
 async def delete_conversation(

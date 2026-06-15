@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=str(base_dir),
     )
     if result.returncode != 0:
@@ -132,9 +133,18 @@ async def lifespan(app: FastAPI):
         await recommend_task
     except asyncio.CancelledError:
         pass
-    await close_checkpointer()
-    await async_engine.dispose()
-    await redis_client.close()
+    try:
+        await close_checkpointer()
+    except Exception:
+        logger.exception("Failed to close LangGraph checkpointer")
+    try:
+        await async_engine.dispose()
+    except Exception:
+        logger.exception("Failed to dispose database engine")
+    try:
+        await redis_client.close()
+    except Exception:
+        logger.exception("Failed to close Redis client")
 
 
 app = FastAPI(

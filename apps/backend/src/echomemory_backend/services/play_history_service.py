@@ -6,6 +6,7 @@
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -55,21 +56,25 @@ async def create_play_history(
         if result.scalar_one_or_none() is None:
             raise BusinessError("Music not in playlist", code=ErrorCode.MUSIC_NOT_IN_PLAYLIST)
 
-    stmt = select(PlayHistory).where(
-        PlayHistory.user_id == user_id,
-        PlayHistory.music_id == music_id,
+    insert_stmt = (
+        pg_insert(PlayHistory)
+        .values(user_id=user_id, music_id=music_id, play_count=1)
+        .on_conflict_do_update(
+            index_elements=["user_id", "music_id"],
+            set_={
+                "play_count": PlayHistory.play_count + 1,
+                "played_at": func.now(),
+            },
+        )
+        .returning(PlayHistory.id)
     )
-    result = await db.execute(stmt)
-    history = result.scalar_one_or_none()
-
-    if history is not None:
-        history.play_count += 1
-        history.played_at = func.now()
-        await db.flush()
-    else:
-        history = PlayHistory(user_id=user_id, music_id=music_id, play_count=1)
-        db.add(history)
-        await db.flush()  # 确保播放历史记录对后续查询可见
+    history_id = (await db.execute(insert_stmt)).scalar_one()
+    history = await db.get(PlayHistory, history_id)
+    if history is None:
+        raise BusinessError(
+            "Failed to record play history", code=ErrorCode.SYSTEM_INTERNAL_ERROR
+        )
+    await db.flush()
 
     # 递增音乐播放量
     await db.execute(
@@ -110,7 +115,12 @@ async def create_play_history(
     await recalculate_user_tags(db, user_id, commit=False)
 
     await db.commit()
-    await db.refresh(history)
+    stmt = (
+        select(PlayHistory)
+        .where(PlayHistory.id == history.id)
+        .options(selectinload(PlayHistory.music))
+    )
+    history = (await db.execute(stmt)).scalar_one()
     await invalidate_music_detail(music_id)
     return history
 

@@ -2,6 +2,7 @@
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import desc, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -125,16 +126,24 @@ async def list_space_posts(
     return {"items": page.items, "total": page.total}
 
 
-async def soft_delete_space_post(db: AsyncSession, post: SpacePost) -> None:
+async def soft_delete_space_post(
+    db: AsyncSession, *, user_id: int, post: SpacePost
+) -> None:
     """软删除动态。
 
     Args:
         db: SQLAlchemy 异步 Session。
+        user_id: 操作者主键，须为动态作者。
         post: 要软删除的 SpacePost 实例。
 
     Returns:
         None。
+
+    Raises:
+        BusinessError: 非作者操作时抛出 403。
     """
+    if post.user_id != user_id:
+        raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
     post.is_deleted = True
     await db.commit()
 
@@ -165,7 +174,17 @@ async def hard_delete_space_post(db: AsyncSession, post_id: int) -> list[str]:
     likes_result = await db.execute(
         select(SpacePostLike).where(SpacePostLike.post_id == post_id)
     )
-    for like in likes_result.scalars().all():
+    likes = list(likes_result.scalars().all())
+    like_count = len(likes)
+    if like_count > 0:
+        from echomemory_backend.models.user import User
+
+        await db.execute(
+            update(User)
+            .where(User.id == post.user_id, User.like_count >= like_count)
+            .values(like_count=User.like_count - like_count)
+        )
+    for like in likes:
         await db.delete(like)
 
     await db.delete(post)
@@ -239,7 +258,7 @@ async def forward_to_space(
         )
     elif source_type == "playlist":
         playlist = await db.get(Playlist, source_id)
-        if playlist is None:
+        if playlist is None or playlist.is_private:
             raise BusinessError("Playlist not found", code=ErrorCode.PLAYLIST_NOT_FOUND)
         source_title = playlist.title
         await db.execute(
@@ -273,36 +292,43 @@ async def like_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:
 
     Returns:
         None。
+
+    Raises:
+        BusinessError: 动态不存在、不可见或不能自赞时抛出 404/403。
     """
+    post = await db.get(SpacePost, post_id)
+    if post is None or post.is_deleted or not can_view_space_post(user_id, post):
+        raise BusinessError("Post not found", code=ErrorCode.SPACE_POST_NOT_FOUND)
+    if post.user_id == user_id:
+        raise BusinessError("Cannot like your own post", code=ErrorCode.PERMISSION_DENIED)
+
     existing = await db.get(SpacePostLike, (post_id, user_id))
     if existing is not None:
         return
 
-    post = await db.get(SpacePost, post_id)
-    like = SpacePostLike(post_id=post_id, user_id=user_id)
-    db.add(like)
+    db.add(SpacePostLike(post_id=post_id, user_id=user_id))
 
-    # 维护动态作者的 like_count
-    if post is not None:
-        from echomemory_backend.models.user import User
-        await db.execute(
-            update(User)
-            .where(User.id == post.user_id)
-            .values(like_count=User.like_count + 1)
-        )
+    from echomemory_backend.models.user import User
+    await db.execute(
+        update(User)
+        .where(User.id == post.user_id)
+        .values(like_count=User.like_count + 1)
+    )
 
-    if post is not None and post.user_id != user_id:
-        await create_notification(
-            db,
-            recipient_id=post.user_id,
-            actor_id=user_id,
-            type=NotificationType.SPACE_POST_LIKE,
-            target_type="space_post",
-            target_id=post_id,
-            extra={"content": (post.content or "")[:100]},
-        )
+    await create_notification(
+        db,
+        recipient_id=post.user_id,
+        actor_id=user_id,
+        type=NotificationType.SPACE_POST_LIKE,
+        target_type="space_post",
+        target_id=post_id,
+        extra={"content": (post.content or "")[:100]},
+    )
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
 
 
 async def unlike_space_post(db: AsyncSession, user_id: int, post_id: int) -> None:

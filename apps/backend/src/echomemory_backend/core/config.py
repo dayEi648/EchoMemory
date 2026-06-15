@@ -1,5 +1,6 @@
 """应用配置模块，从环境变量与 .env 文件加载全局设置。"""
 
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -77,4 +78,21 @@ class Settings(BaseSettings):
         return url
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    """懒加载应用配置，避免模块导入时触发环境变量校验。
+
+    Returns:
+        已解析的 Settings 实例（进程内单例）。
+    """
+    return Settings()
+
+
+class _SettingsProxy:
+    """向后兼容的 settings 代理，首次访问时才实例化 Settings。"""
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(get_settings(), name)
+
+
+settings = _SettingsProxy()

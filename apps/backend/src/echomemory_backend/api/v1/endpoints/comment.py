@@ -1,25 +1,34 @@
 """评论相关 API 端点，提供评论的增删查及互动（点赞/点踩）功能。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Query, status
 
-from echomemory_backend.api.deps import ActiveUser, OptionalUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.comment import CommentCreate, CommentOut, PaginatedCommentOut
 from echomemory_backend.services import comment_service
 
 router = APIRouter(prefix="/comments", tags=["comments"])
 
+CommentTargetType = Literal["music", "playlist", "space_post"]
 
-@router.get("/replies/{root_id}", response_model=list[CommentOut])
+
+@router.get("/replies/{root_id}", response_model=PaginatedCommentOut)
 async def list_replies(
     db: SessionDep,
-    root_id: int,
+    root_id: PositiveIntPath,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: OptionalUser = None,
 ):
-    """获取指定根评论的所有非删除回复（按时间正序）。公开接口，无需登录。"""
-    replies = await comment_service.list_replies(db, root_id=root_id)
+    """获取指定根评论的回复列表（按时间正序，分页）。公开接口，无需登录。"""
+    result = await comment_service.list_replies(
+        db, root_id=root_id, limit=limit, offset=offset
+    )
     viewer_id = current_user.id if current_user is not None else None
-    return await comment_service.build_comment_outs(db, replies, viewer_id)
+    items = await comment_service.build_comment_outs(db, result["items"], viewer_id)
+    return PaginatedCommentOut(items=items, total=result["total"])
 
 
 @router.post("/", response_model=CommentOut, status_code=HttpStatus.CREATED)
@@ -43,8 +52,8 @@ async def create_comment(
 @router.get("/{target_type}/{target_id}", response_model=PaginatedCommentOut)
 async def list_comments(
     db: SessionDep,
-    target_type: str,
-    target_id: int,
+    target_type: CommentTargetType,
+    target_id: PositiveIntPath,
     sort_by: str = Query("recommended", description="排序: recommended / latest / likes"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -69,7 +78,7 @@ async def list_comments(
 async def delete_comment(
     db: SessionDep,
     current_user: ActiveUser,
-    comment_id: int,
+    comment_id: PositiveIntPath,
 ):
     """软删除自己的评论。"""
     await comment_service.delete_comment(db, current_user.id, comment_id)
@@ -80,7 +89,7 @@ async def delete_comment(
 async def like_comment(
     db: SessionDep,
     current_user: ActiveUser,
-    comment_id: int,
+    comment_id: PositiveIntPath,
 ):
     """点赞评论。已点赞则静默成功。"""
     await comment_service.like_comment(db, current_user.id, comment_id)
@@ -91,7 +100,7 @@ async def like_comment(
 async def unlike_comment(
     db: SessionDep,
     current_user: ActiveUser,
-    comment_id: int,
+    comment_id: PositiveIntPath,
 ):
     """取消点赞。未点赞则静默成功。"""
     await comment_service.unlike_comment(db, current_user.id, comment_id)
@@ -102,7 +111,7 @@ async def unlike_comment(
 async def dislike_comment(
     db: SessionDep,
     current_user: ActiveUser,
-    comment_id: int,
+    comment_id: PositiveIntPath,
 ):
     """点踩评论。已点踩则静默成功。"""
     await comment_service.dislike_comment(db, current_user.id, comment_id)
@@ -113,7 +122,7 @@ async def dislike_comment(
 async def undislike_comment(
     db: SessionDep,
     current_user: ActiveUser,
-    comment_id: int,
+    comment_id: PositiveIntPath,
 ):
     """取消点踩。未点踩则静默成功。"""
     await comment_service.undislike_comment(db, current_user.id, comment_id)

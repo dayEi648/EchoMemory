@@ -7,7 +7,7 @@ from datetime import date
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import AdminUser, OptionalUser, SessionDep
+from echomemory_backend.api.deps import AdminUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.helpers import (
     build_detail_response_from_schema,
     require_entity,
@@ -191,7 +191,7 @@ async def import_music(
 async def admin_update_music(
     db: SessionDep,
     _: AdminUser,
-    music_id: int,
+    music_id: PositiveIntPath,
     title: str | None = Form(None, min_length=1, max_length=128),
     source: str | None = Form(None, max_length=50),
     style_id: int | None = Form(None, gt=0),
@@ -321,7 +321,7 @@ async def admin_update_music(
 async def admin_publish_music(
     db: SessionDep,
     _: AdminUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """管理员上架音乐。"""
     music = await require_entity(
@@ -339,7 +339,7 @@ async def admin_publish_music(
 async def admin_unpublish_music(
     db: SessionDep,
     _: AdminUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """管理员下架音乐。"""
     music = await require_entity(
@@ -391,7 +391,7 @@ async def admin_list_music(
 async def admin_get_music(
     db: SessionDep,
     _: AdminUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """管理员获取任意音乐详情（含未上架）。"""
     return await require_entity(
@@ -488,7 +488,7 @@ async def list_musics(
 @router.get("/{music_id}/lyrics", response_model=LyricsOut)
 async def get_music_lyrics(
     db: SessionDep,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """获取已上架音乐的歌词文本（由服务端代理 OSS，避免前端跨域）。"""
     music = await require_entity(
@@ -520,7 +520,7 @@ async def get_music_lyrics(
 @router.get("/{music_id}", response_model=MusicOut)
 async def get_music(
     db: SessionDep,
-    music_id: int,
+    music_id: PositiveIntPath,
     current_user: OptionalUser = None,
 ):
     """获取已上架音乐的详情（优先命中 Redis 缓存）。"""

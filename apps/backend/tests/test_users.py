@@ -365,6 +365,24 @@ class TestAdmin:
         assert resp.status_code == 200
         assert api_data(resp)["status"] == UserStatus.BANNED.value
 
+    async def test_admin_ban_invalid_ban_duration_returns_422(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试非法 ban_duration 返回 422 且包含字段级错误详情。"""
+        admin = await _create_user(db_session, "admin_bad_ban", role=UserRole.ADMIN.value)
+        target = await _create_user(db_session, "bad_ban_target")
+        resp = client.post(
+            f"{BASE}/{target.id}/ban",
+            headers=_auth_header(admin),
+            json={"status": UserStatus.TEMP_BAN.value, "ban_duration": "bad"},
+        )
+        assert resp.status_code == 422
+        body = resp.json()
+        assert body["code"] != 0
+        assert body["data"] is not None
+        assert "errors" in body["data"]
+        assert isinstance(body["data"]["errors"], list)
+
     async def test_admin_unban_user(self, client: TestClient, db_session: AsyncSession):
         """测试管理员解封用户。"""
         admin = await _create_user(db_session, "admin_unban", role=UserRole.ADMIN.value)

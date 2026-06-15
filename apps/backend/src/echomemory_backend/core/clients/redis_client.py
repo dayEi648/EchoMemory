@@ -9,7 +9,7 @@ import time
 
 from redis.asyncio import from_url
 from redis.exceptions import ConnectionError as RedisConnectionError
-from redis.exceptions import RedisError
+from redis.exceptions import ResponseError as RedisResponseError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from echomemory_backend.core.config import settings
@@ -23,7 +23,26 @@ USER_VERSION_PREFIX = "user_version"
 
 REDIS_RETRY_MAX_ATTEMPTS = 3
 REDIS_RETRY_BASE_DELAY_SECONDS = 0.05
-_REDIS_RETRYABLE_EXCEPTIONS = (RedisConnectionError, RedisTimeoutError, RedisError)
+_REDIS_RETRYABLE_EXCEPTIONS = (RedisConnectionError, RedisTimeoutError)
+
+_RATE_LIMIT_LUA = """
+local key = KEYS[1]
+local now_ms = tonumber(ARGV[1])
+local window_start_ms = tonumber(ARGV[2])
+local max_requests = tonumber(ARGV[3])
+local window_seconds = tonumber(ARGV[4])
+local member = ARGV[5]
+redis.call('zremrangebyscore', key, 0, window_start_ms)
+local count = redis.call('zcard', key)
+if count >= max_requests then
+    return 0
+end
+redis.call('zadd', key, now_ms, member)
+redis.call('expire', key, window_seconds)
+return 1
+"""
+_rate_limit_sha: str | None = None
+_rate_limit_lua_enabled: bool | None = None
 
 redis_client = from_url(settings.redis_url, decode_responses=True, protocol=2)
 
@@ -161,9 +180,36 @@ async def increment_user_token_version(user_id: int) -> int:
     return int(new_version)
 
 
+async def _get_rate_limit_sha() -> str:
+    """加载并缓存限流 Lua 脚本的 SHA。"""
+    global _rate_limit_sha
+    if _rate_limit_sha is None:
+        _rate_limit_sha = await redis_client.script_load(_RATE_LIMIT_LUA)
+    return _rate_limit_sha
+
+
+async def _check_rate_limit_without_lua(
+    redis_key: str,
+    *,
+    now_ms: int,
+    window_start_ms: int,
+    max_requests: int,
+    window_seconds: int,
+    member: str,
+) -> bool:
+    """在不支持 Lua 的 Redis 实现上执行滑动窗口限流（如测试用 FakeRedis）。"""
+    await redis_client.zremrangebyscore(redis_key, 0, window_start_ms)
+    count = await redis_client.zcard(redis_key)
+    if count >= max_requests:
+        return False
+    await redis_client.zadd(redis_key, {member: now_ms})
+    await redis_client.expire(redis_key, window_seconds)
+    return True
+
+
 @with_redis_retry
 async def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> bool:
-    """基于 Redis Sorted Set 的滑动窗口限流。
+    """基于 Redis Sorted Set 的滑动窗口限流（Lua 脚本原子执行）。
 
     Args:
         key: 限流标识（如 IP、用户 ID）。
@@ -173,18 +219,42 @@ async def check_rate_limit(key: str, max_requests: int, window_seconds: int) -> 
     Returns:
         允许请求返回 True，超过限制返回 False。
     """
+    global _rate_limit_lua_enabled
+
     redis_key = f"rate_limit:{key}"
     now_ms = int(time.time() * 1000)
     window_start_ms = now_ms - window_seconds * 1000
     member = f"{now_ms}:{secrets.token_hex(4)}"
 
-    await redis_client.zremrangebyscore(redis_key, 0, window_start_ms)
-    count = await redis_client.zcard(redis_key)
-    if count >= max_requests:
-        return False
-    await redis_client.zadd(redis_key, {member: now_ms})
-    await redis_client.expire(redis_key, window_seconds)
-    return True
+    if _rate_limit_lua_enabled is not False:
+        try:
+            sha = await _get_rate_limit_sha()
+            allowed = await redis_client.evalsha(
+                sha,
+                1,
+                redis_key,
+                now_ms,
+                window_start_ms,
+                max_requests,
+                window_seconds,
+                member,
+            )
+            return int(allowed) == 1
+        except RedisResponseError as exc:
+            message = str(exc).lower()
+            if "script" not in message and "evalsha" not in message:
+                raise
+            _rate_limit_lua_enabled = False
+            logger.warning("Redis Lua scripts unavailable, falling back to non-atomic rate limit")
+
+    return await _check_rate_limit_without_lua(
+        redis_key,
+        now_ms=now_ms,
+        window_start_ms=window_start_ms,
+        max_requests=max_requests,
+        window_seconds=window_seconds,
+        member=member,
+    )
 
 
 def generate_refresh_token() -> str:

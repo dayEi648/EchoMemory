@@ -19,6 +19,7 @@ from echomemory_backend.core.clients.redis_client import (
 )
 from echomemory_backend.core.security.security import decode_access_token
 from echomemory_backend.db.session import AsyncSessionLocal
+from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,19 @@ async def _resolve_user_from_token(token: str | None) -> User | None:
         await db.close()
     if user is None or user.is_deleted:
         return None
+    if user.status != UserStatus.ACTIVE:
+        return None
     return user
+
+
+async def _await_task_safely(task: asyncio.Task) -> None:
+    """等待任务结束并吞掉已取消或已失败任务的异常。"""
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        logger.exception("Inbox websocket task %s failed", task.get_name())
 
 
 @router.websocket("/ws/inbox")
@@ -89,25 +102,34 @@ async def inbox_websocket(
 
     await websocket.accept()
     pubsub = redis_client.pubsub()
-    await pubsub.subscribe(inbox_channel(user.id))
+    channel = inbox_channel(user.id)
+    try:
+        await pubsub.subscribe(channel)
+    except Exception:
+        logger.exception("Failed to subscribe inbox channel for user %s", user.id)
+        await websocket.close(code=WS_CLOSE_AUTH_FAILED)
+        return
 
     async def _forward() -> None:
         """从 Redis Pub/Sub 读取消息并转发到 WebSocket。"""
-        async for raw in pubsub.listen():
-            if raw is None:
-                continue
-            if raw.get("type") != "message":
-                continue
-            data = raw.get("data")
-            if data is None:
-                continue
-            try:
-                await websocket.send_text(data)
-            except Exception:
-                logger.exception("Failed to forward inbox event to WebSocket")
-                return
+        try:
+            async for raw in pubsub.listen():
+                if raw is None:
+                    continue
+                if raw.get("type") != "message":
+                    continue
+                data = raw.get("data")
+                if data is None:
+                    continue
+                try:
+                    await websocket.send_text(data)
+                except Exception:
+                    logger.exception("Failed to forward inbox event to WebSocket")
+                    return
+        except Exception:
+            logger.exception("Redis pubsub listen failed for user %s", user.id)
 
-    forward_task = asyncio.create_task(_forward())
+    forward_task = asyncio.create_task(_forward(), name="inbox-forward")
 
     async def _client_loop() -> None:
         """检测客户端断线；定期发送心跳并在超时无响应时关闭连接。"""
@@ -135,24 +157,25 @@ async def inbox_websocket(
                 logger.exception("Unexpected error in inbox websocket receive loop")
                 return
 
-    client_task = asyncio.create_task(_client_loop())
+    client_task = asyncio.create_task(_client_loop(), name="inbox-client")
+    tasks = {forward_task, client_task}
     try:
-        await client_task
-    except Exception:
-        logger.exception("Unexpected error in inbox websocket loop")
+        done, pending = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+        for task in done | pending:
+            await _await_task_safely(task)
     finally:
-        forward_task.cancel()
-        client_task.cancel()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        for task in tasks:
+            await _await_task_safely(task)
         try:
-            await forward_task
-        except asyncio.CancelledError:
-            pass
-        try:
-            await client_task
-        except asyncio.CancelledError:
-            pass
-        try:
-            await pubsub.unsubscribe(inbox_channel(user.id))
+            await pubsub.unsubscribe(channel)
         except Exception:
             logger.exception("Failed to unsubscribe inbox channel for user %s", user.id)
         try:

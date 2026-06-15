@@ -3,7 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, Query, status
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.models.message import Conversation
 from echomemory_backend.models.user import User
@@ -119,7 +119,7 @@ async def list_conversations(
 async def get_or_init_conversation(
     db: SessionDep,
     current_user: ActiveUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ):
     """获取与指定用户的会话元数据。会话不存在时返回 404，由发送首条消息时自动创建。"""
     if user_id == current_user.id:
@@ -139,7 +139,7 @@ async def get_or_init_conversation(
 async def list_messages(
     db: SessionDep,
     current_user: ActiveUser,
-    conversation_id: int,
+    conversation_id: PositiveIntPath,
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -162,7 +162,7 @@ async def list_messages(
 async def mark_read(
     db: SessionDep,
     current_user: ActiveUser,
-    conversation_id: int,
+    conversation_id: PositiveIntPath,
 ):
     """将指定会话中当前用户的未读数清零。"""
     await message_service.mark_conversation_read(
@@ -179,7 +179,7 @@ async def mark_read(
 async def send_message(
     db: SessionDep,
     current_user: ActiveUser,
-    user_id: int,
+    user_id: PositiveIntPath,
     data: DirectMessageCreate,
 ):
     """向指定用户发送私信，会话不存在时自动创建。"""

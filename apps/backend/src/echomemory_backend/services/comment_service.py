@@ -2,8 +2,9 @@
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from sqlalchemy import desc, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.comment import Comment, CommentDislike, CommentLike
@@ -64,6 +65,36 @@ async def _validate_target_exists(
     elif target_type == "space_post":
         target = await db.get(SpacePost, target_id)
         if target is None or not can_view_space_post(viewer_id, target):
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
+
+
+async def _validate_comment_target_visible(
+    db: AsyncSession, comment: Comment, viewer_id: int
+) -> None:
+    """校验评论所属目标对查看者可见。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        comment: 评论 ORM 实例。
+        viewer_id: 查看者用户主键。
+
+    Returns:
+        None。
+
+    Raises:
+        BusinessError: 目标不存在或不可见时抛出 404。
+    """
+    if comment.music_id is not None:
+        music = await db.get(Music, comment.music_id)
+        if music is None or not music.is_published:
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
+    elif comment.playlist_id is not None:
+        playlist = await db.get(Playlist, comment.playlist_id)
+        if playlist is None or not _can_view_playlist(viewer_id, playlist):
+            raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
+    elif comment.space_post_id is not None:
+        space_post = await db.get(SpacePost, comment.space_post_id)
+        if space_post is None or not can_view_space_post(viewer_id, space_post):
             raise BusinessError("Target not found", code=ErrorCode.COMMENT_TARGET_NOT_FOUND)
 
 
@@ -301,26 +332,46 @@ async def list_comments(
 async def list_replies(
     db: AsyncSession,
     root_id: int,
-) -> list[Comment]:
-    """获取指定根评论的所有非删除回复（按创建时间正序）。
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, object]:
+    """获取指定根评论的非删除回复（按创建时间正序，分页）。
+
+    若根评论已软删除，则不返回任何回复。
 
     Args:
         db: SQLAlchemy 异步 Session。
         root_id: 根评论主键。
+        limit: 返回数量上限，默认 20。
+        offset: 偏移量，默认 0。
 
     Returns:
-        回复 Comment 列表（已关联用户信息）。
+        {"items": 回复 Comment 列表, "total": 总记录数}。
     """
+    root = aliased(Comment)
+    where_clause = [
+        Comment.root_id == root_id,
+        Comment.is_deleted.is_(False),
+        root.is_deleted.is_(False),
+    ]
     stmt = (
         select(Comment)
-        .where(
-            Comment.root_id == root_id,
-            Comment.is_deleted.is_(False),
-        )
+        .join(root, Comment.root_id == root.id)
+        .where(*where_clause)
         .order_by(Comment.created_at)
         .options(selectinload(Comment.user))
     )
-    return list((await db.execute(stmt)).scalars().all())
+    items = list(
+        (await db.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    )
+    count_stmt = (
+        select(func.count())
+        .select_from(Comment)
+        .join(root, Comment.root_id == root.id)
+        .where(*where_clause)
+    )
+    total = (await db.execute(count_stmt)).scalar_one()
+    return {"items": items, "total": total}
 
 
 async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
@@ -344,6 +395,26 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     comment.is_deleted = True
+
+    # 清理点赞记录并扣减作者 like_count
+    likes_result = await db.execute(
+        select(CommentLike).where(CommentLike.comment_id == comment_id)
+    )
+    likes = list(likes_result.scalars().all())
+    if likes:
+        for like in likes:
+            await db.delete(like)
+        from echomemory_backend.models.user import User
+
+        await db.execute(
+            update(User)
+            .where(
+                User.id == comment.user_id,
+                User.like_count >= len(likes),
+            )
+            .values(like_count=User.like_count - len(likes))
+        )
+        comment.like_count = max(0, comment.like_count - len(likes))
 
     # 维护目标实体或父评论的计数（原子 UPDATE + 防负保护）
     if comment.parent_id is None:
@@ -375,7 +446,16 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
             .values(reply_count=Comment.reply_count - 1)
         )
 
+    music_id = comment.music_id
+    if music_id is not None:
+        from echomemory_backend.services.hotness_service import recalculate_music_hot
+
+        await recalculate_music_hot(db, music_id)
+
     await db.commit()
+
+    if music_id is not None:
+        await invalidate_music_detail(music_id)
 
 
 async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
@@ -390,11 +470,15 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
         None。
 
     Raises:
-        BusinessError: 评论不存在时抛出 404。
+        BusinessError: 评论不存在、目标不可见或不能自赞时抛出 404/403。
     """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
         raise BusinessError("Comment not found", code=ErrorCode.COMMENT_NOT_FOUND)
+    if comment.user_id == user_id:
+        raise BusinessError("Cannot like your own comment", code=ErrorCode.PERMISSION_DENIED)
+
+    await _validate_comment_target_visible(db, comment, user_id)
 
     existing = await db.get(CommentLike, (comment_id, user_id))
     if existing is not None:
@@ -414,18 +498,20 @@ async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
         .values(like_count=User.like_count + 1)
     )
 
-    if comment.user_id != user_id:
-        await create_notification(
-            db,
-            recipient_id=comment.user_id,
-            actor_id=user_id,
-            type=NotificationType.COMMENT_LIKE,
-            target_type="comment",
-            target_id=comment_id,
-            extra={"content": comment.content[:100]},
-        )
+    await create_notification(
+        db,
+        recipient_id=comment.user_id,
+        actor_id=user_id,
+        type=NotificationType.COMMENT_LIKE,
+        target_type="comment",
+        target_id=comment_id,
+        extra={"content": comment.content[:100]},
+    )
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
 
 
 async def unlike_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:

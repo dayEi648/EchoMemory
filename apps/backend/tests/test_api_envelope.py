@@ -192,7 +192,8 @@ class TestApiEnvelope:
         assert resp.status_code == 422
         body = api_error(resp)
         assert body["code"] == ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS.value
-        assert body["data"] is None
+        assert body["data"] is not None
+        assert "errors" in body["data"]
 
     async def test_openapi_and_docs_disabled(self, client: TestClient):
         """后端不再自动生成 Swagger / ReDoc / openapi.json。"""

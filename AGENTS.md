@@ -40,8 +40,8 @@
 	- It is necessary to use the SKILL that is useful for the current task, even if it has only 1% relevance to the current task.
 	- It is necessary to use the Tool that is useful for the current work.
 	- All code that is not written according to the specifications and operations that are not carried out as required will not be recognized. Therefore, you must strictly abide by various development specifications and work requirements.
-	- The project requirement analysis and key decisions are recorded in @planning/决策.md. During the development process, you must not violate the decisions described therein. During the development process, once the user clarifies new design directions, architecture decisions, specification conventions, etc., you must actively record them in `决策.md` using concise language. Before recording, you must obtain the user's consent.
-	- 
+	- 项目当前上下文、历史决策、阶段性约束记录在 `planning/项目上下文.md`。启动开发前必须查看该文档，但它不是绝对规范或最高优先级来源。遇到它与当前代码、测试、迁移、接口现状、用户最新说明或任务目标冲突时，不得机械服从文档；必须结合现状判断，必要时向用户确认。用户明确澄清的新方向，经用户同意后应及时记录到 `planning/项目上下文.md`，并标注为现行、历史、暂缓、待确认或已变化。
+
 	</workrules>
 
 ---
@@ -54,7 +54,7 @@
 
 | Resource            | Path                           | Purpose                              | When to Use                                                  |
 | ------------------- | ------------------------------ | ------------------------------------ | ------------------------------------------------------------ |
-| Project Charter     | `planning/决策.md`             | 项目旨在达成的目标、已经明确的决策。 | 始终，在启动任何开发之前。                                   |
+| Project Context     | `planning/项目上下文.md`       | 项目定位、当前实现状态、历史决策、阶段性约束与待确认事项。 | 始终，在启动任何开发之前；但仅作为上下文参考，不能替代代码核验和用户最新说明。 |
 | Task Plans          | `planning/plans/`              | 任务列表、计划与排期。               | 将复杂的、长期的或者暂时不执行的计划存放在该目录下。         |
 | Directory Structure | `planning/directory.md`        | 项目目录结构。                       | 需要了解项目目录结构时，查看此文档。如果项目结构发生变更，需要更新此文档。 |
 | Frontend References | `planning/for-frontend/`       | 前端设计指导。                       | 当你需要了解前端设计、样式或其他前端相关决策时，查看此文件夹下有无文档。 |

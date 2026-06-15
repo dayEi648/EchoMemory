@@ -7,13 +7,7 @@ from __future__ import annotations
 
 from openai import AsyncOpenAI
 
-from echomemory_backend.core.config import settings
-
-
-DEFAULT_BATCH_SIZE: int = settings.embedding_batch_size
-DEFAULT_DIMENSIONS: int = settings.embedding_dimensions
-DEFAULT_MODEL: str = settings.embedding_model
-DEFAULT_BASE_URL: str = settings.embedding_base_url
+from echomemory_backend.core.config import get_settings
 
 
 __all__ = ["EmbeddingClient"]
@@ -48,23 +42,25 @@ class EmbeddingClient:
         异常:
             ValueError: 当 model 为空或 dimensions 非正数时抛出。
         """
-        model = model if model is not None else DEFAULT_MODEL
+        settings = get_settings()
+        model = model if model is not None else settings.embedding_model
         if not model:
             raise ValueError("model 不能为空")
 
-        dimensions = dimensions if dimensions is not None else DEFAULT_DIMENSIONS
+        dimensions = dimensions if dimensions is not None else settings.embedding_dimensions
         if dimensions <= 0:
             raise ValueError("dimensions 必须大于 0")
 
         self.model = model
         self.dimensions = dimensions
-        self.batch_size = batch_size if batch_size is not None else DEFAULT_BATCH_SIZE
+        batch_size = batch_size if batch_size is not None else settings.embedding_batch_size
+        self.batch_size = batch_size
         if self.batch_size <= 0:
             raise ValueError("batch_size 必须大于 0")
 
         self._client = AsyncOpenAI(
             api_key=api_key if api_key is not None else settings.dashscope_api_key,
-            base_url=base_url if base_url is not None else DEFAULT_BASE_URL,
+            base_url=base_url if base_url is not None else settings.embedding_base_url,
             timeout=timeout,
         )
 
@@ -93,7 +89,19 @@ class EmbeddingClient:
                 dimensions=self.dimensions,
                 encoding_format="float",
             )
-            results.extend([item.embedding for item in response.data])
+            if len(response.data) != len(batch):
+                raise ValueError(
+                    f"embedding 响应数量不匹配：期望 {len(batch)}，实际 {len(response.data)}"
+                )
+            for item in response.data:
+                embedding = item.embedding
+                if not embedding:
+                    raise ValueError("embedding 响应包含空向量")
+                if len(embedding) != self.dimensions:
+                    raise ValueError(
+                        f"embedding 维度应为 {self.dimensions}，实际为 {len(embedding)}"
+                    )
+                results.append(embedding)
         return results
 
     async def embed_one(self, text: str) -> list[float]:

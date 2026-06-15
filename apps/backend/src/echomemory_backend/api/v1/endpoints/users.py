@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import ActiveUser, AdminUser, OptionalUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, AdminUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
     form_to_schema,
     upload_optional_image,
@@ -75,6 +75,7 @@ async def update_me(
     avatar: UploadFile | None = File(None),
 ) -> User:
     """更新当前用户自己的个人资料。可选上传新头像图片。"""
+    old_avatar_url = current_user.avatar_url
     avatar_url = await upload_optional_image(
         avatar,
         folder=settings.oss_avatar_prefix,
@@ -83,11 +84,15 @@ async def update_me(
     )
 
     try:
-        return await user_service.update_user_profile(db, current_user, user_in, avatar_url)
+        user = await user_service.update_user_profile(db, current_user, user_in, avatar_url)
     except BusinessError:
         if avatar_url:
             await oss_client.delete_object_by_url(avatar_url)
         raise
+
+    if avatar_url and old_avatar_url and old_avatar_url != avatar_url:
+        await oss_client.delete_object_by_url(old_avatar_url)
+    return user
 
 
 @router.get("/me/emotion-tags", response_model=list[UserTagOut])
@@ -133,7 +138,7 @@ async def recalculate_my_tags(
 
 @router.get("/{user_id}", response_model=UserPublicOut)
 async def get_user(
-    db: SessionDep, user_id: int, current_user: OptionalUser = None
+    db: SessionDep, user_id: PositiveIntPath, current_user: OptionalUser = None
 ) -> UserPublicOut:
     """根据用户 ID 获取公开的个人资料（优先命中 Redis 缓存）。"""
     user = await user_service.get_user_by_id(db, user_id)
@@ -201,7 +206,7 @@ async def unfollow_user(
 async def block_user(
     db: SessionDep,
     current_user: ActiveUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ) -> None:
     """屏蔽指定用户，使其无法继续向当前用户发送私信（幂等）。"""
     await message_service.block_user(db, current_user.id, user_id)
@@ -212,7 +217,7 @@ async def block_user(
 async def unblock_user(
     db: SessionDep,
     current_user: ActiveUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ) -> None:
     """取消对指定用户的屏蔽（幂等）。"""
     await message_service.unblock_user(db, current_user.id, user_id)
@@ -222,7 +227,7 @@ async def unblock_user(
 @router.get("/{user_id}/followees", response_model=PaginatedFolloweeOut)
 async def get_followees(
     db: SessionDep,
-    user_id: int,
+    user_id: PositiveIntPath,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
@@ -233,7 +238,7 @@ async def get_followees(
 @router.get("/{user_id}/followers", response_model=PaginatedFollowerOut)
 async def get_followers(
     db: SessionDep,
-    user_id: int,
+    user_id: PositiveIntPath,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[User]:
@@ -265,7 +270,7 @@ async def admin_dashboard_stats(
 async def admin_list_users(
     db: SessionDep,
     admin: AdminUser,
-    status: int | None = Query(None, ge=0, le=3),
+    user_status: int | None = Query(None, ge=0, le=3, alias="status"),
     role: int | None = Query(None, ge=0, le=3),
     is_deleted: bool | None = Query(False, description="是否已注销（软删除）；不传默认 false，传 null 显示全部"),
     q: str | None = Query(None, description="按用户名或昵称搜索"),
@@ -277,7 +282,7 @@ async def admin_list_users(
     """以管理员身份列出用户，支持筛选、排序和分页。"""
     items, total = await admin_service.list_users_with_count(
         db,
-        status=status,
+        status=user_status,
         role=role,
         q=q,
         sort_by=sort_by,
@@ -307,7 +312,7 @@ async def admin_create_user(
 async def admin_update_user(
     db: SessionDep,
     admin: AdminUser,
-    user_id: int,
+    user_id: PositiveIntPath,
     user_in: UserAdminUpdate,
 ) -> User:
     """以管理员身份更新用户信息。"""
@@ -318,7 +323,7 @@ async def admin_update_user(
 async def admin_ban_user(
     db: SessionDep,
     admin: AdminUser,
-    user_id: int,
+    user_id: PositiveIntPath,
     action: UserBanAction,
 ) -> User:
     """封禁用户。"""
@@ -329,7 +334,7 @@ async def admin_ban_user(
 async def admin_unban_user(
     db: SessionDep,
     admin: AdminUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ) -> User:
     """解封用户。"""
     return await admin_service.unban_user(db, admin, user_id)
@@ -339,7 +344,7 @@ async def admin_unban_user(
 async def admin_get_user(
     db: SessionDep,
     admin: AdminUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ) -> User:
     """以管理员身份获取单个用户的完整信息。"""
     return await admin_service.get_user_full(db, admin, user_id)
@@ -349,7 +354,7 @@ async def admin_get_user(
 async def admin_delete_user(
     db: SessionDep,
     admin: AdminUser,
-    user_id: int,
+    user_id: PositiveIntPath,
 ) -> None:
     """以管理员身份硬删除用户及其所有关联数据。"""
     await admin_service.hard_delete_user(db, admin, user_id)

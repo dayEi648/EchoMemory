@@ -3,7 +3,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.play_history import (
     PaginatedPlayHistoryOut,
     PlayHistoryCreate,
@@ -22,15 +22,10 @@ async def record_play(
 ):
     """记录一次播放。"""
     user_id = current_user.id
-    await play_history_service.create_play_history(
+    history = await play_history_service.create_play_history(
         db, user_id, data.music_id, playlist_id=data.playlist_id
     )
-
-    # 重新加载关联数据以匹配 PlayHistoryOut
-    histories = await play_history_service.list_play_history(
-        db, user_id, limit=1, offset=0
-    )
-    return histories["items"][0]
+    return history
 
 
 @router.get("/", response_model=PaginatedPlayHistoryOut)
@@ -50,7 +45,7 @@ async def list_play_history(
 async def delete_play_history(
     db: SessionDep,
     current_user: ActiveUser,
-    history_id: int,
+    history_id: PositiveIntPath,
 ):
     """删除单条播放记录。"""
     await play_history_service.delete_play_history(

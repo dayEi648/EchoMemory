@@ -75,14 +75,23 @@ class Notification(Base):
             postgresql_where=text("is_read = false"),
         ),
         Index(
-            "uq_notifications_dedupe_unread",
+            "uq_notifications_dedupe_unread_with_actor",
             "recipient_id",
             "actor_id",
             "type",
             "target_type",
             "target_id",
             unique=True,
-            postgresql_where=text("is_read = false"),
+            postgresql_where=text("is_read = false AND actor_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_notifications_dedupe_unread_system",
+            "recipient_id",
+            "type",
+            "target_type",
+            "target_id",
+            unique=True,
+            postgresql_where=text("is_read = false AND actor_id IS NULL"),
         ),
     )
 

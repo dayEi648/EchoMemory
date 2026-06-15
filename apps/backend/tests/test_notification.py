@@ -134,11 +134,12 @@ async def test_space_post_like_triggers_notification(
     assert len(rows) == 1
     assert rows[0].type == int(NotificationType.SPACE_POST_LIKE)
 
-    # 自赞不产生通知
-    client.post(
+    # 自赞被拒绝且不产生额外通知
+    resp = client.post(
         f"/api/v1/space-posts/{post.id}/like",
         headers=_auth_header(alice),
     )
+    assert resp.status_code == 403
     rows = (
         await db_session.execute(
             select(Notification).where(Notification.recipient_id == alice.id)

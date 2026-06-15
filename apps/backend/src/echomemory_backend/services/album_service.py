@@ -258,7 +258,7 @@ async def get_album_by_id(db: AsyncSession, album_id: int) -> Album | None:
     """
     stmt = (
         select(Album)
-        .where(Album.id == album_id)
+        .where(Album.id == album_id, Album.is_deleted.is_(False))
         .options(
             selectinload(Album.authors).selectinload(AlbumAuthor.author),
             selectinload(Album.musics).selectinload(AlbumMusic.music),
@@ -336,12 +336,12 @@ async def list_albums(
     stmt = select(Album).where(*where_clause).order_by(desc(Album.created_at))
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     result = {"items": page.items, "total": page.total}
+    serialized = PaginatedAlbumListOut.model_validate(result).model_dump()
 
     if should_cache:
-        serialized = PaginatedAlbumListOut.model_validate(result).model_dump()
         await cache_set(cache_key, serialized, _HOME_ALBUMS_CACHE_TTL_SECONDS)
 
-    return result
+    return serialized
 
 
 async def search_albums(
@@ -466,6 +466,10 @@ async def add_music_to_album(
     music = await db.get(Music, music_id)
     if music is None or not music.is_published:
         raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
+
+    album = await db.get(Album, album_id)
+    if album is None or album.is_deleted:
+        raise BusinessError("Album not found", code=ErrorCode.ALBUM_NOT_FOUND)
 
     existing = await db.get(AlbumMusic, (album_id, music_id))
     if existing is not None:

@@ -165,6 +165,7 @@ class AdminMusicListOut(
         return [
             {"id": am.album.id, "title": am.album.title}
             for am in v
+            if not am.album.is_deleted
         ]
 
 

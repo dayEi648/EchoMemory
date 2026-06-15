@@ -6,7 +6,7 @@ from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
-from echomemory_backend.api.deps import ActiveUser, SessionDep
+from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.helpers import (
     build_detail_response_from_schema,
     require_entity,
@@ -119,7 +119,7 @@ async def list_public_playlists(
 async def list_playlist_membership_for_music(
     db: SessionDep,
     current_user: ActiveUser,
-    music_id: int,
+    music_id: PositiveIntPath,
 ):
     """查询我的歌单列表，并标记指定歌曲是否已在各歌单中（用于收藏弹窗）。"""
     result = await playlist_service.list_user_playlists_with_music_membership(
@@ -143,7 +143,7 @@ async def list_playlist_membership_for_music(
 async def get_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
+    playlist_id: PositiveIntPath,
 ):
     """获取歌单详情（优先命中 Redis 缓存）。
 
@@ -180,7 +180,7 @@ async def get_playlist(
 async def update_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
+    playlist_id: PositiveIntPath,
     update_in: PlaylistUpdate,
 ):
     """修改歌单信息（仅文本字段，不含封面替换和标签编辑）。"""
@@ -214,7 +214,7 @@ async def update_playlist(
 async def delete_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
+    playlist_id: PositiveIntPath,
 ):
     """删除自己的歌单。"""
     playlist = await require_entity(
@@ -245,8 +245,8 @@ async def delete_playlist(
 async def add_music_to_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
-    music_id: int,
+    playlist_id: PositiveIntPath,
+    music_id: PositiveIntPath,
 ):
     """添加一首已上架音乐到歌单。仅允许操作自己的歌单。"""
     playlist = await require_entity(
@@ -262,7 +262,9 @@ async def add_music_to_playlist(
             detail="You do not have permission to modify this playlist",
         )
 
-    await playlist_service.add_music_to_playlist(db, playlist_id, music_id)
+    await playlist_service.add_music_to_playlist(
+        db, playlist_id, music_id, current_user.id
+    )
 
     # 重新加载完整关联数据
     playlist = await playlist_service.get_playlist_by_id(db, playlist_id)
@@ -276,8 +278,8 @@ async def add_music_to_playlist(
 async def remove_music_from_playlist(
     db: SessionDep,
     current_user: ActiveUser,
-    playlist_id: int,
-    music_id: int,
+    playlist_id: PositiveIntPath,
+    music_id: PositiveIntPath,
 ):
     """从歌单移除一首音乐。仅允许操作自己的歌单。"""
     playlist = await require_entity(
@@ -293,4 +295,6 @@ async def remove_music_from_playlist(
             detail="You do not have permission to modify this playlist",
         )
 
-    await playlist_service.remove_music_from_playlist(db, playlist_id, music_id)
+    await playlist_service.remove_music_from_playlist(
+        db, playlist_id, music_id, current_user.id
+    )

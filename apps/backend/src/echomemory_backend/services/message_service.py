@@ -110,6 +110,19 @@ async def is_blocked(db: AsyncSession, blocker_id: int, blocked_id: int) -> bool
     ).scalar_one_or_none() is not None
 
 
+def _is_unique_violation(exc: IntegrityError) -> bool:
+    """判断 IntegrityError 是否为唯一约束冲突。
+
+    Args:
+        exc: SQLAlchemy IntegrityError。
+
+    Returns:
+        唯一约束冲突返回 True，否则 False。
+    """
+    orig = exc.orig
+    return orig is not None and getattr(orig, "pgcode", None) == "23505"
+
+
 async def block_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> None:
     """屏蔽用户（幂等）。
 
@@ -123,6 +136,7 @@ async def block_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> None
 
     Raises:
         BusinessError: 自我屏蔽或目标用户不存在时抛出 400/404。
+        IntegrityError: 非唯一约束的数据库完整性错误时重新抛出。
     """
     if blocker_id == blocked_id:
         raise BusinessError("Cannot block yourself", code=ErrorCode.CANNOT_BLOCK_SELF)
@@ -133,8 +147,11 @@ async def block_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> None
     db.add(UserBlock(blocker_id=blocker_id, blocked_id=blocked_id))
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
+        if _is_unique_violation(exc):
+            return
+        raise
 
 
 async def unblock_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> None:
