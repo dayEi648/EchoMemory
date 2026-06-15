@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import { useAuthStore } from "./shared/stores/authStore";
@@ -133,12 +133,56 @@ const RequireAuth = () => {
   return <Outlet />;
 };
 
-/** 非管理员重定向到首页 */
+const ADMIN_ROLE_POLL_MS = 30_000;
+
+/** 非管理员重定向到首页；进入与停留期间持续校验管理员身份 */
 const AdminRouteGuard = () => {
-  const { user } = useAuthStore();
-  if (!user || (user.role !== 2 && user.role !== 3)) {
+  const { user, refreshUser } = useAuthStore();
+  const [verified, setVerified] = useState(false);
+
+  const isAdmin = !!user && (user.role === 2 || user.role === 3);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const runCheck = async () => {
+      await refreshUser();
+      if (!cancelled) setVerified(true);
+    };
+
+    void runCheck();
+
+    const intervalId = window.setInterval(() => {
+      void refreshUser();
+    }, ADMIN_ROLE_POLL_MS);
+
+    const onFocus = () => {
+      void refreshUser();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshUser]);
+
+  if (!verified) {
+    if (!isAdmin) {
+      return <Navigate to="/" replace />;
+    }
+    return (
+      <div className="loading-screen">
+        <div style={{ fontSize: 14, fontWeight: 500 }}>验证权限中...</div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
+
   return <Outlet />;
 };
 

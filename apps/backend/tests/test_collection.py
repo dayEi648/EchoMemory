@@ -92,84 +92,21 @@ async def _create_playlist_directly(
     return playlist
 
 
+async def _collect_music_via_playlist(
+    db: AsyncSession,
+    user_id: int,
+    music_id: int,
+) -> None:
+    """通过默认喜欢歌单将音乐加入用户收藏（替代已移除的一键收藏接口）。"""
+    from echomemory_backend.services import playlist_service
+
+    like_playlist = await playlist_service.create_default_like_playlist(db, user_id)
+    await playlist_service.add_music_to_playlist(db, like_playlist.id, music_id, user_id)
+
+
 # ============================================================================
 # 音乐收藏
 # ============================================================================
-
-
-class TestCollectMusic:
-    """测试音乐收藏功能。"""
-
-    async def test_collect_music_success(self, client: TestClient, db_session: AsyncSession):
-        """测试正常收藏音乐。"""
-        user = await _create_user(db_session, "collect_music_user")
-        music = await _create_music_directly(db_session, title="SongToCollect")
-
-        resp = client.post(
-            f"{BASE_URL}/musics/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-        data = api_data(resp)
-        assert data["music"]["id"] == music.id
-        assert data["music"]["title"] == "SongToCollect"
-        assert "created_at" in data
-
-    async def test_collect_music_idempotent(self, client: TestClient, db_session: AsyncSession):
-        """测试重复收藏音乐的幂等性。"""
-        user = await _create_user(db_session, "collect_music_idem")
-        music = await _create_music_directly(db_session, title="SongIdem")
-
-        resp = client.post(
-            f"{BASE_URL}/musics/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-
-        resp = client.post(
-            f"{BASE_URL}/musics/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-
-        # 验证歌曲只存在于用户的一个歌单中（默认喜欢歌单）
-        result = await db_session.execute(
-            select(PlaylistMusic)
-            .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
-            .where(
-                Playlist.user_id == user.id,
-                PlaylistMusic.music_id == music.id,
-            )
-        )
-        assert len(result.scalars().all()) == 1
-
-    async def test_collect_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
-        """测试收藏不存在的音乐时返回 404。"""
-        user = await _create_user(db_session, "collect_music_nx")
-
-        resp = client.post(
-            f"{BASE_URL}/musics/99999",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 404
-
-    async def test_collect_unpublished_music(self, client: TestClient, db_session: AsyncSession):
-        """测试收藏未发布的音乐时返回 404。"""
-        user = await _create_user(db_session, "collect_unpub_music")
-        music = await _create_music_directly(db_session, title="HiddenSong", is_published=False)
-
-        resp = client.post(
-            f"{BASE_URL}/musics/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 404
-
-    async def test_collect_music_unauthorized(self, client: TestClient, db_session: AsyncSession):
-        """测试未登录用户收藏音乐时返回 401。"""
-        music = await _create_music_directly(db_session, title="SongUnauth")
-
-        resp = client.post(f"{BASE_URL}/musics/{music.id}")
-        assert resp.status_code == 401
 
 
 class TestUncollectMusic:
@@ -180,11 +117,8 @@ class TestUncollectMusic:
         user = await _create_user(db_session, "uncollect_music_user")
         music = await _create_music_directly(db_session, title="SongToUncollect")
 
-        # 先收藏
-        client.post(
-            f"{BASE_URL}/musics/{music.id}",
-            headers=_auth_header(user),
-        )
+        # 先通过歌单收藏
+        await _collect_music_via_playlist(db_session, user.id, music.id)
 
         resp = client.delete(
             f"{BASE_URL}/musics/{music.id}",
@@ -233,8 +167,8 @@ class TestListMusicCollections:
         music1 = await _create_music_directly(db_session, title="Song1")
         music2 = await _create_music_directly(db_session, title="Song2")
 
-        client.post(f"{BASE_URL}/musics/{music1.id}", headers=_auth_header(user))
-        client.post(f"{BASE_URL}/musics/{music2.id}", headers=_auth_header(user))
+        await _collect_music_via_playlist(db_session, user.id, music1.id)
+        await _collect_music_via_playlist(db_session, user.id, music2.id)
 
         resp = client.get(
             f"{BASE_URL}/musics",
@@ -266,7 +200,7 @@ class TestListMusicCollections:
         user = await _create_user(db_session, "list_music_page")
         for i in range(5):
             music = await _create_music_directly(db_session, title=f"SongPage{i}")
-            client.post(f"{BASE_URL}/musics/{music.id}", headers=_auth_header(user))
+            await _collect_music_via_playlist(db_session, user.id, music.id)
 
         resp = client.get(
             f"{BASE_URL}/musics",
@@ -304,7 +238,7 @@ class TestListMusicCollections:
         user_b = await _create_user(db_session, "list_music_b")
         music = await _create_music_directly(db_session, title="SongPrivate")
 
-        client.post(f"{BASE_URL}/musics/{music.id}", headers=_auth_header(user_a))
+        await _collect_music_via_playlist(db_session, user_a.id, music.id)
 
         resp = client.get(
             f"{BASE_URL}/musics",

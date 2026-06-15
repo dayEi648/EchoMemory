@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { musicApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 import { FadeIn } from "../../components/motion/FadeIn";
 
 type RecalcResult = {
@@ -28,7 +29,7 @@ export const AdminHotnessPage = () => {
         `热度重算完成：${data.music} 首歌曲、${data.album} 张专辑、${data.playlist} 个歌单`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "热度重算失败");
+      toast.error(getApiErrorMessage(err, "热度重算失败"));
     } finally {
       setRunning(false);
     }

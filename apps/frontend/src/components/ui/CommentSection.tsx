@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { useAuthStore } from "../../shared/stores/authStore";
 import { commentApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { CommentItem as CommentItemType, CommentTargetType } from "../../shared/api/types";
 import { CommentItem } from "./CommentItem";
 import { PaginationBar } from "./PaginationBar";
@@ -84,8 +85,8 @@ export const CommentSection = ({
       });
       setComments(res.items);
       setTotal(res.total);
-    } catch {
-      toast.error("加载评论失败");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "加载评论失败"));
     } finally {
       setLoading(false);
     }
@@ -124,7 +125,7 @@ export const CommentSection = ({
       setInput("");
       toast.success(wasReply ? "回复成功" : "评论成功");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "发表失败");
+      toast.error(getApiErrorMessage(err, "发表失败"));
     } finally {
       setSubmitting(false);
     }

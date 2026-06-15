@@ -1,5 +1,4 @@
 import type {
-  MusicCollectionItem,
   AlbumCollectionItem,
   PlaylistCollectionItem,
   PaginatedMusicCollection,
@@ -12,11 +11,7 @@ export const createCollectionApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {
-    /* ---------- 音乐收藏（派生自歌单归属；collect 加入默认喜欢歌单，供兼容） ---------- */
-
-    /** 收藏音乐：加入默认「我喜欢的音乐」歌单（幂等）。 */
-    collectMusic: (musicId: number) =>
-      request<MusicCollectionItem>(`/collections/musics/${musicId}`, { method: "POST" }),
+    /* ---------- 音乐收藏（派生自歌单归属；通过歌单选择器加入） ---------- */
 
     /** 取消收藏音乐：从全部歌单移除（幂等）。 */
     uncollectMusic: (musicId: number) =>

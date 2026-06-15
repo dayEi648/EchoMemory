@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { useAuthStore } from "../../shared/stores/authStore";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { UserMe, UserAdminUpdate, UserAdminCreateInput } from "../../shared/api/types";
 import { Avatar } from "../../components/ui/Avatar";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -148,7 +149,7 @@ export const UserManagementPage = () => {
       setUsers(result.items);
       setTotal(result.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "加载失败");
+      toast.error(getApiErrorMessage(err, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -187,7 +188,7 @@ export const UserManagementPage = () => {
       toast.success("用户信息已更新");
       setEditUser(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "更新失败");
+      toast.error(getApiErrorMessage(err, "更新失败"));
     } finally {
       setEditSubmitting(false);
     }
@@ -204,7 +205,7 @@ export const UserManagementPage = () => {
       setBanUser(null);
       setBanDays("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "封禁失败");
+      toast.error(getApiErrorMessage(err, "封禁失败"));
     } finally {
       setBanSubmitting(false);
     }
@@ -216,7 +217,7 @@ export const UserManagementPage = () => {
       setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
       toast.success("用户已解封");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
     }
   };
 
@@ -231,7 +232,7 @@ export const UserManagementPage = () => {
       setDeleteUser(null);
       setDeleteConfirmInput("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleteSubmitting(false);
     }
@@ -258,7 +259,7 @@ export const UserManagementPage = () => {
         exp: 0,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "创建失败");
+      toast.error(getApiErrorMessage(err, "创建失败"));
     } finally {
       setCreateSubmitting(false);
     }

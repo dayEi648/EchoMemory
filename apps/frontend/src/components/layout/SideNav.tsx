@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 import { playlistApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { PlaylistListItem } from "../../shared/api/types";
 import { CreatePlaylistModal } from "../ui/CreatePlaylistModal";
 import { ConfirmDeleteModal } from "../ui/ConfirmDeleteModal";
@@ -36,7 +37,9 @@ export const SideNav = () => {
     playlistApi
       .listPlaylists({ limit: 20 })
       .then((res) => setPlaylists(res.items ?? []))
-      .catch(() => { /* silently fail */ });
+      .catch((err) => {
+        toast.error(getApiErrorMessage(err, "加载歌单列表失败"));
+      });
   };
 
   useEffect(() => {
@@ -100,8 +103,8 @@ export const SideNav = () => {
       await playlistApi.deletePlaylist(deleteTarget.id);
       setPlaylists((prev) => prev.filter((item) => item.id !== deleteTarget.id));
       toast.success?.("歌单已删除");
-    } catch {
-      /* ignore */
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "删除歌单失败"));
     } finally {
       setDeleting(false);
       setDeleteTarget(null);

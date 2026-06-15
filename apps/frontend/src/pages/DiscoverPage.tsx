@@ -13,6 +13,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "../shared/apiError";
 
 import {
   musicApi,
@@ -109,6 +110,10 @@ const DAILY_CARDS = [
   },
 ] as const;
 
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === "fulfilled" ? result.value : fallback;
+}
+
 export const DiscoverPage = () => {
   const navigate = useNavigate();
   const { playMusicListItem, playMusicById } = usePlayMusic();
@@ -134,42 +139,51 @@ export const DiscoverPage = () => {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const dateFrom = thirtyDaysAgo.toISOString().slice(0, 10);
 
-        const [hotRes, newRes, playlistRes, albumRes, chartRes, carouselRes] =
-          await Promise.all([
-            musicApi
-              .listMusic({ limit: 5, sort_by: "hot" })
-              .catch(() => ({ items: [], total: 0 })),
-            musicApi
-              .listMusic({
-                limit: 8,
-                sort_by: "hot",
-                release_date_from: dateFrom,
-              })
-              .catch(() => ({ items: [], total: 0 })),
-            recommendationApi
-              .getRecommendedPlaylists({ limit: 6 })
-              .catch(() => ({ items: [], total: 0 })),
-            recommendationApi
-              .getRecommendedAlbums({ limit: 6 })
-              .catch(() => ({ items: [], total: 0 })),
-            recommendationApi
-              .getRecommendationChart({ limit: 5 })
-              .catch(() => ({ items: [] })),
-            carouselApi.listCarousel().catch(() => [] as CarouselItem[]),
-          ]);
-        if (cancelled) return;
-        setHotSongs(hotRes?.items ?? []);
-        setNewSongs(newRes?.items ?? []);
-        setRecommendedPlaylists(playlistRes?.items ?? []);
-        setRecommendedAlbums(albumRes?.items ?? []);
-        setRecommendChart(chartRes?.items ?? []);
+        const results = await Promise.allSettled([
+          musicApi.listMusic({ limit: 5, sort_by: "hot" }),
+          musicApi.listMusic({
+            limit: 8,
+            sort_by: "hot",
+            release_date_from: dateFrom,
+          }),
+          recommendationApi.getRecommendedPlaylists({ limit: 6 }),
+          recommendationApi.getRecommendedAlbums({ limit: 6 }),
+          recommendationApi.getRecommendationChart({ limit: 5 }),
+          carouselApi.listCarousel(),
+        ]);
 
-        const items = Array.isArray(carouselRes)
-          ? (carouselRes as CarouselItem[])
-          : [];
-        if (items.length > 0) {
+        if (cancelled) return;
+
+        const hasFailure = results.some((r) => r.status === "rejected");
+        if (hasFailure) {
+          toast.error("部分内容加载失败，请稍后重试");
+        }
+
+        const [
+          hotResult,
+          newResult,
+          playlistResult,
+          albumResult,
+          chartResult,
+          carouselResult,
+        ] = results;
+
+        const hotRes = settledValue(hotResult, { items: [] as MusicListItem[], total: 0 });
+        const newRes = settledValue(newResult, { items: [] as MusicListItem[], total: 0 });
+        const playlistRes = settledValue(playlistResult, { items: [] as PlaylistListItem[], total: 0 });
+        const albumRes = settledValue(albumResult, { items: [] as AlbumListItem[], total: 0 });
+        const chartRes = settledValue(chartResult, { items: [] as MusicListItem[] });
+        const carouselRes = settledValue(carouselResult, [] as CarouselItem[]);
+
+        setHotSongs(hotRes.items);
+        setNewSongs(newRes.items);
+        setRecommendedPlaylists(playlistRes.items);
+        setRecommendedAlbums(albumRes.items);
+        setRecommendChart(chartRes.items);
+
+        if (carouselRes.length > 0) {
           setCarouselSlides(
-            items.map((item) =>
+            carouselRes.map((item) =>
               carouselItemToSlide(
                 item,
                 (path) => navigate(path),
@@ -178,8 +192,8 @@ export const DiscoverPage = () => {
             ),
           );
         }
-      } catch {
-        if (!cancelled) toast.error("加载内容失败，请稍后重试");
+      } catch (err) {
+        if (!cancelled) toast.error(getApiErrorMessage(err, "加载内容失败，请稍后重试"));
       } finally {
         if (!cancelled) setLoading(false);
       }

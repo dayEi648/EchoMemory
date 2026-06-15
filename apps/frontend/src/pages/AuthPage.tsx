@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useAuthStore } from "../shared/stores/authStore";
+import { getApiErrorMessage } from "../shared/apiError";
 
 import { CITY_OPTIONS } from "../shared/constants";
 
@@ -34,7 +35,7 @@ export const AuthPage = () => {
       }
       toast.success(mode === "login" ? "欢迎回来" : "注册成功");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "认证失败");
+      toast.error(getApiErrorMessage(err, "认证失败"));
     } finally {
       setLoading(false);
     }

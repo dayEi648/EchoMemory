@@ -19,7 +19,7 @@ export type UserMe = {
   birth: string | null;
   bio: string | null;
   is_verified: boolean;
-  is_official?: boolean;
+  is_official: boolean;
   like_count: number;
   avatar_url: string | null;
   created_at: string | null;
@@ -314,6 +314,7 @@ export type PlayHistoryMusicItem = {
 export type PlayHistoryItem = {
   id: number;
   played_at: string;
+  play_count: number;
   music: PlayHistoryMusicItem;
 };
 

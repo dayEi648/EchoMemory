@@ -15,6 +15,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { EmptyState } from "../components/ui/EmptyState";
 import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
+import { getApiErrorMessage } from "../shared/apiError";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
 
@@ -54,7 +55,7 @@ export const ProfilePage = () => {
         setFollowing(data.is_followed_by_me ?? false);
       }
     }).catch((err) => {
-      if (!cancelled) toast.error(err instanceof Error ? err.message : "加载用户资料失败");
+      if (!cancelled) toast.error(getApiErrorMessage(err, "加载用户资料失败"));
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [userId, api, currentUser]);
@@ -73,7 +74,9 @@ export const ProfilePage = () => {
       setMyPlaylists(pl.items);
       setMyAlbums(al.items);
       setMyHistory(hi.items);
-    }).catch(() => {}).finally(() => { if (!cancelled) setDashLoading(false); });
+    }).catch((err) => {
+      if (!cancelled) toast.error(getApiErrorMessage(err, "加载个人数据失败"));
+    }).finally(() => { if (!cancelled) setDashLoading(false); });
     return () => { cancelled = true; };
   }, [isOwnProfile]);
 
@@ -86,7 +89,7 @@ export const ProfilePage = () => {
     playlistApi
       .listPublicPlaylists(id, { limit: 12 })
       .then((res) => setPublicPlaylists(res.items))
-      .catch(() => toast.error("加载公开歌单失败"))
+      .catch((err) => toast.error(getApiErrorMessage(err, "加载公开歌单失败")))
       .finally(() => setPublicPlaylistsLoading(false));
   }, [userId, isOwnProfile]);
 
@@ -95,7 +98,9 @@ export const ProfilePage = () => {
     try {
       if (following) { await api.unfollow(profile.id); setFollowing(false); toast.success("已取消关注"); }
       else { await api.follow(profile.id); setFollowing(true); toast.success("已关注"); }
-    } catch (err) { toast.error(err instanceof Error ? err.message : "操作失败"); }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "操作失败"));
+    }
   };
 
   if (loading) return <FadeIn><div className="empty-state"><p>加载中...</p></div></FadeIn>;

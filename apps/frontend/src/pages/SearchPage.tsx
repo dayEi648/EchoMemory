@@ -30,6 +30,7 @@ import {
 } from "../components/motion/StaggerContainer";
 import { CoverCard } from "../components/ui/CoverCard";
 import { SongRow } from "../components/ui/SongRow";
+import { getApiErrorMessage } from "../shared/apiError";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { formatAlbumTitle, formatAuthors } from "../shared/utils";
@@ -122,7 +123,7 @@ export const SearchPage = () => {
           setPlaylistTotal(playlists.total);
         })
         .catch((err) => {
-          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(getApiErrorMessage(err, "搜索失败"));
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "songs") {
@@ -137,7 +138,7 @@ export const SearchPage = () => {
           setSongTotal(songs.total);
         })
         .catch((err) => {
-          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(getApiErrorMessage(err, "搜索失败"));
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "albums") {
@@ -152,7 +153,7 @@ export const SearchPage = () => {
           setAlbumTotal(albums.total);
         })
         .catch((err) => {
-          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(getApiErrorMessage(err, "搜索失败"));
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "playlists") {
@@ -167,7 +168,7 @@ export const SearchPage = () => {
           setPlaylistTotal(playlists.total);
         })
         .catch((err) => {
-          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(getApiErrorMessage(err, "搜索失败"));
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else if (activeTab === "users") {
@@ -181,7 +182,7 @@ export const SearchPage = () => {
           setUserTotal(users.total);
         })
         .catch((err) => {
-          if (!cancelled) toast.error(err instanceof Error ? err.message : "搜索失败");
+          if (!cancelled) toast.error(getApiErrorMessage(err, "搜索失败"));
         })
         .finally(() => { if (!cancelled) setLoading(false); });
     } else {
@@ -200,7 +201,7 @@ export const SearchPage = () => {
         setFollowedIds((prev) => { const next = new Set(prev); next.add(userId); return next; });
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
     }
   };
 

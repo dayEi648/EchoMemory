@@ -17,6 +17,9 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { CommentSection } from "../components/ui/CommentSection";
 import { CreatePlaylistModal } from "../components/ui/CreatePlaylistModal";
 import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
+import { getApiErrorMessage } from "../shared/apiError";
+import { ErrorCode } from "../shared/constants/errorCode";
+import { ApiError } from "../shared/api/base";
 
 export const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
@@ -39,8 +42,8 @@ export const PlaylistDetailPage = () => {
         const detail = await playlistApi.getPlaylistDetail(Number(playlistId));
         setPlaylist(detail);
         setCollected(detail.is_collected_by_me ?? false);
-      } catch {
-        toast.error("加载歌单详情失败");
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, "加载歌单详情失败"));
       } finally {
         setLoading(false);
       }
@@ -60,8 +63,12 @@ export const PlaylistDetailPage = () => {
         setCollected(true);
         toast.success("已收藏");
       }
-    } catch {
-      toast.error("操作失败");
+    } catch (err) {
+      if (err instanceof ApiError && err.is(ErrorCode.CANNOT_COLLECT_OWN_PLAYLIST)) {
+        toast.error("不能收藏自己的歌单");
+      } else {
+        toast.error(getApiErrorMessage(err, "操作失败"));
+      }
     }
   };
 
@@ -147,7 +154,7 @@ export const PlaylistDetailPage = () => {
       setDeleteModalOpen(false);
       navigate("/playlists", { replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleting(false);
     }

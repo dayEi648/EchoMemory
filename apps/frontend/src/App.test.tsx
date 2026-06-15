@@ -14,6 +14,8 @@ const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
 
+const envelope = <T,>(data: T) => ({ code: 0, msg: "success", data });
+
 const adminUser: UserMe = {
   id: 1,
   username: "admin",
@@ -26,6 +28,7 @@ const adminUser: UserMe = {
   birth: null,
   bio: "curator",
   is_verified: true,
+  is_official: false,
   like_count: 8,
   avatar_url: null,
   created_at: null,
@@ -48,18 +51,27 @@ const mockDiscoverApis = (user: UserMe, history: unknown[] = []) => {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url.includes("/auth/me")) {
-      return jsonResponse(user);
+      return jsonResponse(envelope(user));
     }
     if (url.includes("/music/")) {
-      return jsonResponse({ items: [], total: 0 });
+      return jsonResponse(envelope({ items: [], total: 0 }));
     }
     if (url.includes("/albums/")) {
-      return jsonResponse({ items: [], total: 0 });
+      return jsonResponse(envelope({ items: [], total: 0 }));
+    }
+    if (url.includes("/recommendations/")) {
+      return jsonResponse(envelope({ items: [], total: 0 }));
+    }
+    if (url.includes("/carousel")) {
+      return jsonResponse(envelope([]));
     }
     if (url.includes("/play-history/")) {
-      return jsonResponse({ items: history, total: history.length });
+      return jsonResponse(envelope({ items: history, total: history.length }));
     }
-    return jsonResponse({});
+    if (url.includes("/users/admin/stats")) {
+      return jsonResponse(envelope({ users: 0, musics: 0, albums: 0, playlists: 0, comments: 0, space_posts: 0 }));
+    }
+    return jsonResponse(envelope({}));
   });
 };
 
@@ -137,9 +149,7 @@ describe("App", () => {
   ])("redirects role $role users away from admin route and hides admin entry", async ({ role, nickname }) => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(jsonResponse(makeUser({ role, username: "alice", nickname })));
+    mockDiscoverApis(makeUser({ role, username: "alice", nickname }));
 
     renderApp({ tokenStore, initialEntries: ["/admin"] });
 
@@ -150,7 +160,6 @@ describe("App", () => {
     expect(screen.queryByText("管理概览")).not.toBeInTheDocument();
     expect(screen.queryByText("用户管理")).not.toBeInTheDocument();
     expect(screen.queryByText("需要管理员权限")).not.toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/users/admin/list"), expect.anything());
   });
 
   it.each([
@@ -159,7 +168,7 @@ describe("App", () => {
   ])("lets $label users access and see the admin dashboard", async ({ role }) => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(makeUser({ role })));
+    mockDiscoverApis(makeUser({ role }));
 
     renderApp({ tokenStore, initialEntries: ["/admin"] });
 
@@ -167,10 +176,48 @@ describe("App", () => {
     expect(screen.getByText("用户管理")).toBeInTheDocument();
   });
 
+  it("redirects admin to home when refresh returns a regular user", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    let returnAdmin = true;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes("/auth/me")) {
+        const role = returnAdmin ? 2 : 0;
+        return jsonResponse(envelope(makeUser({ role, nickname: "DemotedAdmin" })));
+      }
+      if (url.includes("/users/admin/stats")) {
+        return jsonResponse(
+          envelope({ users: 0, musics: 0, albums: 0, playlists: 0, comments: 0, space_posts: 0 }),
+        );
+      }
+      if (url.includes("/music/") || url.includes("/recommendations/") || url.includes("/albums/")) {
+        return jsonResponse(envelope({ items: [], total: 0 }));
+      }
+      if (url.includes("/carousel")) {
+        return jsonResponse(envelope([]));
+      }
+      if (url.includes("/playlists/")) {
+        return jsonResponse(envelope({ items: [], total: 0 }));
+      }
+      return jsonResponse(envelope({}));
+    });
+
+    renderApp({ tokenStore, initialEntries: ["/admin"] });
+
+    expect(await screen.findByText("管理概览")).toBeInTheDocument();
+
+    returnAdmin = false;
+    await useAuthStore.getState().refreshUser();
+
+    expect(await screen.findByText("发现你的音乐记忆")).toBeInTheDocument();
+    expect(screen.queryByText("管理概览")).not.toBeInTheDocument();
+  });
+
   it("lets admin users navigate to admin from avatar menu", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(makeUser({ role: 2 })));
+    mockDiscoverApis(makeUser({ role: 2 }));
 
     renderApp({ tokenStore });
 

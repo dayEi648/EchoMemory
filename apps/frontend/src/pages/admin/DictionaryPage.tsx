@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { dictionaryApi } from "../../shared/api/instances";
 import { ApiError } from "../../shared/api/base";
 import { ErrorCode } from "../../shared/constants/errorCode";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { DictionaryType, DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
@@ -52,8 +53,8 @@ export const DictionaryPage = () => {
       );
       setItems(result.items);
       setTotal(result.total);
-    } catch {
-      toast.error("加载字典数据失败");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "加载字典数据失败"));
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export const DictionaryPage = () => {
       // 刷新当前页（新项按 id 排在最后，若当前页未满则可见）
       loadItems(activeType, page);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "创建失败");
+      toast.error(getApiErrorMessage(err, "创建失败"));
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +111,7 @@ export const DictionaryPage = () => {
       setEditingItem(null);
       setFormName("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "更新失败");
+      toast.error(getApiErrorMessage(err, "更新失败"));
     } finally {
       setSubmitting(false);
     }
@@ -142,7 +143,7 @@ export const DictionaryPage = () => {
       if (apiErr?.is(ErrorCode.DICTIONARY_ITEM_REFERENCED)) {
         toast.error("该字典项已被业务数据引用，无法删除");
       } else {
-        toast.error(apiErr?.message || "删除失败");
+        toast.error(getApiErrorMessage(err, "删除失败"));
       }
     } finally {
       setSubmitting(false);

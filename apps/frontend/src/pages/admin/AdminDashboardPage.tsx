@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Activity, Users, Music, Album, MessageCircle, FileText, ListMusic } from "lucide-react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 import { FadeIn } from "../../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../../components/motion/StaggerContainer";
 import { userApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 type DashboardStats = {
   users: number;
@@ -36,7 +38,9 @@ export const AdminDashboardPage = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
-    userApi.adminGetStats().then(setStats).catch(() => {});
+    userApi.adminGetStats()
+      .then(setStats)
+      .catch((err) => toast.error(getApiErrorMessage(err, "加载统计数据失败")));
   }, []);
 
   return (

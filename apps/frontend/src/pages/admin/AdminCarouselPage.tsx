@@ -11,6 +11,7 @@ import { FadeIn } from "../../components/motion/FadeIn";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
 import { ConfirmDeleteModal } from "../../components/ui/ConfirmDeleteModal";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 type SearchTarget = { id: number; title: string } | null;
 
@@ -112,7 +113,7 @@ export const AdminCarouselPage = () => {
       setModalOpen(false);
       loadItems();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
     } finally {
       setSubmitting(false);
     }
@@ -127,7 +128,7 @@ export const AdminCarouselPage = () => {
       setDeleteTarget(null);
       loadItems();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleting(false);
     }

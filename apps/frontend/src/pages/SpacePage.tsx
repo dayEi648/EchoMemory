@@ -14,6 +14,7 @@ import { PaginationBar } from "../components/ui/PaginationBar";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { CreatePostForm } from "../components/ui/CreatePostForm";
 import { SpacePostCard } from "../components/ui/SpacePostCard";
+import { getApiErrorMessage } from "../shared/apiError";
 import type { PostAuthor } from "../components/ui/SpacePostCard";
 
 const PAGE_SIZE = 10;
@@ -42,8 +43,8 @@ export const SpacePage = () => {
       });
       setPosts(result.items);
       setTotal(result.total);
-    } catch {
-      toast.error("加载动态失败");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "加载动态失败"));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,10 @@ export const SpacePage = () => {
     if (targetUserId && targetUserId !== currentUser?.id) {
       api.getPublicUser(targetUserId)
         .then((u: UserPublic) => setTargetAuthor({ id: u.id, nickname: u.nickname, username: u.username, avatar_url: u.avatar_url, like_count: u.like_count }))
-        .catch(() => setTargetAuthor(null));
+        .catch((err) => {
+          setTargetAuthor(null);
+          toast.error(getApiErrorMessage(err, "加载用户信息失败"));
+        });
     } else {
       setTargetAuthor(null);
     }
@@ -76,7 +80,7 @@ export const SpacePage = () => {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setTotal((prev) => Math.max(0, prev - 1));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
       throw err;
     }
   };
@@ -85,7 +89,7 @@ export const SpacePage = () => {
     try {
       await spacePostApi.likePost(postId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
       throw err;
     }
   };
@@ -94,7 +98,7 @@ export const SpacePage = () => {
     try {
       await spacePostApi.unlikePost(postId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
       throw err;
     }
   };

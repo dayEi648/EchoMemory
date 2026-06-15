@@ -161,29 +161,99 @@ export function getErrorCodeLayer(code: ErrorCode | number): ErrorCodeLayer {
   return "unknown";
 }
 
+/** 错误码 → 中文说明映射（与后端 ErrorCode.description 同步）。 */
+const ERROR_CODE_DESCRIPTIONS: Record<number, string> = {
+  [ErrorCode.SUCCESS]: "请求成功",
+  [ErrorCode.USER_USERNAME_EXISTS]: "用户名已被注册",
+  [ErrorCode.USER_EMAIL_EXISTS]: "邮箱已被注册",
+  [ErrorCode.USER_PHONE_EXISTS]: "手机号已被注册",
+  [ErrorCode.USER_CREDENTIAL_EXISTS]: "用户名、邮箱或手机号已被注册",
+  [ErrorCode.USER_EMAIL_OR_PHONE_EXISTS]: "邮箱或手机号已被注册",
+  [ErrorCode.USER_NOT_FOUND]: "用户不存在",
+  [ErrorCode.CANNOT_FOLLOW_SELF]: "不能关注自己",
+  [ErrorCode.ALREADY_FOLLOWING]: "已关注该用户",
+  [ErrorCode.NOT_FOLLOWING]: "未关注该用户",
+  [ErrorCode.CANNOT_BLOCK_SELF]: "不能屏蔽自己",
+  [ErrorCode.BLOCKED_BY_USER]: "已被对方屏蔽",
+  [ErrorCode.MUSIC_NOT_FOUND]: "音乐不存在或未发布",
+  [ErrorCode.MUSIC_ALREADY_IN_ALBUM]: "音乐已在专辑中",
+  [ErrorCode.MUSIC_BELONGS_TO_ANOTHER_ALBUM]: "音乐已属于其他专辑",
+  [ErrorCode.MUSIC_ALREADY_IN_PLAYLIST]: "音乐已在歌单中",
+  [ErrorCode.MUSIC_NOT_IN_PLAYLIST]: "歌曲不在该歌单中",
+  [ErrorCode.MUSIC_NOT_IN_USER_PLAYLISTS]: "歌曲不在用户任一歌单中",
+  [ErrorCode.LYRICS_NOT_FOUND]: "歌词不存在",
+  [ErrorCode.ALBUM_NOT_FOUND]: "专辑不存在或已删除",
+  [ErrorCode.ALBUM_AUTHOR_NOT_FOUND]: "专辑作者不存在或已删除",
+  [ErrorCode.PLAYLIST_NOT_FOUND]: "歌单不存在",
+  [ErrorCode.PLAYLIST_SYSTEM_TITLE_IMMUTABLE]: "系统歌单不可修改标题",
+  [ErrorCode.PLAYLIST_SYSTEM_MUST_PRIVATE]: "系统歌单必须保持私密",
+  [ErrorCode.PLAYLIST_SYSTEM_NOT_DELETABLE]: "系统歌单不可删除",
+  [ErrorCode.CANNOT_COLLECT_OWN_PLAYLIST]: "不能收藏自己的歌单",
+  [ErrorCode.COMMENT_NOT_FOUND]: "评论不存在",
+  [ErrorCode.COMMENT_TARGET_NOT_FOUND]: "评论目标不存在或不可见",
+  [ErrorCode.COMMENT_PARENT_NOT_FOUND]: "父评论不存在",
+  [ErrorCode.COMMENT_PARENT_TARGET_MISMATCH]: "父评论与目标不匹配",
+  [ErrorCode.SPACE_POST_NOT_FOUND]: "空间动态不存在或不可见",
+  [ErrorCode.SPACE_POST_SOURCE_NOT_FOUND]: "转发源不存在或不可访问",
+  [ErrorCode.DICTIONARY_TYPE_INVALID]: "字典类型无效",
+  [ErrorCode.DICTIONARY_ITEM_NOT_FOUND]: "字典项不存在",
+  [ErrorCode.DICTIONARY_NAME_EXISTS]: "该字典类型下名称已存在",
+  [ErrorCode.DICTIONARY_ITEM_REFERENCED]: "字典项已被其他资源引用，无法删除",
+  [ErrorCode.NOTIFICATION_NOT_FOUND]: "通知不存在或不属于当前用户",
+  [ErrorCode.NOTIFICATION_TARGET_TYPE_INVALID]: "通知目标类型无效",
+  [ErrorCode.MESSAGE_CANNOT_WITH_SELF]: "不能与自己建立会话",
+  [ErrorCode.MESSAGE_CANNOT_TO_SELF]: "不能给自己发送私信",
+  [ErrorCode.MESSAGE_CONVERSATION_NOT_FOUND]: "私信会话不存在",
+  [ErrorCode.MESSAGE_RECIPIENT_NOT_FOUND]: "收件人不存在",
+  [ErrorCode.AI_CONVERSATION_NOT_FOUND]: "AI 对话不存在",
+  [ErrorCode.AI_CONVERSATION_PERMISSION_DENIED]: "无权访问该 AI 对话",
+  [ErrorCode.ADMIN_CANNOT_MANAGE_USER]: "无权操作该用户",
+  [ErrorCode.ADMIN_CANNOT_CREATE_ROLE]: "无权创建该角色的用户",
+  [ErrorCode.ADMIN_CANNOT_PROMOTE_SUPER_ADMIN]: "不能将用户提升为超级管理员",
+  [ErrorCode.ADMIN_USER_STATE_INVALID]: "用户状态组合无效",
+  [ErrorCode.ADMIN_BAN_STATE_INVALID]: "封禁状态或时长无效",
+  [ErrorCode.PLAY_HISTORY_NOT_FOUND]: "播放历史记录不存在",
+  [ErrorCode.CAROUSEL_ITEM_NOT_FOUND]: "轮播图不存在",
+  [ErrorCode.AUTH_CREDENTIALS_INVALID]: "用户名或密码错误",
+  [ErrorCode.AUTH_ACCOUNT_DELETED]: "账号已被删除",
+  [ErrorCode.AUTH_ACCOUNT_BANNED]: "账号已被封禁",
+  [ErrorCode.AUTH_REFRESH_TOKEN_INVALID]: "刷新令牌无效或已过期",
+  [ErrorCode.AUTH_TOKEN_REVOKED]: "令牌已被吊销",
+  [ErrorCode.AUTH_USER_NOT_FOUND]: "认证用户不存在",
+  [ErrorCode.AUTH_ACCOUNT_INACTIVE]: "用户账号未激活",
+  [ErrorCode.PERMISSION_DENIED]: "权限不足",
+  [ErrorCode.ADMIN_PRIVILEGE_REQUIRED]: "需要管理员权限",
+  [ErrorCode.EXTERNAL_AI_RESPONSE_FAILED]: "AI 服务响应失败",
+  [ErrorCode.EXTERNAL_LYRICS_LOAD_FAILED]: "歌词文件加载失败",
+  [ErrorCode.EXTERNAL_FILE_UPLOAD_FAILED]: "文件上传失败",
+  [ErrorCode.CLIENT_INVALID_AUTHOR_ID]: "作者 ID 无效",
+  [ErrorCode.CLIENT_INVALID_INSTRUMENT_ID]: "乐器 ID 无效",
+  [ErrorCode.CLIENT_INVALID_EMOTION_TAG_ID]: "情绪标签 ID 无效",
+  [ErrorCode.CLIENT_INVALID_INTEREST_TAG_ID]: "兴趣标签 ID 无效",
+  [ErrorCode.CLIENT_INVALID_REFERENCE_IN_ALBUM]: "专辑数据中存在无效引用",
+  [ErrorCode.CLIENT_INVALID_REFERENCE_IN_MUSIC]: "音乐数据中存在无效引用",
+  [ErrorCode.CLIENT_INVALID_TARGET_TYPE]: "目标类型无效",
+  [ErrorCode.CLIENT_INVALID_SOURCE_TYPE]: "转发源类型无效",
+  [ErrorCode.CLIENT_INVALID_RELEASE_DATE]: "发行日期格式必须为 YYYY-MM-DD",
+  [ErrorCode.CLIENT_INVALID_RELEASE_DATE_FROM]: "发行日期起始格式必须为 YYYY-MM-DD",
+  [ErrorCode.CLIENT_INVALID_RELEASE_DATE_TO]: "发行日期截止格式必须为 YYYY-MM-DD",
+  [ErrorCode.CLIENT_NAME_REQUIRED]: "更新字典项必须提供名称",
+  [ErrorCode.CLIENT_COVER_FILE_REQUIRED]: "至少需提供一张封面文件",
+  [ErrorCode.CLIENT_CONTENT_OR_FILE_REQUIRED]: "动态内容或至少一个文件必填",
+  [ErrorCode.CLIENT_AUDIO_FILE_TYPE_INVALID]: "音频文件类型无效",
+  [ErrorCode.CLIENT_FILE_MUST_BE_IMAGE]: "上传文件必须是图片",
+  [ErrorCode.CLIENT_INVALID_IMAGE_FILE]: "图片文件无效",
+  [ErrorCode.CLIENT_CAROUSEL_REORDER_MISMATCH]: "轮播图 ID 列表与实际数量不匹配",
+  [ErrorCode.CLIENT_INVALID_REQUEST_PARAMETERS]: "请求参数校验失败",
+  [ErrorCode.CLIENT_RATE_LIMIT_UPLOAD]: "上传请求过于频繁，请稍后再试",
+  [ErrorCode.CLIENT_RATE_LIMIT_LOGIN]: "登录尝试过于频繁，请稍后再试",
+  [ErrorCode.SYSTEM_INTERNAL_ERROR]: "系统内部错误",
+  [ErrorCode.SYSTEM_CONVERSATION_CREATE_FAILED]: "系统创建会话失败",
+  [ErrorCode.UNKNOWN_ERROR]: "未知错误",
+  [ErrorCode.RESOURCE_NOT_FOUND]: "资源不存在",
+};
+
 /** 获取错误码的简短中文说明（兜底）。 */
 export function getErrorCodeDescription(code: ErrorCode | number): string {
-  const value = Number(code);
-  switch (value) {
-    case ErrorCode.SUCCESS:
-      return "请求成功";
-    case ErrorCode.AUTH_CREDENTIALS_INVALID:
-      return "用户名或密码错误";
-    case ErrorCode.AUTH_ACCOUNT_DELETED:
-      return "账号已被删除";
-    case ErrorCode.AUTH_ACCOUNT_BANNED:
-      return "账号已被封禁";
-    case ErrorCode.AUTH_REFRESH_TOKEN_INVALID:
-      return "刷新令牌无效或已过期";
-    case ErrorCode.AUTH_TOKEN_REVOKED:
-      return "令牌已被吊销";
-    case ErrorCode.PERMISSION_DENIED:
-      return "权限不足";
-    case ErrorCode.SYSTEM_INTERNAL_ERROR:
-      return "系统内部错误";
-    case ErrorCode.UNKNOWN_ERROR:
-      return "未知错误";
-    default:
-      return "请求失败";
-  }
+  return ERROR_CODE_DESCRIPTIONS[Number(code)] ?? "请求失败";
 }

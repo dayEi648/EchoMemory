@@ -494,9 +494,13 @@ class TestGetMusic:
         """测试已收藏用户获取详情时 is_collected_by_me 为 true。"""
         user = await _create_user(db_session, "music_collector")
         music = await _create_music_directly(db_session, title="CollectedSong")
-        client.post(
-            f"/api/v1/collections/musics/{music.id}",
-            headers=_auth_header(user),
+        from echomemory_backend.services import playlist_service
+
+        like_playlist = await playlist_service.create_default_like_playlist(
+            db_session, user.id
+        )
+        await playlist_service.add_music_to_playlist(
+            db_session, like_playlist.id, music.id, user.id
         )
         resp = client.get(f"{BASE_URL}/{music.id}", headers=_auth_header(user))
         assert resp.status_code == 200

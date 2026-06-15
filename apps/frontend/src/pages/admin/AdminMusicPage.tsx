@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 
 import { musicApi, dictionaryApi } from "../../shared/api/instances";
 import { useAuthStore } from "../../shared/stores/authStore";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { MusicDetail, AdminMusicListItem, DictionaryItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Modal } from "../../components/ui/Modal";
@@ -111,7 +112,7 @@ export const AdminMusicPage = () => {
       setMusics(result.items);
       setTotal(result.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "加载失败");
+      toast.error(getApiErrorMessage(err, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -169,7 +170,7 @@ export const AdminMusicPage = () => {
       }
       loadMusics();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
     }
   };
 
@@ -241,7 +242,7 @@ export const AdminMusicPage = () => {
       closeEdit();
       loadMusics();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "更新失败");
+      toast.error(getApiErrorMessage(err, "更新失败"));
     } finally {
       setEditSubmitting(false);
     }

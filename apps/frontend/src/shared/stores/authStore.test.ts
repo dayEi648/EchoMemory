@@ -142,12 +142,34 @@ describe("authStore", () => {
   });
 
   it("refreshUser does nothing on network error", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    useAuthStore.getState()._setTokenStore(tokenStore);
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
     useAuthStore.setState({ user: mockUser, loading: false, initialized: true });
 
-    await useAuthStore.getState().refreshUser();
+    const ok = await useAuthStore.getState().refreshUser();
 
-    // user should remain unchanged
+    expect(ok).toBe(false);
     expect(useAuthStore.getState().user?.username).toBe("alice");
+  });
+
+  it("clears tokens and user on 401 during refreshUser", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "expired", refreshToken: "rt" });
+    useAuthStore.getState()._setTokenStore(tokenStore);
+    useAuthStore.setState({ user: { ...mockUser, role: 2 }, loading: false, initialized: true });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse(
+        { code: ErrorCode.AUTH_TOKEN_REVOKED, msg: "revoked", data: null },
+        { status: HttpStatus.UNAUTHORIZED },
+      ),
+    );
+
+    const ok = await useAuthStore.getState().refreshUser();
+
+    expect(ok).toBe(false);
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(tokenStore.get()).toBeNull();
   });
 });

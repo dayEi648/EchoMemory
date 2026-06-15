@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { spacePostApi } from "../../shared/api/instances";
 import type { SpacePostListItem } from "../../shared/api/types";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 const MAX_FILES = 9;
 const MAX_CONTENT_LENGTH = 2000;
@@ -87,7 +88,7 @@ export const CreatePostForm = ({ onCreated }: CreatePostFormProps) => {
         created_at: created.created_at,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "发布失败");
+      toast.error(getApiErrorMessage(err, "发布失败"));
     } finally {
       setSubmitting(false);
     }

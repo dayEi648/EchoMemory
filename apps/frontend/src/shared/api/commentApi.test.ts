@@ -97,11 +97,15 @@ describe("commentApi", () => {
   });
 
   it("retrieves replies for a root comment", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(envelope([])));
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(envelope({ items: [], total: 0 })),
+    );
     const api = createCommentApi({ baseUrl, fetcher: fetchMock, tokenStore });
 
-    await api.listReplies(5);
+    const data = await api.listReplies(5);
 
+    expect(data.items).toEqual([]);
+    expect(data.total).toBe(0);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/comments/replies/5"),
       expect.anything(),

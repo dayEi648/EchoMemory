@@ -74,44 +74,6 @@ async def _get_music_collection_view(
     )
 
 
-async def collect_music(db: AsyncSession, user_id: int, music_id: int) -> MusicCollectionView:
-    """收藏音乐：加入用户默认「我喜欢的音乐」歌单。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        user_id: 用户主键。
-        music_id: 音乐主键。
-
-    Returns:
-        收藏视图（已存在于任一歌单时返回现有记录）。
-
-    Raises:
-        BusinessError: 音乐不存在或未发布时抛出 404。
-    """
-    from echomemory_backend.services import playlist_service
-
-    music = await db.get(Music, music_id)
-    if music is None or not music.is_published:
-        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
-
-    if await is_music_collected(db, user_id, music_id):
-        return await _get_music_collection_view(db, user_id, music_id)
-
-    like_playlist = await playlist_service.create_default_like_playlist(db, user_id)
-    try:
-        await playlist_service.add_music_to_playlist(
-            db, like_playlist.id, music_id, user_id
-        )
-    except IntegrityError:
-        await db.rollback()
-        return await _get_music_collection_view(db, user_id, music_id)
-    except BusinessError as exc:
-        if exc.code == ErrorCode.MUSIC_ALREADY_IN_PLAYLIST:
-            return await _get_music_collection_view(db, user_id, music_id)
-        raise
-    return await _get_music_collection_view(db, user_id, music_id)
-
-
 async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None:
     """取消收藏音乐：从用户全部歌单中移除该歌曲。
 

@@ -28,7 +28,7 @@ interface AuthState {
   register: (data: RegisterFormData) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (input: UpdateMeInput) => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const defaultTokenStore = createLocalStorageTokenStore();
@@ -106,12 +106,25 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user });
   },
 
-  refreshUser: async () => {
+  refreshUser: async (): Promise<boolean> => {
+    const tokens = currentTokenStore.get();
+    if (!tokens) {
+      set({ user: null });
+      return false;
+    }
     try {
       const user = await currentApi.getMe();
       set({ user });
-    } catch {
-      // silently fail
+      return true;
+    } catch (err) {
+      const apiErr = err as ApiError;
+      if (apiErr.status === HttpStatus.UNAUTHORIZED) {
+        currentTokenStore.clear();
+        set({ user: null });
+      } else if (apiErr.status === HttpStatus.FORBIDDEN) {
+        set({ user: null });
+      }
+      return false;
     }
   },
 }));

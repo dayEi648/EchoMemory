@@ -6,6 +6,7 @@ import { ArrowLeft, Music, FileText } from "lucide-react";
 
 import { musicApi, dictionaryApi } from "../../shared/api/instances";
 import { useAuthStore } from "../../shared/stores/authStore";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { DictionaryItem } from "../../shared/api/types";
 import { FadeIn } from "../../components/motion/FadeIn";
 import {
@@ -109,7 +110,7 @@ export const AdminMusicImportPage = () => {
       toast.success("音乐导入成功");
       navigate("/admin/music");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "导入失败");
+      toast.error(getApiErrorMessage(err, "导入失败"));
     } finally {
       setSubmitting(false);
     }

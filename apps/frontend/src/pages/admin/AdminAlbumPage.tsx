@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { albumApi, musicApi } from "../../shared/api/instances";
 import { ApiError } from "../../shared/api/base";
 import { ErrorCode } from "../../shared/constants/errorCode";
+import { getApiErrorMessage } from "../../shared/apiError";
 import { useAuthStore } from "../../shared/stores/authStore";
 import type { AdminAlbumListItem, AlbumDetail, MusicListItem } from "../../shared/api/types";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -81,7 +82,7 @@ export const AdminAlbumPage = () => {
       setAlbums(result.items);
       setTotal(result.total);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "加载失败");
+      toast.error(getApiErrorMessage(err, "加载失败"));
     } finally {
       setLoading(false);
     }
@@ -125,7 +126,7 @@ export const AdminAlbumPage = () => {
       resetForm();
       loadAlbums();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "创建失败");
+      toast.error(getApiErrorMessage(err, "创建失败"));
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +183,7 @@ export const AdminAlbumPage = () => {
       resetForm();
       loadAlbums();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "更新失败");
+      toast.error(getApiErrorMessage(err, "更新失败"));
     } finally {
       setSubmitting(false);
     }
@@ -203,7 +204,7 @@ export const AdminAlbumPage = () => {
       setDeleteAlbum(null);
       setDeleteConfirmInput("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleteSubmitting(false);
     }
@@ -233,7 +234,7 @@ export const AdminAlbumPage = () => {
         ),
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "移除失败");
+      toast.error(getApiErrorMessage(err, "移除失败"));
     }
   };
 
@@ -279,7 +280,7 @@ export const AdminAlbumPage = () => {
       ) {
         toast.error("该歌曲已在专辑中或属于其他专辑");
       } else {
-        toast.error(apiErr?.message || "添加失败");
+        toast.error(getApiErrorMessage(err, "添加失败"));
       }
     }
   };

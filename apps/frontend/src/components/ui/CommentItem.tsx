@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 import { commentApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 import type { CommentItem as CommentItemType } from "../../shared/api/types";
 import { formatRelativeTime } from "../../shared/utils";
 import { Avatar } from "./Avatar";
@@ -58,12 +59,12 @@ export const CommentItem = ({
       .listReplies(comment.id)
       .then((data) => {
         if (!cancelled) {
-          setReplies(data);
+          setReplies(data.items);
           setShowReplies(true);
         }
       })
-      .catch(() => {
-        if (!cancelled) toast.error("加载回复失败");
+      .catch((err) => {
+        if (!cancelled) toast.error(getApiErrorMessage(err, "加载回复失败"));
       });
 
     return () => {
@@ -85,7 +86,7 @@ export const CommentItem = ({
           setDisliked(false);
         }
       }
-    } catch { toast.error("操作失败"); }
+    } catch (err) { toast.error(getApiErrorMessage(err, "操作失败")); }
   };
 
   const handleDislike = async () => {
@@ -101,7 +102,7 @@ export const CommentItem = ({
           setLikeCount((count) => Math.max(0, count - 1));
         }
       }
-    } catch { toast.error("操作失败"); }
+    } catch (err) { toast.error(getApiErrorMessage(err, "操作失败")); }
   };
 
   const handleDelete = async () => {
@@ -111,7 +112,7 @@ export const CommentItem = ({
       onDeleted(comment.id);
       toast.success("已删除");
       setDeleteOpen(false);
-    } catch { toast.error("删除失败"); }
+    } catch (err) { toast.error(getApiErrorMessage(err, "删除失败")); }
     finally { setDeleting(false); }
   };
 
@@ -120,9 +121,9 @@ export const CommentItem = ({
     setRepliesLoading(true);
     try {
       const data = await commentApi.listReplies(comment.id);
-      setReplies(data);
+      setReplies(data.items);
       setShowReplies(true);
-    } catch { toast.error("加载回复失败"); }
+    } catch (err) { toast.error(getApiErrorMessage(err, "加载回复失败")); }
     finally { setRepliesLoading(false); }
   };
 

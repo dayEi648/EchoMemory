@@ -6,6 +6,7 @@ import { playlistApi } from "../../shared/api/instances";
 import type { PlaylistListItem } from "../../shared/api/types";
 import { Modal } from "./Modal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 interface CreatePlaylistModalProps {
   open: boolean;
@@ -102,7 +103,7 @@ export const CreatePlaylistModal = ({
       }
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : isEdit ? "更新失败" : "创建失败");
+      toast.error(getApiErrorMessage(err, isEdit ? "更新失败" : "创建失败"));
     } finally {
       setSubmitting(false);
     }
@@ -118,7 +119,7 @@ export const CreatePlaylistModal = ({
       setDeleteModalOpen(false);
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleting(false);
     }

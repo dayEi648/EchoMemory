@@ -7,6 +7,7 @@ import { playlistApi } from "../../shared/api/instances";
 import type { PlaylistMembershipItem } from "../../shared/api/types";
 import { Modal } from "./Modal";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 interface AddToPlaylistModalProps {
   open: boolean;
@@ -78,7 +79,7 @@ export const AddToPlaylistModal = ({
       setPlaylists(next);
       syncCollectedState(next);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
+      toast.error(getApiErrorMessage(err, "操作失败"));
     } finally {
       setTogglingId(null);
     }

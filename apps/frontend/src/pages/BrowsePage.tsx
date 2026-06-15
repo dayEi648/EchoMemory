@@ -14,6 +14,7 @@ import { PaginationBar } from "../components/ui/PaginationBar";
 import { BrowseFilterPanel, EMPTY_FILTERS } from "../components/ui/BrowseFilterPanel";
 import type { BrowseFilters } from "../components/ui/BrowseFilterPanel";
 import { EmptyState } from "../components/ui/EmptyState";
+import { getApiErrorMessage } from "../shared/apiError";
 import { FadeIn } from "../components/motion/FadeIn";
 import { StaggerContainer, StaggerItem } from "../components/motion/StaggerContainer";
 
@@ -101,7 +102,7 @@ export const BrowsePage = () => {
           setPlaylistTotal(res.total);
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "加载失败");
+        toast.error(getApiErrorMessage(err, "加载失败"));
       } finally {
         setLoading(false);
       }

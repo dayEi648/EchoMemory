@@ -14,6 +14,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationBar } from "../components/ui/PaginationBar";
 import { CreatePlaylistModal } from "../components/ui/CreatePlaylistModal";
 import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
+import { getApiErrorMessage } from "../shared/apiError";
 import { PaginatedPageLayout } from "../components/layout/PaginatedPageLayout";
 import { PageTitle } from "../components/ui/PageTitle";
 
@@ -107,7 +108,7 @@ export const PlaylistsPage = () => {
       setTotal((prev) => prev - 1);
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(getApiErrorMessage(err, "删除失败"));
     } finally {
       setDeleting(false);
     }

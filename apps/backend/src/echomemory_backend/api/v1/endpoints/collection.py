@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Query, status
 from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.collection import (
     AlbumCollectionOut,
-    MusicCollectionOut,
     PaginatedAlbumCollectionOut,
     PaginatedMusicCollectionOut,
     PaginatedPlaylistCollectionOut,
@@ -20,18 +19,8 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 # ---------------------------------------------------------------------------
-# 音乐收藏
+# 音乐收藏（派生自用户歌单归属）
 # ---------------------------------------------------------------------------
-
-
-@router.post("/musics/{music_id}", response_model=MusicCollectionOut, status_code=HttpStatus.CREATED)
-async def collect_music(
-    db: SessionDep,
-    current_user: ActiveUser,
-    music_id: PositiveIntPath,
-):
-    """收藏音乐。已收藏则静默返回。"""
-    return await collection_service.collect_music(db, current_user.id, music_id)
 
 
 @router.delete("/musics/{music_id}", status_code=HttpStatus.NO_CONTENT)

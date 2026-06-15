@@ -9,6 +9,7 @@ import { PageTitle } from "../components/ui/PageTitle";
 import { FadeIn } from "../components/motion/FadeIn";
 
 import { CITY_OPTIONS } from "../shared/constants";
+import { getApiErrorMessage } from "../shared/apiError";
 
 const roleLabel: Record<number, string> = {
   0: "普通用户",
@@ -65,7 +66,7 @@ export const AccountPage = () => {
       setAvatarPreview(null);
       toast.success("资料已保存");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
+      toast.error(getApiErrorMessage(err, "保存失败"));
     } finally {
       setSaving(false);
     }

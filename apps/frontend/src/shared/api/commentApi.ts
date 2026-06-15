@@ -23,7 +23,7 @@ export const createCommentApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) =
 
   /** 获取某条评论的所有回复（公开接口）。 */
   const listReplies = (rootId: number) =>
-    request<CommentItem[]>(`/comments/replies/${rootId}`, {}, false);
+    request<PaginatedCommentList>(`/comments/replies/${rootId}`, {}, false);
 
   return {
     listRootComments,
