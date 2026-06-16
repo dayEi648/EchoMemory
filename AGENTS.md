@@ -40,7 +40,6 @@
 	- It is necessary to use the SKILL that is useful for the current task, even if it has only 1% relevance to the current task.
 	- It is necessary to use the Tool that is useful for the current work.
 	- All code that is not written according to the specifications and operations that are not carried out as required will not be recognized. Therefore, you must strictly abide by various development specifications and work requirements.
-	- 项目当前上下文、历史决策、阶段性约束记录在 `planning/项目上下文.md`。启动开发前必须查看该文档，但它不是绝对规范或最高优先级来源。遇到它与当前代码、测试、迁移、接口现状、用户最新说明或任务目标冲突时，不得机械服从文档；必须结合现状判断，必要时向用户确认。用户明确澄清的新方向，经用户同意后应及时记录到 `planning/项目上下文.md`，并标注为现行、历史、暂缓、待确认或已变化。
 
 	</workrules>
 
@@ -52,16 +51,15 @@
 
 <index>
 
-| Resource            | Path                           | Purpose                              | When to Use                                                  |
-| ------------------- | ------------------------------ | ------------------------------------ | ------------------------------------------------------------ |
-| Project Context     | `planning/项目上下文.md`       | 项目定位、当前实现状态、历史决策、阶段性约束与待确认事项。 | 始终，在启动任何开发之前；但仅作为上下文参考，不能替代代码核验和用户最新说明。 |
-| Task Plans          | `planning/plans/`              | 任务列表、计划与排期。               | 将复杂的、长期的或者暂时不执行的计划存放在该目录下。         |
-| Directory Structure | `planning/directory.md`        | 项目目录结构。                       | 需要了解项目目录结构时，查看此文档。如果项目结构发生变更，需要更新此文档。 |
-| Frontend References | `planning/for-frontend/`       | 前端设计指导。                       | 当你需要了解前端设计、样式或其他前端相关决策时，查看此文件夹下有无文档。 |
-| Backend References  | `planning/for-backend/`        | 后端设计指导。                       | 当你需要了解后端设计或其他后端相关决策时，查看此文件夹下有无文档。 |
-| Database Schema     | `planning/sql/`                | 数据库中的表结构、关系等等。         | 数据库 schema，用于了解该项目的数据库设计；在当前项目中，数据库结构主要由Alembic生成和迁移，应以后端中的ORM模型为准。 |
-| Temporary Images    | `planning/pngs/`               | 临时图片资源的存储与清理。           | 将临时图片资源存放在此文档，使用完毕后清理它们。             |
-| Search Results      | `planning/searchresults/`      | 搜索操作的结果。                     | 进行联网搜索后，将搜索结果整理并写入该目录下；不删除。已有的搜索结果可能对你的任务有所帮助。 |
-| API Documentations  | `planning/api-documentations/` | API 文档。                           | 当你需要了解 API 文档时查看此目录。当前项目的API文档由OpenAPI自动生成。 |
+| Resource            | Path                           | Purpose                      | When to Use                                                  |
+| ------------------- | ------------------------------ | ---------------------------- | ------------------------------------------------------------ |
+| Task Plans          | `planning/plans/`              | 任务列表、计划与排期。       | 将复杂的、长期的或者暂时不执行的计划存放在该目录下。         |
+| Directory Structure | `planning/directory.md`        | 项目目录结构。               | 需要了解项目目录结构时，查看此文档。如果项目结构发生变更，需要更新此文档。 |
+| Frontend References | `planning/for-frontend/`       | 前端设计指导。               | 当你需要了解前端设计、样式或其他前端相关决策时，查看此文件夹下有无文档。 |
+| Backend References  | `planning/for-backend/`        | 后端设计指导。               | 当你需要了解后端设计或其他后端相关决策时，查看此文件夹下有无文档。 |
+| Database Schema     | `planning/sql/`                | 数据库中的表结构、关系等等。 | 数据库 schema，用于了解该项目的数据库设计；在当前项目中，数据库结构主要由Alembic生成和迁移，应以后端中的ORM模型为准。 |
+| Temporary Images    | `planning/pngs/`               | 临时图片资源的存储与清理。   | 将临时图片资源存放在此文档，使用完毕后清理它们。             |
+| Search Results      | `planning/searchresults/`      | 搜索操作的结果。             | 进行联网搜索后，将搜索结果整理并写入该目录下；不删除。已有的搜索结果可能对你的任务有所帮助。 |
+| API Documentations  | `planning/api-documentations/` | API 文档。                   | 当你需要了解 API 文档时查看此目录。                          |
 
 </index>
