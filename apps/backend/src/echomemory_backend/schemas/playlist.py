@@ -37,16 +37,7 @@ class PlaylistMusicOut(BaseModel):
             return None
         if isinstance(v, dict):
             return v
-        return {
-            "id": v.id,
-            "title": v.title,
-            "is_vip": v.is_vip,
-            "hot": v.hot,
-            "play_count": v.play_count,
-            "cover_icon_url": v.cover_icon_url,
-            "authors": [],
-            "created_at": v.created_at,
-        }
+        return MusicListOut.model_validate(v).model_dump()
 
 
 class PlaylistOut(

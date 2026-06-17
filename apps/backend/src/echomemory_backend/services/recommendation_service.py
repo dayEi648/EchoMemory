@@ -477,7 +477,8 @@ async def _load_musics_with_authors(
         select(Music)
         .where(Music.id.in_(music_ids))
         .options(
-            selectinload(Music.authors).selectinload(MusicAuthor.author)
+            selectinload(Music.authors).selectinload(MusicAuthor.author),
+            selectinload(Music.album_musics).selectinload(AlbumMusic.album),
         )
     )
     rows = await db.execute(stmt)

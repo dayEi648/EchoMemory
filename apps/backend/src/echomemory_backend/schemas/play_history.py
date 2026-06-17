@@ -4,8 +4,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from echomemory_backend.schemas.music import AuthorOut
+from echomemory_backend.schemas.mixins import JoinedAuthorValidatorMixin
 
-class PlayHistoryMusicOut(BaseModel):
+
+class PlayHistoryMusicOut(JoinedAuthorValidatorMixin, BaseModel):
     """播放历史中嵌套的音乐精简信息。"""
 
     model_config = ConfigDict(from_attributes=True)
@@ -13,6 +16,7 @@ class PlayHistoryMusicOut(BaseModel):
     id: int
     title: str
     cover_icon_url: str | None = None
+    authors: list[AuthorOut] = []
 
 
 class PlayHistoryOut(BaseModel):

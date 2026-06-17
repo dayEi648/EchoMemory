@@ -2694,7 +2694,7 @@ textarea {
 .import-form-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
-  gap: 20px;
+  gap: 28px;
   align-items: start;
 }
 
@@ -2702,7 +2702,7 @@ textarea {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px;
-  padding: 20px;
+  padding: 24px;
 }
 
 .import-section-title {
@@ -2723,7 +2723,7 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
   z-index: 50;
 }

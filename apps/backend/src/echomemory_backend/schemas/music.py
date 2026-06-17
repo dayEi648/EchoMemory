@@ -122,8 +122,28 @@ class MusicListOut(JoinedAuthorValidatorMixin, BaseModel):
     play_count: int
     cover_icon_url: str | None = None
     authors: list[AuthorOut] = []
+    albums: list[AlbumBriefOut] = []
     created_at: datetime
     is_collected_by_me: bool = False
+
+    @field_validator("albums", mode="before")
+    @classmethod
+    def _flatten_albums(cls, v):
+        """将关联模型列表展平为专辑简要输出字典列表。
+
+        已展平的字典列表（如来自缓存）直接透传。
+        """
+        if not v:
+            return []
+        if isinstance(v, dict):
+            return v
+        if isinstance(v[0], dict):
+            return v
+        return [
+            {"id": am.album.id, "title": am.album.title}
+            for am in v
+            if not am.album.is_deleted
+        ]
 
 
 class AdminMusicListOut(
@@ -160,6 +180,8 @@ class AdminMusicListOut(
         """
         if not v:
             return []
+        if isinstance(v, dict):
+            return v
         if isinstance(v[0], dict):
             return v
         return [

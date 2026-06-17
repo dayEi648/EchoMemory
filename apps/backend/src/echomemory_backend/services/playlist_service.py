@@ -8,8 +8,10 @@ from sqlalchemy import case, delete, desc, exists, func, inspect as sa_inspect, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from echomemory_backend.models.album import AlbumMusic
 from echomemory_backend.models.music import (
     Music,
+    MusicAuthor,
     MusicEmotionTag,
     MusicInterestTag,
 )
@@ -207,7 +209,14 @@ async def get_playlist_by_id(db: AsyncSession, playlist_id: int) -> Playlist | N
         .where(Playlist.id == playlist_id)
         .options(
             selectinload(Playlist.user),
-            selectinload(Playlist.musics).selectinload(PlaylistMusic.music),
+            selectinload(Playlist.musics)
+            .selectinload(PlaylistMusic.music)
+            .selectinload(Music.authors)
+            .selectinload(MusicAuthor.author),
+            selectinload(Playlist.musics)
+            .selectinload(PlaylistMusic.music)
+            .selectinload(Music.album_musics)
+            .selectinload(AlbumMusic.album),
             selectinload(Playlist.emotion_tags).selectinload(
                 PlaylistEmotionTag.emotion_tag
             ),

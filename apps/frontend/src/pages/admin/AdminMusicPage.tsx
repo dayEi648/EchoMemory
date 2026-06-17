@@ -538,7 +538,7 @@ export const AdminMusicPage = () => {
         open={!!editMusic}
         onClose={closeEdit}
         title="编辑歌曲信息"
-        maxWidth={760}
+        maxWidth={920}
         footer={
           <>
             <motion.button
@@ -562,10 +562,9 @@ export const AdminMusicPage = () => {
         }
       >
         {editMusic && (
-          <div className="import-form-grid"
-          >
+          <div className="import-form-grid" style={{ paddingBottom: 24 }}>
             {/* 左栏 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {/* 基本信息 */}
               <div className="import-section">
                 <h3 className="import-section-title">基本信息</h3>
@@ -661,7 +660,23 @@ export const AdminMusicPage = () => {
             </div>
 
             {/* 右栏 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* 作者：放在右栏顶部，避免下拉框被弹窗底部裁切 */}
+              <div className="import-section">
+                <h3 className="import-section-title">作者</h3>
+                <AuthorSelect
+                  selectedAuthors={editSelectedAuthors}
+                  onChange={setEditSelectedAuthors}
+                  searchUsers={async (q) => {
+                    try {
+                      return await api.searchUsers(q, 10, 0);
+                    } catch {
+                      return undefined;
+                    }
+                  }}
+                />
+              </div>
+
               {/* 分类 */}
               <div className="import-section">
                 <h3 className="import-section-title">分类</h3>
@@ -739,22 +754,6 @@ export const AdminMusicPage = () => {
                     placeholder="搜索兴趣标签..."
                   />
                 </div>
-              </div>
-
-              {/* 作者 */}
-              <div className="import-section">
-                <h3 className="import-section-title">作者</h3>
-                <AuthorSelect
-                  selectedAuthors={editSelectedAuthors}
-                  onChange={setEditSelectedAuthors}
-                  searchUsers={async (q) => {
-                    try {
-                      return await api.searchUsers(q, 10, 0);
-                    } catch {
-                      return undefined;
-                    }
-                  }}
-                />
               </div>
             </div>
           </div>

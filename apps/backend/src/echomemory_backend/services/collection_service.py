@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from echomemory_backend.db.pagination import paginate
-from echomemory_backend.models.album import Album
+from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
     UserMusicLike,
@@ -60,6 +60,9 @@ async def _get_music_collection_view(
             selectinload(UserMusicLike.music)
             .selectinload(Music.authors)
             .selectinload(MusicAuthor.author),
+            selectinload(UserMusicLike.music)
+            .selectinload(Music.album_musics)
+            .selectinload(AlbumMusic.album),
         )
     )
     like = (await db.execute(stmt)).scalar_one_or_none()
@@ -173,6 +176,9 @@ async def list_music_collections(
             selectinload(UserMusicLike.music)
             .selectinload(Music.authors)
             .selectinload(MusicAuthor.author),
+            selectinload(UserMusicLike.music)
+            .selectinload(Music.album_musics)
+            .selectinload(AlbumMusic.album),
         )
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)

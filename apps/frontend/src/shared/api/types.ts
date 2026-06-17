@@ -309,6 +309,7 @@ export type PlayHistoryMusicItem = {
   id: number;
   title: string;
   cover_icon_url: string | null;
+  authors: Author[];
 };
 
 export type PlayHistoryItem = {

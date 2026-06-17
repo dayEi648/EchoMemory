@@ -423,7 +423,8 @@ async def list_musics(
         .where(*where_clause)
         .order_by(desc(sort_column))
         .options(
-            selectinload(Music.authors).selectinload(MusicAuthor.author)
+            selectinload(Music.authors).selectinload(MusicAuthor.author),
+            selectinload(Music.album_musics).selectinload(AlbumMusic.album),
         )
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
@@ -466,7 +467,10 @@ async def search_musics(
         select(Music)
         .where(*where_clause)
         .order_by(desc(Music.hot))
-        .options(selectinload(Music.authors).selectinload(MusicAuthor.author))
+        .options(
+            selectinload(Music.authors).selectinload(MusicAuthor.author),
+            selectinload(Music.album_musics).selectinload(AlbumMusic.album),
+        )
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     return {"items": page.items, "total": page.total}

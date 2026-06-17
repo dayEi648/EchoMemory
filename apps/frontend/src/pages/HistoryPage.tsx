@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { playHistoryApi } from "../shared/api/instances";
 import type { PlayHistoryItem } from "../shared/api/types";
-import { formatRelativeTime } from "../shared/utils";
+import { formatAuthors, formatRelativeTime } from "../shared/utils";
 import { usePlayMusic } from "../shared/usePlayMusic";
 import { FadeIn } from "../components/motion/FadeIn";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -141,7 +141,7 @@ export const HistoryPage = () => {
                       {item.music.title}
                     </div>
                     <div style={{ fontSize: 13, color: "var(--color-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                      <span>未知艺人</span>
+                      <span>{formatAuthors(item.music.authors, "未知艺人")}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <Clock size={12} />
                         {formatRelativeTime(item.played_at)}

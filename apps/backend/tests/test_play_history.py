@@ -11,7 +11,7 @@ from sqlalchemy import select
 from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.album import Album, AlbumMusic
 from echomemory_backend.models.enums import UserRole
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import Music, MusicAuthor
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.models.user import User
@@ -573,3 +573,26 @@ class TestClearPlayHistory:
         """测试未登录用户清空播放历史时返回 401。"""
         resp = client.delete(BASE_URL + "/")
         assert resp.status_code == 401
+
+    async def test_list_play_history_includes_music_authors(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试播放历史列表正确返回音乐作者信息。"""
+        user = await _create_user(db_session, "history_author_user")
+        music = await _create_music_directly(db_session, title="SongWithAuthors")
+        author = await _create_user(db_session, "history_author")
+        db_session.add(
+            MusicAuthor(music_id=music.id, author_id=author.id, ordinal=1)
+        )
+        await db_session.commit()
+        await _create_play_history_directly(db_session, user.id, music.id)
+
+        resp = client.get(BASE_URL + "/", headers=_auth_header(user))
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["total"] == 1
+        authors = data["items"][0]["music"]["authors"]
+        assert len(authors) == 1
+        assert authors[0]["id"] == author.id
+        assert authors[0]["nickname"] == author.nickname
+        assert authors[0]["username"] == author.username

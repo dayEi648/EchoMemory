@@ -421,7 +421,7 @@ export const AuthorSelect = ({
   );
 
   return (
-    <div ref={wrapperRef}>
+    <div ref={wrapperRef} style={{ position: "relative" }}>
       <label style={{ fontSize: 13, fontWeight: 600, color: "var(--color-ink)", display: "block", marginBottom: 6 }}>
         作者
       </label>
@@ -450,7 +450,7 @@ export const AuthorSelect = ({
         </button>
       </div>
       <AnimatePresence>
-        {dropdownOpen && (availableResults.length > 0 || searching) && (
+        {dropdownOpen && (
           <motion.div
             className="import-search-dropdown"
             initial={{ opacity: 0, y: -4 }}
@@ -461,6 +461,11 @@ export const AuthorSelect = ({
             {searching && availableResults.length === 0 && (
               <div className="import-search-dropdown-item" style={{ color: "var(--color-muted)", cursor: "default" }}>
                 搜索中...
+              </div>
+            )}
+            {!searching && availableResults.length === 0 && search.trim() && (
+              <div className="import-search-dropdown-item" style={{ color: "var(--color-muted)", cursor: "default" }}>
+                未找到匹配用户
               </div>
             )}
             {availableResults.map((u) => (

@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album, AlbumMusic
-from echomemory_backend.models.music import Music
+from echomemory_backend.models.music import Music, MusicAuthor
 from echomemory_backend.models.play_history import PlayHistory
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic
 from echomemory_backend.services.cache_service import invalidate_music_detail
@@ -118,7 +118,11 @@ async def create_play_history(
     stmt = (
         select(PlayHistory)
         .where(PlayHistory.id == history.id)
-        .options(selectinload(PlayHistory.music))
+        .options(
+            selectinload(PlayHistory.music)
+            .selectinload(Music.authors)
+            .selectinload(MusicAuthor.author),
+        )
     )
     history = (await db.execute(stmt)).scalar_one()
     await invalidate_music_detail(music_id)
@@ -174,7 +178,11 @@ async def list_play_history(
         select(PlayHistory)
         .where(*where_clause)
         .order_by(desc(PlayHistory.played_at), desc(PlayHistory.id))
-        .options(selectinload(PlayHistory.music))
+        .options(
+            selectinload(PlayHistory.music)
+            .selectinload(Music.authors)
+            .selectinload(MusicAuthor.author),
+        )
     )
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     return {"items": page.items, "total": page.total}
