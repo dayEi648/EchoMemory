@@ -11,9 +11,9 @@ export const createCollectionApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions
   const { request } = createBaseApi({ baseUrl, fetcher, tokenStore });
 
   return {
-    /* ---------- 音乐收藏（派生自歌单归属；通过歌单选择器加入） ---------- */
+    /* ---------- 音乐喜欢（对应“我喜欢的音乐”歌单） ---------- */
 
-    /** 取消收藏音乐：从全部歌单移除（幂等）。 */
+    /** 取消喜欢音乐：从“我喜欢的音乐”歌单移除（幂等）。 */
     uncollectMusic: (musicId: number) =>
       request<void>(`/collections/musics/${musicId}`, { method: "DELETE" }),
 

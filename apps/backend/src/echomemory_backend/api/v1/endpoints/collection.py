@@ -1,7 +1,7 @@
-"""用户收藏与发布标记相关的 API 路由端点，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+"""用户收藏相关 API 路由端点，提供音乐喜欢、专辑收藏、歌单收藏功能。"""
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.collection import (
@@ -9,9 +9,7 @@ from echomemory_backend.schemas.collection import (
     PaginatedAlbumCollectionOut,
     PaginatedMusicCollectionOut,
     PaginatedPlaylistCollectionOut,
-    PaginatedReleaseOut,
     PlaylistCollectionOut,
-    ReleaseOut,
 )
 from echomemory_backend.services import collection_service
 
@@ -19,7 +17,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 
 # ---------------------------------------------------------------------------
-# 音乐收藏（派生自用户歌单归属）
+# 音乐喜欢（对应“我喜欢的音乐”歌单）
 # ---------------------------------------------------------------------------
 
 
@@ -123,44 +121,5 @@ async def list_playlist_collections(
 ):
     """查询我的收藏歌单列表（按收藏时间倒序）。"""
     return await collection_service.list_playlist_collections(
-        db, current_user.id, limit=limit, offset=offset
-    )
-
-
-# ---------------------------------------------------------------------------
-# 已发布音乐标记
-# ---------------------------------------------------------------------------
-
-
-@router.post("/releases/{music_id}", response_model=ReleaseOut, status_code=HttpStatus.CREATED)
-async def release_music(
-    db: SessionDep,
-    current_user: ActiveUser,
-    music_id: PositiveIntPath,
-):
-    """标记音乐为已发布。已标记则静默返回。"""
-    return await collection_service.release_music(db, current_user.id, music_id)
-
-
-@router.delete("/releases/{music_id}", status_code=HttpStatus.NO_CONTENT)
-async def unrelease_music(
-    db: SessionDep,
-    current_user: ActiveUser,
-    music_id: PositiveIntPath,
-):
-    """取消已发布音乐标记。未标记则静默成功。"""
-    await collection_service.unrelease_music(db, current_user.id, music_id)
-    return None
-
-
-@router.get("/releases", response_model=PaginatedReleaseOut)
-async def list_releases(
-    db: SessionDep,
-    current_user: ActiveUser,
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-):
-    """查询我的已发布音乐列表（按标记时间倒序）。"""
-    return await collection_service.list_releases(
         db, current_user.id, limit=limit, offset=offset
     )

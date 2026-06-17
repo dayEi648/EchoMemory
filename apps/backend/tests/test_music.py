@@ -559,27 +559,27 @@ class TestGetMusic:
 
 
 class TestGetMusicLyrics:
-    """测试公开获取歌词文本功能。"""
+    """测试公开获取歌词签名 URL 功能。"""
 
     async def test_get_lyrics_success(
         self, client: TestClient, db_session: AsyncSession, monkeypatch
     ):
-        """测试已上架且有歌词 URL 时返回歌词内容。"""
+        """测试已上架且有歌词 URL 时返回签名 URL。"""
         music = await _create_music_directly(db_session, title="LyricsSong")
         music.lyrics_url = "https://fake-oss.example.com/lyrics/test.lrc"
         db_session.add(music)
         await db_session.commit()
 
-        async def fake_fetch(_url: str) -> str:
-            return "[00:00.00]Test lyrics\n[00:05.00]Line two"
+        async def fake_sign(_url: str) -> str:
+            return "https://fake-oss.example.com/lyrics/test.lrc?signature=abc"
 
         from echomemory_backend.core.clients import oss_client
 
-        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
+        monkeypatch.setattr(oss_client, "sign_url_by_url", fake_sign)
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert "Test lyrics" in api_data(resp)["content"]
+        assert api_data(resp)["url"].endswith("signature=abc")
 
     async def test_get_lyrics_no_url_returns_404(
         self, client: TestClient, db_session: AsyncSession
@@ -602,44 +602,11 @@ class TestGetMusicLyrics:
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 404
 
-    async def test_get_lyrics_cache_hit(
+    async def test_get_lyrics_url_reflects_update(
         self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
     ):
-        """歌词二次请求应命中缓存，避免重复请求 OSS。"""
+        """管理员更新歌词文件后签名 URL 使用新的歌词地址。"""
         from echomemory_backend.core.clients import oss_client
-        from echomemory_backend.core.cache.general import MUSIC_LYRICS_PREFIX, build_cache_key
-
-        music = await _create_music_directly(db_session, title="CachedLyrics")
-        music.lyrics_url = "https://fake-oss.example.com/lyrics/cached.lrc"
-        db_session.add(music)
-        await db_session.commit()
-
-        fetch_calls = []
-
-        async def fake_fetch(_url: str) -> str:
-            fetch_calls.append(_url)
-            return "[00:00.00]First lyrics"
-
-        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
-
-        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
-        assert resp.status_code == 200
-        assert api_data(resp)["content"] == "[00:00.00]First lyrics"
-
-        cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
-        assert await fake_redis.exists(cache_key) == 1
-
-        resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
-        assert resp.status_code == 200
-        assert api_data(resp)["content"] == "[00:00.00]First lyrics"
-        assert len(fetch_calls) == 1
-
-    async def test_get_lyrics_cache_invalidated_on_update(
-        self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
-    ):
-        """管理员更新歌词文件后缓存应被失效。"""
-        from echomemory_backend.core.clients import oss_client
-        from echomemory_backend.core.cache.general import MUSIC_LYRICS_PREFIX, build_cache_key
 
         admin = await _create_user(
             db_session, "admin_lyrics_cache", role=UserRole.ADMIN.value
@@ -649,12 +616,14 @@ class TestGetMusicLyrics:
         db_session.add(music)
         await db_session.commit()
 
-        async def fake_fetch(url: str) -> str:
-            if "old.lrc" in url:
-                return "[00:00.00]Old lyrics"
-            return "[00:00.00]New lyrics"
+        signed_urls: list[str] = []
 
-        monkeypatch.setattr(oss_client, "fetch_text_by_url", fake_fetch)
+        async def fake_sign(url: str) -> str:
+            signed = f"{url}?signature=abc"
+            signed_urls.append(signed)
+            return signed
+
+        monkeypatch.setattr(oss_client, "sign_url_by_url", fake_sign)
         async def fake_upload_lyrics(*args, **kwargs) -> str:
             return "https://fake-oss.example.com/lyrics/new.lrc"
 
@@ -662,10 +631,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert api_data(resp)["content"] == "[00:00.00]Old lyrics"
-
-        cache_key = build_cache_key(MUSIC_LYRICS_PREFIX, music.id)
-        assert await fake_redis.exists(cache_key) == 1
+        assert api_data(resp)["url"] == "https://fake-oss.example.com/lyrics/old.lrc?signature=abc"
 
         resp = client.patch(
             f"{BASE_URL}/admin/{music.id}",
@@ -676,11 +642,13 @@ class TestGetMusicLyrics:
         )
         assert resp.status_code == 200
 
-        assert await fake_redis.exists(cache_key) == 0
-
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert api_data(resp)["content"] == "[00:00.00]New lyrics"
+        assert api_data(resp)["url"] == "https://fake-oss.example.com/lyrics/new.lrc?signature=abc"
+        assert signed_urls == [
+            "https://fake-oss.example.com/lyrics/old.lrc?signature=abc",
+            "https://fake-oss.example.com/lyrics/new.lrc?signature=abc",
+        ]
 
 
 class TestListMusics:

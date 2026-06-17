@@ -12,7 +12,6 @@ from echomemory_backend.core.cache.general import (
     CACHE_MISS,
     DAILY_RECOMMENDATION_PREFIX,
     MUSIC_DETAIL_PREFIX,
-    MUSIC_LYRICS_PREFIX,
     PLAYLIST_DETAIL_PREFIX,
     RADAR_RECOMMENDATION_PREFIX,
     RECOMMEND_CHART_PREFIX,
@@ -197,47 +196,6 @@ async def invalidate_user_public(user_id: int) -> None:
         user_id: 用户主键 ID。
     """
     await cache_delete(build_cache_key(USER_PUBLIC_PREFIX, user_id))
-
-
-# ---------------------------------------------------------------------------
-# 歌词内容缓存
-# ---------------------------------------------------------------------------
-
-_LYRICS_TTL = 60 * 60  # 1 小时
-
-
-async def get_cached_lyrics(music_id: int) -> str | None:
-    """从缓存读取歌词文本。
-
-    Args:
-        music_id: 音乐主键 ID。
-
-    Returns:
-        缓存中的歌词字符串；未命中时返回 None。
-    """
-    cached = await cache_get(build_cache_key(MUSIC_LYRICS_PREFIX, music_id))
-    if cached is CACHE_MISS:
-        return None
-    return cached
-
-
-async def set_cached_lyrics(music_id: int, content: str) -> None:
-    """将歌词文本写入缓存。
-
-    Args:
-        music_id: 音乐主键 ID。
-        content: 歌词文本内容。
-    """
-    await cache_set(build_cache_key(MUSIC_LYRICS_PREFIX, music_id), content, _LYRICS_TTL)
-
-
-async def invalidate_lyrics(music_id: int) -> None:
-    """失效指定音乐的歌词缓存。
-
-    Args:
-        music_id: 音乐主键 ID。
-    """
-    await cache_delete(build_cache_key(MUSIC_LYRICS_PREFIX, music_id))
 
 
 # ---------------------------------------------------------------------------

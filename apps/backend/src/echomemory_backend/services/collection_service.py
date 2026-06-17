@@ -1,10 +1,10 @@
-"""用户收藏服务模块，提供音乐、专辑、歌单的收藏/取消收藏以及已发布音乐标记功能。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+"""用户收藏服务模块，提供音乐喜欢、专辑收藏、歌单收藏功能。"""
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy import case, delete, desc, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -13,7 +13,7 @@ from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.album import Album
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
-    UserMusicRelease,
+    UserMusicLike,
     UserPlaylistCollection,
 )
 from echomemory_backend.models.music import Music, MusicAuthor
@@ -23,21 +23,21 @@ from echomemory_backend.core.exceptions.business import BusinessError
 
 @dataclass
 class MusicCollectionView:
-    """歌曲收藏视图：由歌单归属关系派生，供 MusicCollectionOut 序列化。"""
+    """歌曲喜欢视图：供 MusicCollectionOut 序列化。"""
 
     music: Music
     created_at: datetime
 
 
 # ---------------------------------------------------------------------------
-# 音乐收藏（派生自用户歌单归属，非独立收藏表）
+# 音乐喜欢
 # ---------------------------------------------------------------------------
 
 
 async def _get_music_collection_view(
     db: AsyncSession, user_id: int, music_id: int
 ) -> MusicCollectionView:
-    """加载用户收藏歌曲的视图（取最近一次加入歌单的时间）。
+    """加载用户喜欢歌曲的视图。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -48,36 +48,32 @@ async def _get_music_collection_view(
         含音乐详情与最近加入时间的收藏视图。
 
     Raises:
-        BusinessError: 歌曲不在用户任一歌单中时抛出 404。
+        BusinessError: 歌曲不在用户喜欢列表中时抛出 404。
     """
     stmt = (
-        select(PlaylistMusic)
-        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+        select(UserMusicLike)
         .where(
-            Playlist.user_id == user_id,
-            PlaylistMusic.music_id == music_id,
+            UserMusicLike.user_id == user_id,
+            UserMusicLike.music_id == music_id,
         )
-        .order_by(desc(PlaylistMusic.created_at))
-        .limit(1)
         .options(
-            selectinload(PlaylistMusic.music)
+            selectinload(UserMusicLike.music)
             .selectinload(Music.authors)
             .selectinload(MusicAuthor.author),
         )
     )
-    playlist_music = (await db.execute(stmt)).scalar_one_or_none()
-    if playlist_music is None:
-        raise BusinessError("Music not found in user playlists", code=ErrorCode.MUSIC_NOT_IN_USER_PLAYLISTS)
+    like = (await db.execute(stmt)).scalar_one_or_none()
+    if like is None:
+        raise BusinessError("Music not found in user likes", code=ErrorCode.MUSIC_NOT_IN_USER_PLAYLISTS)
     return MusicCollectionView(
-        music=playlist_music.music,
-        created_at=playlist_music.created_at,
+        music=like.music,
+        created_at=like.created_at,
     )
 
 
 async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None:
-    """取消收藏音乐：从用户全部歌单中移除该歌曲。
-
-    在同一事务内批量删除各歌单中的关联记录，避免部分成功。
+    """取消喜欢音乐：从用户默认喜欢歌单和喜欢表中移除该歌曲。
+    在同一事务内删除喜欢表记录与默认喜欢歌单中的关联记录，避免部分成功。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -87,31 +83,60 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
     Returns:
         None。
     """
-    from echomemory_backend.services.cache_service import invalidate_playlist_detail
-    from echomemory_backend.services.hotness_service import recalculate_playlist_hot
+    from echomemory_backend.services.cache_service import (
+        invalidate_music_detail,
+        invalidate_playlist_detail,
+    )
+    from echomemory_backend.services.hotness_service import (
+        recalculate_music_hot,
+        recalculate_playlist_hot,
+    )
     from echomemory_backend.services.playlist_service import _sync_playlist_tags_from_musics
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
-    stmt = (
-        select(PlaylistMusic.playlist_id)
-        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
-        .where(
-            Playlist.user_id == user_id,
-            PlaylistMusic.music_id == music_id,
-        )
+    like = await db.get(UserMusicLike, (user_id, music_id))
+
+    like_playlist_stmt = (
+        select(Playlist.id)
+        .where(Playlist.user_id == user_id, Playlist.is_like.is_(True))
+        .limit(1)
     )
-    playlist_ids = list((await db.execute(stmt)).scalars().all())
-    if not playlist_ids:
+    like_playlist_id = (await db.execute(like_playlist_stmt)).scalar_one_or_none()
+
+    playlist_ids: list[int] = []
+    if like_playlist_id is not None:
+        existing_member = await db.get(PlaylistMusic, (like_playlist_id, music_id))
+        if existing_member is not None:
+            playlist_ids.append(like_playlist_id)
+
+    if like is None and not playlist_ids:
         return
 
-    await db.execute(
-        delete(PlaylistMusic).where(
-            PlaylistMusic.playlist_id.in_(playlist_ids),
-            PlaylistMusic.music_id == music_id,
+    like_removed = like is not None
+    if like_removed:
+        await db.delete(like)
+        await db.execute(
+            update(Music)
+            .where(Music.id == music_id)
+            .values(
+                collect_count=case(
+                    (Music.collect_count > 0, Music.collect_count - 1),
+                    else_=0,
+                )
+            )
         )
-    )
+
+    if like_playlist_id is not None:
+        await db.execute(
+            delete(PlaylistMusic).where(
+                PlaylistMusic.playlist_id == like_playlist_id,
+                PlaylistMusic.music_id == music_id,
+            )
+        )
     await db.flush()
 
+    if like_removed:
+        await recalculate_music_hot(db, music_id)
     for playlist_id in playlist_ids:
         await _sync_playlist_tags_from_musics(db, playlist_id)
         await recalculate_playlist_hot(db, playlist_id)
@@ -119,6 +144,8 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
     await recalculate_user_tags(db, user_id, commit=False)
     await db.commit()
 
+    if like_removed:
+        await invalidate_music_detail(music_id)
     for playlist_id in playlist_ids:
         await invalidate_playlist_detail(playlist_id)
 
@@ -126,7 +153,7 @@ async def uncollect_music(db: AsyncSession, user_id: int, music_id: int) -> None
 async def list_music_collections(
     db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
 ) -> dict[str, object]:
-    """查询用户的收藏音乐列表（存在于任一歌单中的去重歌曲）。
+    """查询用户的喜欢音乐列表。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -135,56 +162,25 @@ async def list_music_collections(
         offset: 偏移量，默认 0。
 
     Returns:
-        {"items": 按最近加入歌单时间倒序的 MusicCollectionView 列表, "total": 总记录数}。
+        {"items": 按喜欢时间倒序的 MusicCollectionView 列表, "total": 总记录数}。
     """
-    latest_subq = (
-        select(
-            PlaylistMusic.music_id.label("music_id"),
-            func.max(PlaylistMusic.created_at).label("created_at"),
-        )
-        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
-        .where(Playlist.user_id == user_id)
-        .group_by(PlaylistMusic.music_id)
-        .subquery()
-    )
-
-    total = (
-        await db.execute(select(func.count()).select_from(latest_subq))
-    ).scalar_one()
-
-    rows = (
-        await db.execute(
-            select(latest_subq.c.music_id, latest_subq.c.created_at)
-            .order_by(desc(latest_subq.c.created_at))
-            .limit(limit)
-            .offset(offset)
-        )
-    ).all()
-
-    if not rows:
-        return {"items": [], "total": total}
-
-    music_ids = [row.music_id for row in rows]
-    created_at_map = {row.music_id: row.created_at for row in rows}
-
-    music_stmt = (
-        select(Music)
-        .where(Music.id.in_(music_ids))
+    where_clause = [UserMusicLike.user_id == user_id]
+    stmt = (
+        select(UserMusicLike)
+        .where(*where_clause)
+        .order_by(desc(UserMusicLike.created_at))
         .options(
-            selectinload(Music.authors).selectinload(MusicAuthor.author),
+            selectinload(UserMusicLike.music)
+            .selectinload(Music.authors)
+            .selectinload(MusicAuthor.author),
         )
     )
-    musics = {
-        music.id: music
-        for music in (await db.execute(music_stmt)).scalars().all()
-    }
-
+    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     items = [
-        MusicCollectionView(music=musics[music_id], created_at=created_at_map[music_id])
-        for music_id in music_ids
-        if music_id in musics
+        MusicCollectionView(music=like.music, created_at=like.created_at)
+        for like in page.items
     ]
-    return {"items": items, "total": total}
+    return {"items": items, "total": page.total}
 
 
 # ---------------------------------------------------------------------------
@@ -421,115 +417,8 @@ async def list_playlist_collections(
     return {"items": items, "total": total}
 
 
-# ---------------------------------------------------------------------------
-# 已发布音乐标记
-# ---------------------------------------------------------------------------
-
-
-async def _get_release_with_relations(
-    db: AsyncSession, user_id: int, music_id: int
-) -> UserMusicRelease:
-    """加载完整关联后的 UserMusicRelease 记录。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        user_id: 用户主键。
-        music_id: 音乐主键。
-
-    Returns:
-        关联加载完整的 UserMusicRelease 实例。
-    """
-    stmt = (
-        select(UserMusicRelease)
-        .where(
-            UserMusicRelease.user_id == user_id,
-            UserMusicRelease.music_id == music_id,
-        )
-        .options(
-            selectinload(UserMusicRelease.music)
-            .selectinload(Music.authors)
-            .selectinload(MusicAuthor.author),
-        )
-    )
-    return (await db.execute(stmt)).scalar_one()
-
-
-async def release_music(db: AsyncSession, user_id: int, music_id: int) -> UserMusicRelease:
-    """标记音乐为已发布。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        user_id: 用户主键。
-        music_id: 音乐主键。
-
-    Returns:
-        已发布记录实例（已存在时返回现有记录）。
-
-    Raises:
-        BusinessError: 音乐不存在时抛出 404。
-    """
-    music = await db.get(Music, music_id)
-    if music is None or not music.is_published:
-        raise BusinessError("Music not found", code=ErrorCode.MUSIC_NOT_FOUND)
-
-    existing = await db.get(UserMusicRelease, (user_id, music_id))
-    if existing is not None:
-        return await _get_release_with_relations(db, user_id, music_id)
-
-    release = UserMusicRelease(user_id=user_id, music_id=music_id)
-    db.add(release)
-    await db.commit()
-    return await _get_release_with_relations(db, user_id, music_id)
-
-
-async def unrelease_music(db: AsyncSession, user_id: int, music_id: int) -> None:
-    """取消已发布音乐标记。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        user_id: 用户主键。
-        music_id: 音乐主键。
-
-    Returns:
-        None。
-    """
-    existing = await db.get(UserMusicRelease, (user_id, music_id))
-    if existing is not None:
-        await db.delete(existing)
-        await db.commit()
-
-
-async def list_releases(
-    db: AsyncSession, user_id: int, limit: int = 20, offset: int = 0
-) -> dict[str, object]:
-    """查询用户的已发布音乐列表。
-
-    Args:
-        db: SQLAlchemy 异步 Session。
-        user_id: 用户主键。
-        limit: 返回数量上限，默认 20。
-        offset: 偏移量，默认 0。
-
-    Returns:
-        {"items": 按标记时间倒序的 UserMusicRelease 列表, "total": 总记录数}。
-    """
-    where_clause = [UserMusicRelease.user_id == user_id]
-    stmt = (
-        select(UserMusicRelease)
-        .where(*where_clause)
-        .order_by(desc(UserMusicRelease.created_at))
-        .options(
-            selectinload(UserMusicRelease.music)
-            .selectinload(Music.authors)
-            .selectinload(MusicAuthor.author),
-        )
-    )
-    page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
-    return {"items": page.items, "total": page.total}
-
-
 async def is_music_collected(db: AsyncSession, user_id: int, music_id: int) -> bool:
-    """判断用户是否已收藏指定音乐（存在于任一歌单即为已收藏）。
+    """判断用户是否已喜欢指定音乐。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -539,16 +428,7 @@ async def is_music_collected(db: AsyncSession, user_id: int, music_id: int) -> b
     Returns:
         已收藏返回 True，否则返回 False。
     """
-    stmt = (
-        select(func.count())
-        .select_from(PlaylistMusic)
-        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
-        .where(
-            Playlist.user_id == user_id,
-            PlaylistMusic.music_id == music_id,
-        )
-    )
-    return (await db.execute(stmt)).scalar_one() > 0
+    return await db.get(UserMusicLike, (user_id, music_id)) is not None
 
 
 async def is_album_collected(db: AsyncSession, user_id: int, album_id: int) -> bool:
@@ -585,7 +465,7 @@ async def is_playlist_collected(db: AsyncSession, user_id: int, playlist_id: int
 async def get_collected_music_ids(
     db: AsyncSession, user_id: int, music_ids: list[int]
 ) -> set[int]:
-    """批量判断一组音乐中哪些已被用户收藏。
+    """批量判断一组音乐中哪些已被用户喜欢。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -593,18 +473,16 @@ async def get_collected_music_ids(
         music_ids: 音乐主键列表。
 
     Returns:
-        已被收藏的音乐 ID 集合。
+        已被喜欢的音乐 ID 集合。
     """
     if not music_ids:
         return set()
     stmt = (
-        select(PlaylistMusic.music_id)
-        .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
+        select(UserMusicLike.music_id)
         .where(
-            Playlist.user_id == user_id,
-            PlaylistMusic.music_id.in_(music_ids),
+            UserMusicLike.user_id == user_id,
+            UserMusicLike.music_id.in_(music_ids),
         )
-        .distinct()
     )
     rows = await db.execute(stmt)
     return set(rows.scalars().all())

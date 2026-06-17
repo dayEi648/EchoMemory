@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.enums import UserRole, UserStatus
+from echomemory_backend.models.notification import Notification
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.user import User, UserFollow
 from tests.api_helpers import api_data
@@ -266,6 +267,16 @@ class TestFollow:
         assert resp.status_code == 200
         assert api_data(resp) is None
 
+        result = await db_session.execute(
+            select(Notification).where(
+                Notification.recipient_id == target.id,
+                Notification.actor_id == me.id,
+            )
+        )
+        notification = result.scalar_one()
+        assert notification.target_type == "user"
+        assert notification.target_id == me.id
+
     async def test_follow_self_fails(self, client: TestClient, db_session: AsyncSession):
         """测试关注自己时返回 400。"""
         me = await _create_user(db_session, "self_follow")
@@ -297,13 +308,13 @@ class TestFollow:
         assert api_data(resp) is None
 
     async def test_unfollow_not_following_fails(self, client: TestClient, db_session: AsyncSession):
-        """测试取消未关注的用户时返回 404。"""
+        """测试取消未关注的用户时返回 400。"""
         me = await _create_user(db_session, "not_following")
         target = await _create_user(db_session, "not_followee")
         resp = client.post(
             UNFOLLOW_URL, headers=_auth_header(me), json={"followee_id": target.id}
         )
-        assert resp.status_code == 404
+        assert resp.status_code == 400
 
     async def test_get_followees(self, client: TestClient, db_session: AsyncSession):
         """测试获取当前用户的关注列表。"""
@@ -374,7 +385,7 @@ class TestAdmin:
         resp = client.post(
             f"{BASE}/{target.id}/ban",
             headers=_auth_header(admin),
-            json={"status": UserStatus.TEMP_BAN.value, "ban_duration": "bad"},
+            json={"status": UserStatus.MUTED.value, "ban_duration": "bad"},
         )
         assert resp.status_code == 422
         body = resp.json()

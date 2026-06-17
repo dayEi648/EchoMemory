@@ -199,7 +199,7 @@ async def follow_user(db: AsyncSession, follower_id: int, followee_id: int) -> N
         actor_id=follower_id,
         type=NotificationType.FOLLOW,
         target_type="user",
-        target_id=followee_id,
+        target_id=follower_id,
     )
     try:
         await db.commit()

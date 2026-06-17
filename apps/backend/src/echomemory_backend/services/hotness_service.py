@@ -10,10 +10,10 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.models.album import Album, AlbumMusic
+from echomemory_backend.models.album import Album
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.play_history import PlayHistory
-from echomemory_backend.models.playlist import Playlist, PlaylistMusic
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.services.cache_service import (
     invalidate_album_detail,
     invalidate_music_detail,
@@ -28,9 +28,11 @@ logger = logging.getLogger(__name__)
 
 _RECENT_WINDOW_DAYS = 7          # 近期播放窗口（天）
 _W_PLAY = 10                     # 单次播放权重
+_W_LIFETIME_PLAY = 1             # 全期播放权重（经典歌曲加权）
 _W_COLLECT = 5                   # 单次收藏权重
 _W_COMMENT = 3                   # 单条评论权重
-_TIME_DECAY_EXPONENT = 0.6       # 时间衰减指数（<1 平缓，>1 陡峭）
+_W_FORWARD = 4                   # 单次转发权重
+_TIME_DECAY_EXPONENT = 0.3       # 时间衰减指数（<1 平缓，>1 陡峭）
 _MAX_HOT = 1000                  # 热度上限
 
 _BATCH_SIZE = 200                # 全量重算时每批处理数
@@ -42,13 +44,47 @@ _BATCH_INTERVAL_SECONDS = 0.5    # 批次间隔
 # ---------------------------------------------------------------------------
 
 
+def _calculate_hot_score(
+    *,
+    play_count: int = 0,
+    lifetime_play_count: int = 0,
+    collect_count: int = 0,
+    comment_count: int = 0,
+    forward_count: int = 0,
+    age_days: int = 1,
+) -> int:
+    """根据互动计数和时间衰减计算热度值。
+
+    Args:
+        play_count: 近期播放次数。
+        lifetime_play_count: 全期播放次数。
+        collect_count: 收藏/喜欢次数。
+        comment_count: 评论次数。
+        forward_count: 转发次数。
+        age_days: 距离创建或发行日期的天数，最小为 1。
+
+    Returns:
+        0 到 `_MAX_HOT` 之间的整数热度。
+    """
+    engagement = math.log(
+        play_count * _W_PLAY
+        + lifetime_play_count * _W_LIFETIME_PLAY
+        + collect_count * _W_COLLECT
+        + comment_count * _W_COMMENT
+        + forward_count * _W_FORWARD
+        + 1
+    )
+    return min(_MAX_HOT, int(engagement * 100 / (age_days ** _TIME_DECAY_EXPONENT)))
+
+
 async def recalculate_music_hot(db: AsyncSession, music_id: int) -> None:
     """重新计算单首音乐的 hot 值。
 
     热度公式：
-        recent = COUNT(play_history WHERE music_id=X AND played_at > NOW - 7天)
+        recent = SUM(play_history.play_count WHERE music_id=X AND played_at > NOW - 7天)
         engagement = ln(recent * W_PLAY + collect_count * W_COLLECT
-                        + comment_count * W_COMMENT + 1)
+                        + comment_count * W_COMMENT + forward_count * W_FORWARD
+                        + play_count * W_LIFETIME_PLAY + 1)
         age_days = max(1, (NOW - release_date或created_at).days)
         hot = min(MAX, int(engagement * 100 / age_days^DECAY))
 
@@ -59,72 +95,94 @@ async def recalculate_music_hot(db: AsyncSession, music_id: int) -> None:
     now = datetime.now(timezone.utc)
     recent_cutoff = now - timedelta(days=_RECENT_WINDOW_DAYS)
 
-    # 近 7 天播放次数
+    # 近 7 天播放次数。播放历史按 user_id + music_id 累计，必须对 play_count 求和。
     recent_plays = (
         await db.execute(
-            select(func.count()).where(
+            select(func.coalesce(func.sum(PlayHistory.play_count), 0)).where(
                 PlayHistory.music_id == music_id,
                 PlayHistory.played_at >= recent_cutoff,
             )
         )
     ).scalar_one()
 
-    music = await db.get(Music, music_id)
-    if music is None:
+    music_row = (
+        await db.execute(
+            select(
+                Music.release_date,
+                Music.created_at,
+                Music.play_count,
+                Music.collect_count,
+                Music.comment_count,
+                Music.forward_count,
+            ).where(Music.id == music_id)
+        )
+    ).one_or_none()
+    if music_row is None:
         return
 
-    engagement = math.log(
-        recent_plays * _W_PLAY
-        + music.collect_count * _W_COLLECT
-        + music.comment_count * _W_COMMENT
-        + 1
-    )
-
-    ref_date = music.release_date or music.created_at.date() if music.created_at else now.date()
+    release_date, created_at, play_count, collect_count, comment_count, forward_count = music_row
+    ref_date = release_date or (created_at.date() if created_at else now.date())
     age_days = max(1, (now.date() - ref_date).days)
 
-    hot = min(_MAX_HOT, int(engagement * 100 / (age_days ** _TIME_DECAY_EXPONENT)))
+    hot = _calculate_hot_score(
+        play_count=int(recent_plays),
+        lifetime_play_count=play_count,
+        collect_count=collect_count,
+        comment_count=comment_count,
+        forward_count=forward_count,
+        age_days=age_days,
+    )
 
     await db.execute(update(Music).where(Music.id == music_id).values(hot=hot))
 
 
 async def recalculate_album_hot(db: AsyncSession, album_id: int) -> None:
-    """重新计算专辑的 hot 值（取所包含音乐 hot 的平均值）。
+    """重新计算专辑的 hot 值（基于专辑自身互动）。
 
     Args:
         db: SQLAlchemy 异步 Session。
         album_id: 目标专辑主键。
     """
-    avg = (
-        await db.execute(
-            select(func.coalesce(func.avg(Music.hot), 0))
-            .select_from(AlbumMusic)
-            .join(Music, Music.id == AlbumMusic.music_id)
-            .where(AlbumMusic.album_id == album_id)
-        )
-    ).scalar_one()
+    now = datetime.now(timezone.utc)
+    album = await db.get(Album, album_id)
+    if album is None:
+        return
+    ref_date = album.created_at.date() if album.created_at else now.date()
+    age_days = max(1, (now.date() - ref_date).days)
+    hot = _calculate_hot_score(
+        lifetime_play_count=album.play_count,
+        collect_count=album.collect_count,
+        comment_count=0,
+        forward_count=album.forward_count,
+        age_days=age_days,
+    )
     await db.execute(
-        update(Album).where(Album.id == album_id).values(hot=int(avg))
+        update(Album).where(Album.id == album_id).values(hot=hot)
     )
 
 
 async def recalculate_playlist_hot(db: AsyncSession, playlist_id: int) -> None:
-    """重新计算歌单的 hot 值（取所包含音乐 hot 的平均值）。
+    """重新计算歌单的 hot 值（基于歌单自身互动）。
 
     Args:
         db: SQLAlchemy 异步 Session。
         playlist_id: 目标歌单主键。
     """
-    avg = (
-        await db.execute(
-            select(func.coalesce(func.avg(Music.hot), 0))
-            .select_from(PlaylistMusic)
-            .join(Music, Music.id == PlaylistMusic.music_id)
-            .where(PlaylistMusic.playlist_id == playlist_id)
-        )
-    ).scalar_one()
+    now = datetime.now(timezone.utc)
+    playlist = await db.get(Playlist, playlist_id)
+    if playlist is None:
+        return
+    ref_date = playlist.created_at.date() if playlist.created_at else now.date()
+    age_days = max(1, (now.date() - ref_date).days)
+    hot = _calculate_hot_score(
+        lifetime_play_count=playlist.play_count,
+        collect_count=playlist.collect_count,
+        comment_count=playlist.comment_count,
+        forward_count=playlist.forward_count,
+        age_days=age_days,
+    )
     await db.execute(
-        update(Playlist).where(Playlist.id == playlist_id).values(hot=int(avg))
+        update(Playlist).where(Playlist.id == playlist_id).values(hot=hot)
     )
 
 

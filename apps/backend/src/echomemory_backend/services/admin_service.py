@@ -172,7 +172,7 @@ async def update_user_as_admin(
 ) -> User:
     """以管理员身份更新用户信息。
 
-    若修改了影响账户可用性的字段（status、role），会自动递增用户 token version，
+    若修改角色或永久封禁账号，会自动递增用户 token version，
     强制该用户所有已签发 token 失效。
 
     Args:
@@ -198,7 +198,7 @@ async def update_user_as_admin(
     ):
         raise BusinessError("Cannot promote user to super-admin", code=ErrorCode.ADMIN_CANNOT_PROMOTE_SUPER_ADMIN)
 
-    # 记录是否修改了影响账户可用性的字段
+    # 记录是否需要全端失效 token。禁言/限制不等同于永久封禁。
     should_invalidate_tokens = False
     # 记录是否修改了公开资料字段（需要失效 Redis 缓存）
     public_profile_changed = False
@@ -239,7 +239,8 @@ async def update_user_as_admin(
         public_profile_changed = True
     if user_in.status is not None:
         user.status = user_in.status
-        should_invalidate_tokens = True
+        if user_in.status == UserStatus.BANNED:
+            should_invalidate_tokens = True
     if user_in.safety_score is not None:
         user.safety_score = user_in.safety_score
     if user_in.is_verified is not None and user_in.is_verified != user.is_verified:
@@ -273,7 +274,7 @@ async def update_user_as_admin(
 async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: UserBanAction) -> User:
     """封禁用户。
 
-    封禁完成后自动递增用户 token version，强制该用户所有已签发 token 失效。
+    永久封禁完成后自动递增用户 token version，强制该用户所有已签发 token 失效。
 
     Args:
         db: SQLAlchemy AsyncSession。
@@ -298,7 +299,8 @@ async def ban_user(db: AsyncSession, admin: User, target_user_id: int, action: U
         else None
     )
 
-    await increment_user_token_version(target_user_id)
+    if action.status == UserStatus.BANNED:
+        await increment_user_token_version(target_user_id)
 
     try:
         await db.commit()

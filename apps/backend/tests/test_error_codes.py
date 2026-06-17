@@ -19,6 +19,8 @@ class TestErrorCode:
     def test_error_code_has_http_status(self):
         """每个错误码都能返回推荐 HTTP 状态码。"""
         assert ErrorCode.AUTH_CREDENTIALS_INVALID.http_status == HttpStatus.UNAUTHORIZED
+        assert ErrorCode.AUTH_ACCOUNT_BANNED.http_status == HttpStatus.FORBIDDEN
+        assert ErrorCode.NOT_FOLLOWING.http_status == HttpStatus.BAD_REQUEST
         assert ErrorCode.PERMISSION_DENIED.http_status == HttpStatus.FORBIDDEN
         assert ErrorCode.MUSIC_NOT_FOUND.http_status == HttpStatus.NOT_FOUND
         assert ErrorCode.USER_USERNAME_EXISTS.http_status == HttpStatus.CONFLICT

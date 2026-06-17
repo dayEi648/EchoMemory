@@ -80,7 +80,7 @@ class ErrorCode(IntEnum):
     USER_NOT_FOUND = 10010, HttpStatus.NOT_FOUND, "用户不存在"
     CANNOT_FOLLOW_SELF = 10021, HttpStatus.BAD_REQUEST, "不能关注自己"
     ALREADY_FOLLOWING = 10022, HttpStatus.CONFLICT, "已关注该用户"
-    NOT_FOLLOWING = 10023, HttpStatus.NOT_FOUND, "未关注该用户"
+    NOT_FOLLOWING = 10023, HttpStatus.BAD_REQUEST, "未关注该用户"
     CANNOT_BLOCK_SELF = 10024, HttpStatus.BAD_REQUEST, "不能屏蔽自己"
     BLOCKED_BY_USER = 10025, HttpStatus.FORBIDDEN, "已被对方屏蔽"
 
@@ -99,8 +99,6 @@ class ErrorCode(IntEnum):
 
     # 10300-10399: 歌单
     PLAYLIST_NOT_FOUND = 10300, HttpStatus.NOT_FOUND, "歌单不存在"
-    PLAYLIST_SYSTEM_TITLE_IMMUTABLE = 10301, HttpStatus.FORBIDDEN, "系统歌单不可修改标题"
-    PLAYLIST_SYSTEM_MUST_PRIVATE = 10302, HttpStatus.FORBIDDEN, "系统歌单必须保持私密"
     PLAYLIST_SYSTEM_NOT_DELETABLE = 10303, HttpStatus.FORBIDDEN, "系统歌单不可删除"
     CANNOT_COLLECT_OWN_PLAYLIST = 10310, HttpStatus.FORBIDDEN, "不能收藏自己的歌单"
 
@@ -152,7 +150,7 @@ class ErrorCode(IntEnum):
     # -------------------------------------------------------------------------
     AUTH_CREDENTIALS_INVALID = 20001, HttpStatus.UNAUTHORIZED, "用户名或密码错误"
     AUTH_ACCOUNT_DELETED = 20002, HttpStatus.UNAUTHORIZED, "账号已被删除"
-    AUTH_ACCOUNT_BANNED = 20003, HttpStatus.UNAUTHORIZED, "账号已被封禁"
+    AUTH_ACCOUNT_BANNED = 20003, HttpStatus.FORBIDDEN, "账号已被封禁"
     AUTH_REFRESH_TOKEN_INVALID = 20010, HttpStatus.UNAUTHORIZED, "刷新令牌无效或已过期"
     AUTH_TOKEN_REVOKED = 20011, HttpStatus.UNAUTHORIZED, "令牌已被吊销"
     AUTH_USER_NOT_FOUND = 20012, HttpStatus.UNAUTHORIZED, "认证用户不存在"

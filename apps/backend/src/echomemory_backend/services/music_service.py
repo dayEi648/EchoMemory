@@ -42,7 +42,6 @@ from echomemory_backend.services.dictionary_reference_service import (
 from echomemory_backend.services.cache_service import (
     invalidate_album_detail,
     invalidate_dashboard_stats,
-    invalidate_lyrics,
     invalidate_music_detail,
     invalidate_playlist_detail,
 )
@@ -632,7 +631,6 @@ async def update_music(
         music.file_url = file_url
     if lyrics_url is not None and lyrics_url != music.lyrics_url:
         music.lyrics_url = lyrics_url
-        await invalidate_lyrics(music.id)
     if cover_icon_url is not None:
         music.cover_icon_url = cover_icon_url
     if cover_home_url is not None:

@@ -8,7 +8,7 @@ from echomemory_backend.core.security.security import create_access_token, get_p
 from echomemory_backend.models.album import Album
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
-    UserMusicRelease,
+    UserMusicLike,
     UserPlaylistCollection,
 )
 from echomemory_backend.models.enums import UserRole
@@ -97,7 +97,7 @@ async def _collect_music_via_playlist(
     user_id: int,
     music_id: int,
 ) -> None:
-    """通过默认喜欢歌单将音乐加入用户收藏（替代已移除的一键收藏接口）。"""
+    """通过默认喜欢歌单将音乐加入用户喜欢列表。"""
     from echomemory_backend.services import playlist_service
 
     like_playlist = await playlist_service.create_default_like_playlist(db, user_id)
@@ -113,12 +113,16 @@ class TestUncollectMusic:
     """测试取消音乐收藏功能。"""
 
     async def test_uncollect_music_success(self, client: TestClient, db_session: AsyncSession):
-        """测试正常取消音乐收藏。"""
+        """取消喜欢只移除默认喜欢歌单，不影响普通歌单。"""
         user = await _create_user(db_session, "uncollect_music_user")
         music = await _create_music_directly(db_session, title="SongToUncollect")
 
-        # 先通过歌单收藏
         await _collect_music_via_playlist(db_session, user.id, music.id)
+        normal_playlist = await _create_playlist_directly(
+            db_session, user.id, title="NormalPlaylist"
+        )
+        db_session.add(PlaylistMusic(playlist_id=normal_playlist.id, music_id=music.id))
+        await db_session.commit()
 
         resp = client.delete(
             f"{BASE_URL}/musics/{music.id}",
@@ -127,16 +131,25 @@ class TestUncollectMusic:
         assert resp.status_code == 200
         assert api_data(resp) is None
 
-        # 验证歌曲已从用户全部歌单中移除
+        # 普通歌单中的歌曲仍然存在
         result = await db_session.execute(
-            select(PlaylistMusic)
-            .join(Playlist, PlaylistMusic.playlist_id == Playlist.id)
-            .where(
-                Playlist.user_id == user.id,
+            select(PlaylistMusic).where(
+                PlaylistMusic.playlist_id == normal_playlist.id,
                 PlaylistMusic.music_id == music.id,
             )
         )
-        assert len(result.scalars().all()) == 0
+        assert result.scalar_one_or_none() is not None
+
+        # 喜欢关系已删除
+        result = await db_session.execute(
+            select(UserMusicLike).where(
+                UserMusicLike.user_id == user.id,
+                UserMusicLike.music_id == music.id,
+            )
+        )
+        assert result.scalar_one_or_none() is None
+        await db_session.refresh(music)
+        assert music.collect_count == 0
 
     async def test_uncollect_music_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试取消未收藏音乐的幂等性。"""
@@ -194,7 +207,6 @@ class TestListMusicCollections:
         data = api_data(resp)
         assert data["total"] == 0
         assert data["items"] == []
-
     async def test_list_music_collections_pagination(self, client: TestClient, db_session: AsyncSession):
         """测试音乐收藏列表的分页查询。"""
         user = await _create_user(db_session, "list_music_page")
@@ -249,7 +261,24 @@ class TestListMusicCollections:
         assert data["total"] == 0
         assert data["items"] == []
 
+    async def test_list_music_collections_ignores_normal_playlist_membership(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """普通歌单加入歌曲不应被视为喜欢/收藏音乐。"""
+        user = await _create_user(db_session, "list_music_normal_only")
+        music = await _create_music_directly(db_session, title="NormalOnlySong")
+        playlist = await _create_playlist_directly(db_session, user.id, title="NormalOnly")
+        db_session.add(PlaylistMusic(playlist_id=playlist.id, music_id=music.id))
+        await db_session.commit()
 
+        resp = client.get(
+            f"{BASE_URL}/musics",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["total"] == 0
+        assert data["items"] == []
 # ============================================================================
 # 专辑收藏
 # ============================================================================
@@ -533,147 +562,6 @@ class TestListPlaylistCollections:
 
         resp = client.get(
             f"{BASE_URL}/playlists",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 200
-        data = api_data(resp)
-        assert data["total"] == 0
-        assert data["items"] == []
-
-
-# ============================================================================
-# 已发布音乐标记
-# ============================================================================
-
-
-class TestReleaseMusic:
-    """测试音乐发布标记功能。"""
-
-    async def test_release_music_success(self, client: TestClient, db_session: AsyncSession):
-        """测试正常标记音乐为已发布。"""
-        user = await _create_user(db_session, "release_music_user")
-        music = await _create_music_directly(db_session, title="SongToRelease")
-
-        resp = client.post(
-            f"{BASE_URL}/releases/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-        data = api_data(resp)
-        assert data["music"]["id"] == music.id
-        assert data["music"]["title"] == "SongToRelease"
-
-    async def test_release_music_idempotent(self, client: TestClient, db_session: AsyncSession):
-        """测试重复标记音乐发布的幂等性。"""
-        user = await _create_user(db_session, "release_music_idem")
-        music = await _create_music_directly(db_session, title="SongReleaseIdem")
-
-        resp = client.post(
-            f"{BASE_URL}/releases/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-
-        resp = client.post(
-            f"{BASE_URL}/releases/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 201
-
-        result = await db_session.execute(
-            select(UserMusicRelease).where(
-                UserMusicRelease.user_id == user.id,
-                UserMusicRelease.music_id == music.id,
-            )
-        )
-        assert len(result.scalars().all()) == 1
-
-    async def test_release_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
-        """测试标记不存在的音乐时返回 404。"""
-        user = await _create_user(db_session, "release_music_nx")
-
-        resp = client.post(
-            f"{BASE_URL}/releases/99999",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 404
-
-    async def test_release_music_unauthorized(self, client: TestClient, db_session: AsyncSession):
-        """测试未登录用户标记发布时返回 401。"""
-        music = await _create_music_directly(db_session, title="SongReleaseUnauth")
-
-        resp = client.post(f"{BASE_URL}/releases/{music.id}")
-        assert resp.status_code == 401
-
-
-class TestUnreleaseMusic:
-    """测试取消音乐发布标记功能。"""
-
-    async def test_unrelease_music_success(self, client: TestClient, db_session: AsyncSession):
-        """测试正常取消音乐发布标记。"""
-        user = await _create_user(db_session, "unrelease_music_user")
-        music = await _create_music_directly(db_session, title="SongToUnrelease")
-
-        client.post(f"{BASE_URL}/releases/{music.id}", headers=_auth_header(user))
-
-        resp = client.delete(
-            f"{BASE_URL}/releases/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 200
-        assert api_data(resp) is None
-
-        result = await db_session.execute(
-            select(UserMusicRelease).where(
-                UserMusicRelease.user_id == user.id,
-                UserMusicRelease.music_id == music.id,
-            )
-        )
-        assert result.scalar_one_or_none() is None
-
-    async def test_unrelease_music_idempotent(self, client: TestClient, db_session: AsyncSession):
-        """测试取消未发布标记的幂等性。"""
-        user = await _create_user(db_session, "unrelease_music_idem")
-        music = await _create_music_directly(db_session, title="SongNeverReleased")
-
-        resp = client.delete(
-            f"{BASE_URL}/releases/{music.id}",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 200
-        assert api_data(resp) is None
-
-
-class TestListReleases:
-    """测试已发布音乐列表查询功能。"""
-
-    async def test_list_releases(self, client: TestClient, db_session: AsyncSession):
-        """测试正常查询已发布音乐列表。"""
-        user = await _create_user(db_session, "list_release_user")
-        music1 = await _create_music_directly(db_session, title="ReleaseSong1")
-        music2 = await _create_music_directly(db_session, title="ReleaseSong2")
-
-        client.post(f"{BASE_URL}/releases/{music1.id}", headers=_auth_header(user))
-        client.post(f"{BASE_URL}/releases/{music2.id}", headers=_auth_header(user))
-
-        resp = client.get(
-            f"{BASE_URL}/releases",
-            headers=_auth_header(user),
-        )
-        assert resp.status_code == 200
-        data = api_data(resp)
-        assert data["total"] == 2
-        assert len(data["items"]) == 2
-        titles = {item["music"]["title"] for item in data["items"]}
-        assert "ReleaseSong1" in titles
-        assert "ReleaseSong2" in titles
-
-    async def test_list_releases_empty(self, client: TestClient, db_session: AsyncSession):
-        """测试无发布记录时返回空列表。"""
-        user = await _create_user(db_session, "list_release_empty")
-
-        resp = client.get(
-            f"{BASE_URL}/releases",
             headers=_auth_header(user),
         )
         assert resp.status_code == 200

@@ -16,7 +16,7 @@ interface SongRowProps {
   playCount?: number;
   showCollect?: boolean;
   isCollected?: boolean;
-  /** 歌单归属变化时回调（如从全部歌单移除）。 */
+  /** 喜欢状态变化时回调。 */
   onCollectedChange?: (collected: boolean) => void;
   musicId?: number;
   coverUrl?: string;

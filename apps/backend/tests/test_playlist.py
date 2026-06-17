@@ -434,6 +434,30 @@ class TestUpdatePlaylist:
         )
         assert resp.status_code == 403
 
+    async def test_update_like_playlist_allows_rename_and_public(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """默认喜欢歌单允许用户改名并设置公开/私密。"""
+        user = await _create_user(db_session, "update_like_user")
+        playlist = await _create_playlist_directly(
+            db_session,
+            user.id,
+            title=DEFAULT_LIKE_PLAYLIST_TITLE,
+            is_private=True,
+            is_like=True,
+        )
+
+        resp = client.patch(
+            f"{BASE_URL}/{playlist.id}",
+            headers=_auth_header(user),
+            json={"title": "公开喜欢", "is_private": False},
+        )
+
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["title"] == "公开喜欢"
+        assert data["is_private"] is False
+
 
 # ---------------------------------------------------------------------------
 # 删除歌单测试
@@ -489,7 +513,7 @@ class TestAddRemoveMusic:
     """测试向歌单添加/移除歌曲相关接口。"""
 
     async def test_add_music_success(self, client: TestClient, db_session: AsyncSession):
-        """测试成功向歌单添加歌曲，并同步更新 collect_count。"""
+        """测试成功向普通歌单添加歌曲，不改变收藏计数。"""
         user = await _create_user(db_session, "add_music_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="AddMusicPL")
         music = await _create_music_directly(db_session, title="SongToAdd")
@@ -505,9 +529,41 @@ class TestAddRemoveMusic:
         assert resp.status_code == 200
         assert len(api_data(resp)["musics"]) == 1
 
-        # 验证 collect_count 同步
+        # 普通歌单成员关系不等价于喜欢/收藏
+        await db_session.refresh(music)
+        assert music.collect_count == 0
+
+    async def test_add_music_to_like_playlist_marks_music_liked(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """加入默认喜欢歌单会建立喜欢关系并增加收藏计数。"""
+        from echomemory_backend.models.collection import UserMusicLike
+
+        user = await _create_user(db_session, "add_like_music_user")
+        playlist = await _create_playlist_directly(
+            db_session,
+            user.id,
+            title=DEFAULT_LIKE_PLAYLIST_TITLE,
+            is_private=True,
+            is_like=True,
+        )
+        music = await _create_music_directly(db_session, title="LikedSong")
+
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
         await db_session.refresh(music)
         assert music.collect_count == 1
+        result = await db_session.execute(
+            select(UserMusicLike).where(
+                UserMusicLike.user_id == user.id,
+                UserMusicLike.music_id == music.id,
+            )
+        )
+        assert result.scalar_one_or_none() is not None
 
     async def test_add_unpublished_music(self, client: TestClient, db_session: AsyncSession):
         """测试向歌单添加未发布的音乐时返回 404。"""
@@ -569,9 +625,48 @@ class TestAddRemoveMusic:
         assert resp.status_code == 200
         assert api_data(resp)["musics"] == []
 
-        # 验证 collect_count 不变（只增不减）
+        # 普通歌单移除不影响 collect_count
         await db_session.refresh(music)
         assert music.collect_count == 1
+
+    async def test_remove_music_from_like_playlist_unmarks_music_liked(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """从默认喜欢歌单移除歌曲会删除喜欢关系并减少收藏计数。"""
+        from echomemory_backend.models.collection import UserMusicLike
+
+        user = await _create_user(db_session, "remove_like_music_user")
+        playlist = await _create_playlist_directly(
+            db_session,
+            user.id,
+            title=DEFAULT_LIKE_PLAYLIST_TITLE,
+            is_private=True,
+            is_like=True,
+        )
+        music = await _create_music_directly(db_session, title="LikedSongToRemove")
+
+        resp = client.post(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 201
+
+        resp = client.delete(
+            f"{BASE_URL}/{playlist.id}/musics/{music.id}",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        assert api_data(resp) is None
+
+        await db_session.refresh(music)
+        assert music.collect_count == 0
+        result = await db_session.execute(
+            select(UserMusicLike).where(
+                UserMusicLike.user_id == user.id,
+                UserMusicLike.music_id == music.id,
+            )
+        )
+        assert result.scalar_one_or_none() is None
 
     async def test_remove_nonexistent_music(self, client: TestClient, db_session: AsyncSession):
         """测试从歌单移除不存在的歌曲时返回 404。"""
@@ -714,7 +809,7 @@ class TestCollectCountOnAddRemove:
     async def test_delete_playlist_syncs_collect_count(
         self, client: TestClient, db_session: AsyncSession
     ):
-        """测试删除歌单后，歌曲的 collect_count 保持只增不减。"""
+        """删除普通歌单后，歌曲的 collect_count 保持不变。"""
         user = await _create_user(db_session, "del_pl_count_user")
         playlist = await _create_playlist_directly(db_session, user.id, title="DelCountPL")
         music1 = await _create_music_directly(db_session, title="Song1")
@@ -734,8 +829,8 @@ class TestCollectCountOnAddRemove:
 
         await db_session.refresh(music1)
         await db_session.refresh(music2)
-        assert music1.collect_count == 1
-        assert music2.collect_count == 1
+        assert music1.collect_count == 0
+        assert music2.collect_count == 0
 
         # 删除歌单
         resp = client.delete(f"{BASE_URL}/{playlist.id}", headers=_auth_header(user))
@@ -744,14 +839,13 @@ class TestCollectCountOnAddRemove:
 
         await db_session.refresh(music1)
         await db_session.refresh(music2)
-        # collect_count 只增不减，删除歌单后不递减
-        assert music1.collect_count == 1
-        assert music2.collect_count == 1
+        assert music1.collect_count == 0
+        assert music2.collect_count == 0
 
     async def test_collect_count_multiple_playlists(
         self, client: TestClient, db_session: AsyncSession
     ):
-        """测试同一首歌曲被加入多个歌单时 collect_count 正确累加，移除后不递减。"""
+        """同一首歌曲加入多个普通歌单时不改变收藏计数。"""
         user = await _create_user(db_session, "multi_pl_user")
         playlist1 = await _create_playlist_directly(db_session, user.id, title="MultiPL1")
         playlist2 = await _create_playlist_directly(db_session, user.id, title="MultiPL2")
@@ -770,7 +864,7 @@ class TestCollectCountOnAddRemove:
         assert resp.status_code == 201
 
         await db_session.refresh(music)
-        assert music.collect_count == 2
+        assert music.collect_count == 0
 
         # 从其中一个歌单移除
         resp = client.delete(
@@ -781,8 +875,7 @@ class TestCollectCountOnAddRemove:
         assert api_data(resp) is None
 
         await db_session.refresh(music)
-        # collect_count 只增不减，从歌单移除后不递减
-        assert music.collect_count == 2
+        assert music.collect_count == 0
 
 
 class TestSearchPlaylists:

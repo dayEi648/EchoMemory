@@ -66,7 +66,7 @@ async def _resolve_user_from_token(token: str | None) -> User | None:
         await db.close()
     if user is None or user.is_deleted:
         return None
-    if user.status != UserStatus.ACTIVE:
+    if user.status == UserStatus.BANNED:
         return None
     return user
 

@@ -43,8 +43,6 @@ export enum ErrorCode {
 
   // 10300-10399: 歌单
   PLAYLIST_NOT_FOUND = 10300,
-  PLAYLIST_SYSTEM_TITLE_IMMUTABLE = 10301,
-  PLAYLIST_SYSTEM_MUST_PRIVATE = 10302,
   PLAYLIST_SYSTEM_NOT_DELETABLE = 10303,
   CANNOT_COLLECT_OWN_PLAYLIST = 10310,
 
@@ -185,8 +183,6 @@ const ERROR_CODE_DESCRIPTIONS: Record<number, string> = {
   [ErrorCode.ALBUM_NOT_FOUND]: "专辑不存在或已删除",
   [ErrorCode.ALBUM_AUTHOR_NOT_FOUND]: "专辑作者不存在或已删除",
   [ErrorCode.PLAYLIST_NOT_FOUND]: "歌单不存在",
-  [ErrorCode.PLAYLIST_SYSTEM_TITLE_IMMUTABLE]: "系统歌单不可修改标题",
-  [ErrorCode.PLAYLIST_SYSTEM_MUST_PRIVATE]: "系统歌单必须保持私密",
   [ErrorCode.PLAYLIST_SYSTEM_NOT_DELETABLE]: "系统歌单不可删除",
   [ErrorCode.CANNOT_COLLECT_OWN_PLAYLIST]: "不能收藏自己的歌单",
   [ErrorCode.COMMENT_NOT_FOUND]: "评论不存在",

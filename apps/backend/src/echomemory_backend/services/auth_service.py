@@ -13,7 +13,6 @@ from echomemory_backend.core.clients.redis_client import (
     generate_refresh_token,
     get_refresh_token_data,
     get_user_token_version,
-    increment_user_token_version,
     store_refresh_token,
 )
 from echomemory_backend.core.security.security import create_access_token, get_password_hash, verify_password
@@ -108,20 +107,13 @@ async def refresh_user_token(db: AsyncSession, refresh_token: str) -> Token:
 
 
 async def logout_user(refresh_token: str, access_token: str | None = None) -> None:
-    """使 refresh token 失效，将双 token 加入黑名单，并递增用户 token version 以全局失效该用户所有旧 token。
+    """使当前设备的 refresh token 失效，并将当前双 token 加入黑名单。
 
     Args:
         refresh_token: 要失效的 refresh token。
         access_token: 可选，要加入黑名单的 access token。
     """
-    # 解析 refresh_token 关联的 user_id，用于递增 version
-    user_id, _ = await get_refresh_token_data(refresh_token)
-
     await delete_refresh_token(refresh_token)
     await blacklist_refresh_token(refresh_token)
     if access_token:
         await blacklist_access_token(access_token)
-
-    # 递增用户 token version：使该用户所有其他已签发 token（包括未主动 logout 的设备）同时失效
-    if user_id is not None:
-        await increment_user_token_version(user_id)

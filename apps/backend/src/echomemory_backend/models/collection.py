@@ -15,9 +15,10 @@ if TYPE_CHECKING:
     from echomemory_backend.models.user import User
 
 
-class UserMusicRelease(Base):
-    """用户音乐发布关联模型，记录用户发布的音乐。"""
-    __tablename__ = "user_music_releases"
+class UserMusicLike(Base):
+    """用户喜欢音乐关联模型，记录用户明确喜欢的音乐。"""
+
+    __tablename__ = "user_music_likes"
 
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -30,7 +31,7 @@ class UserMusicRelease(Base):
     )
 
     __table_args__ = (
-        Index("idx_user_music_releases_user_time", "user_id", desc("created_at")),
+        Index("idx_user_music_likes_user_time", "user_id", desc("created_at")),
     )
 
     user: Mapped["User"] = relationship("User")

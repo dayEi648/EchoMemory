@@ -2,9 +2,9 @@
 
 提供歌单的创建、查询、更新、删除，以及歌曲在歌单中的添加与移除等操作。
 """
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
-from sqlalchemy import delete, desc, exists, func, inspect as sa_inspect, select, update
+from sqlalchemy import case, delete, desc, exists, func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,6 +13,7 @@ from echomemory_backend.models.music import (
     MusicEmotionTag,
     MusicInterestTag,
 )
+from echomemory_backend.models.collection import UserMusicLike
 from echomemory_backend.models.playlist import (
     Playlist,
     PlaylistEmotionTag,
@@ -401,14 +402,8 @@ async def update_playlist(
         更新后的歌单实例。
 
     Raises:
-        BusinessError: 系统喜欢歌单不允许修改标题或公开时抛出，状态码 403。
+        BusinessError: 数据库约束冲突时由上层异常处理。
     """
-    if playlist.is_like:
-        if title is not None and title != playlist.title:
-            raise BusinessError("系统歌单不可修改标题", code=ErrorCode.PLAYLIST_SYSTEM_TITLE_IMMUTABLE)
-        if is_private is not None and not is_private:
-            raise BusinessError("系统歌单必须保持私密", code=ErrorCode.PLAYLIST_SYSTEM_MUST_PRIVATE)
-
     if title is not None:
         playlist.title = title
     if description is not None:
@@ -425,7 +420,7 @@ async def update_playlist(
 async def delete_playlist(db: AsyncSession, playlist: Playlist) -> None:
     """删除歌单（级联删除关联表记录）。
 
-    collect_count 只增不减，删除歌单时不递减音乐收藏数。
+    普通歌单不维护音乐收藏数；默认喜欢歌单不可删除。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -500,11 +495,15 @@ async def add_music_to_playlist(
     db.add(playlist_music)
     await db.flush()
     await _sync_playlist_tags_from_musics(db, playlist_id)
-    await db.execute(
-        update(Music)
-        .where(Music.id == music_id)
-        .values(collect_count=Music.collect_count + 1)
-    )
+    if playlist.is_like:
+        existing_like = await db.get(UserMusicLike, (user_id, music_id))
+        if existing_like is None:
+            db.add(UserMusicLike(user_id=user_id, music_id=music_id))
+            await db.execute(
+                update(Music)
+                .where(Music.id == music_id)
+                .values(collect_count=Music.collect_count + 1)
+            )
 
     from echomemory_backend.services.user_tag_service import recalculate_user_tags
 
@@ -562,6 +561,25 @@ async def remove_music_from_playlist(
 
     await db.delete(playlist_music)
     await db.flush()
+
+    like_removed = False
+    if playlist.is_like:
+        existing_like = await db.get(UserMusicLike, (user_id, music_id))
+        if existing_like is not None:
+            like_removed = True
+            await db.delete(existing_like)
+            await db.execute(
+                update(Music)
+                .where(Music.id == music_id)
+                .values(
+                    collect_count=case(
+                        (Music.collect_count > 0, Music.collect_count - 1),
+                        else_=0,
+                    )
+                )
+            )
+            await db.flush()
+
     await _sync_playlist_tags_from_musics(db, playlist_id)
 
     # 自动重新计算歌单创建者的用户标签（与主业务同事务提交）
@@ -569,11 +587,18 @@ async def remove_music_from_playlist(
 
     await recalculate_user_tags(db, playlist.user_id, commit=False)
 
-    # 自动重新计算歌单热度
-    from echomemory_backend.services.hotness_service import recalculate_playlist_hot
+    # 自动重新计算热度
+    from echomemory_backend.services.hotness_service import (
+        recalculate_music_hot,
+        recalculate_playlist_hot,
+    )
 
+    if like_removed:
+        await recalculate_music_hot(db, music_id)
     await recalculate_playlist_hot(db, playlist_id)
 
     if commit:
         await db.commit()
+        if like_removed:
+            await invalidate_music_detail(music_id)
         await invalidate_playlist_detail(playlist_id)

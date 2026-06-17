@@ -116,7 +116,7 @@ def clean_tables():
             album_emotion_tags, album_interest_tags, playlists, playlist_musics,
             playlist_emotion_tags, playlist_interest_tags, comments, comment_likes,
             comment_dislikes, space_posts, space_post_images, space_post_likes,
-            play_history, user_music_releases,
+            play_history, user_music_likes,
             user_album_collections, user_playlist_collections,
             user_emotion_tags, user_interest_tags,
             user_languages, user_styles,

@@ -1,5 +1,7 @@
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.core.clients import redis_client as rc
@@ -161,6 +163,21 @@ class TestLogin:
         )
         assert resp.status_code == 401
 
+    async def test_login_banned_user_returns_403(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """认证通过但账号被永久封禁时返回 403。"""
+        user = await _create_user_directly(db_session, username="banned_login", password="secret")
+        user.status = UserStatus.BANNED.value
+        user.banned_at = func.now()
+        await db_session.commit()
+
+        resp = client.post(
+            LOGIN_URL,
+            json={"username": "banned_login", "password": "secret"},
+        )
+        assert resp.status_code == 403
+
     async def test_login_writes_last_login_at(self, client: TestClient, db_session: AsyncSession):
         """测试登录成功后写入 last_login_at。"""
         user = await _create_user_directly(db_session, username="lastlogin", password="secret")
@@ -231,13 +248,19 @@ class TestLogout:
         assert await rc.is_access_token_blacklisted(token) is True
         assert await rc.is_refresh_token_blacklisted("logout_rt") is True
 
-    async def test_logout_increments_version(self, client: TestClient, db_session: AsyncSession):
-        """测试登出后令牌版本递增，旧令牌失效。"""
+    async def test_logout_only_revokes_current_device(self, client: TestClient, db_session: AsyncSession):
+        """主动登出只吊销当前设备 token，不递增全局 token version。"""
         from echomemory_backend.core.security.security import create_access_token
 
         user = await _create_user_directly(db_session, username="logout_version", password="secret")
         await rc.store_refresh_token("logout_rt2", user.id, version=0)
-        token = create_access_token(subject=user.id, version=0)
+        await rc.store_refresh_token("other_rt", user.id, version=0)
+        token = create_access_token(
+            subject=user.id, version=0, expires_delta=timedelta(minutes=10)
+        )
+        other_token = create_access_token(
+            subject=user.id, version=0, expires_delta=timedelta(minutes=11)
+        )
 
         resp = client.post(
             LOGOUT_URL,
@@ -247,9 +270,15 @@ class TestLogout:
         assert resp.status_code == 200
         assert api_data(resp) is None
 
-        # version 已递增，旧 token 失效
+        # 当前 access token 被加入黑名单
         me_resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert me_resp.status_code == 401
+
+        # 其他设备 access/refresh token 仍有效
+        other_me_resp = client.get(ME_URL, headers={"Authorization": f"Bearer {other_token}"})
+        assert other_me_resp.status_code == 200
+        other_refresh_resp = client.post(REFRESH_URL, json={"refresh_token": "other_rt"})
+        assert other_refresh_resp.status_code == 200
 
         refresh_resp = client.post(REFRESH_URL, json={"refresh_token": "logout_rt2"})
         assert refresh_resp.status_code == 401

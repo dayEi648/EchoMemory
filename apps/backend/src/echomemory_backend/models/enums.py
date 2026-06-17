@@ -16,8 +16,8 @@ class UserStatus(IntEnum):
     """用户账号状态。"""
 
     ACTIVE = 0
-    TEMP_BAN = 1
-    SUSPENDED = 2
+    MUTED = 1
+    RESTRICTED = 2
     BANNED = 3
 
 

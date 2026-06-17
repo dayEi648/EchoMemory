@@ -66,7 +66,6 @@ async def close_checkpointer() -> None:
     global _checkpointer, _pool
 
     if _checkpointer is not None:
-        await _checkpointer.aclose()
         _checkpointer = None
     if _pool is not None:
         await _pool.close()

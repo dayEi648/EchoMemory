@@ -28,9 +28,7 @@ from echomemory_backend.schemas.music import (
 from echomemory_backend.core.clients.redis_client import check_rate_limit
 from echomemory_backend.services import collection_service, music_service
 from echomemory_backend.services.cache_service import (
-    get_cached_lyrics,
     get_cached_music_detail,
-    set_cached_lyrics,
     set_cached_music_detail,
 )
 
@@ -490,7 +488,7 @@ async def get_music_lyrics(
     db: SessionDep,
     music_id: PositiveIntPath,
 ):
-    """获取已上架音乐的歌词文本（由服务端代理 OSS，避免前端跨域）。"""
+    """获取已上架音乐的歌词签名 URL，由前端直接下载并解析。"""
     music = await require_entity(
         music_service.get_music_by_id,
         db,
@@ -502,19 +500,14 @@ async def get_music_lyrics(
         raise HTTPException(
             status_code=HttpStatus.NOT_FOUND, detail="Lyrics not found"
         )
-    cached = await get_cached_lyrics(music_id)
-    if cached is not None:
-        return LyricsOut(content=cached)
-
     try:
-        content = await oss_client.fetch_text_by_url(music.lyrics_url)
+        url = await oss_client.sign_url_by_url(music.lyrics_url)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(
             status_code=HttpStatus.BAD_GATEWAY,
             detail="Failed to load lyrics",
         ) from exc
-    await set_cached_lyrics(music_id, content)
-    return LyricsOut(content=content)
+    return LyricsOut(url=url)
 
 
 @router.get("/{music_id}", response_model=MusicOut)

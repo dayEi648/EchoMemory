@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 class Notification(Base):
     """系统通知模型，记录平台对用户产生的事件级提醒。
 
-    target_type 取值：``user``（被关注通知，target_id 为接收者本人）、
+    target_type 取值：``user``（被关注通知，target_id 为关注者）、
     ``comment``（评论被点赞 / 被回复，target_id 为被作用的评论 id）、
     ``space_post``（空间动态被点赞 / 被评论，target_id 为动态 id）。
     extra 用于冗余展示所需的上下文（例如评论内容预览、动态内容预览），避免前端 N+1 拉取。

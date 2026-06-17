@@ -174,9 +174,9 @@ class AdminMusicListOut(
 # ---------------------------------------------------------------------------
 
 class LyricsOut(BaseModel):
-    """歌词文本输出。"""
+    """歌词签名 URL 输出。"""
 
-    content: str
+    url: str
 
 
 class PaginatedMusicListOut(BaseModel):

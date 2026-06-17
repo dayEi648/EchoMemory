@@ -13,7 +13,7 @@ from echomemory_backend.models.album import (
 )
 from echomemory_backend.models.collection import (
     UserAlbumCollection,
-    UserMusicRelease,
+    UserMusicLike,
     UserPlaylistCollection,
 )
 from echomemory_backend.models.comment import (
@@ -113,7 +113,7 @@ __all__ = [
     "UserFollow",
     "UserInterestTag",
     "UserLanguage",
-    "UserMusicRelease",
+    "UserMusicLike",
     "UserPlaylistCollection",
     "UserRadarRecommendation",
     "UserRole",

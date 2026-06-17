@@ -136,26 +136,6 @@ def _resolve_audio_ext(file: BinaryIO, fallback_ext: str) -> str:
     return detected
 
 
-def _decode_text_bytes(raw: bytes) -> str:
-    """尝试多种常见编码解码文本字节。
-
-    Args:
-        raw: 原始字节内容。
-
-    Returns:
-        解码后的文本。
-
-    Raises:
-        ValueError: 所有编码均失败时抛出。
-    """
-    for encoding in ("utf-8-sig", "utf-8", "gbk"):
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    raise ValueError("Unable to decode text content with supported encodings")
-
-
 # ---------------------------------------------------------------------------
 # 同步内部实现
 # ---------------------------------------------------------------------------
@@ -258,18 +238,19 @@ def _object_key_from_url(url: str) -> str | None:
     return object_key or None
 
 
-def _fetch_text_by_url_sync(url: str) -> str:
-    """根据 URL 从 OSS 读取文本内容（同步实现）。
+def _sign_url_by_url_sync(url: str, expires_seconds: int = 600) -> str:
+    """根据 OSS URL 生成临时签名访问 URL。
 
     Args:
-        url: OSS 对象的公开访问 URL。
+        url: 本项目 OSS 对象 URL。
+        expires_seconds: 签名 URL 有效期秒数，默认 10 分钟。
 
     Returns:
-        解码后的文本（优先 UTF-8，回退 GBK）。
+        临时签名 URL。
 
     Raises:
-        ValueError: URL 非法、对象不存在或无法解码时抛出。
-        RuntimeError: OSS 读取失败时抛出。
+        ValueError: URL 非法时抛出。
+        RuntimeError: OSS 签名失败时抛出。
     """
     object_key = _object_key_from_url(url)
     if not object_key:
@@ -277,12 +258,9 @@ def _fetch_text_by_url_sync(url: str) -> str:
 
     try:
         bucket = _get_bucket()
-        result = bucket.get_object(object_key)
-        raw = result.read()
+        return bucket.sign_url("GET", object_key, expires_seconds)
     except oss2.exceptions.OssError as exc:
-        raise RuntimeError(f"OSS fetch failed: {exc}") from exc
-
-    return _decode_text_bytes(raw)
+        raise RuntimeError(f"OSS sign url failed: {exc}") from exc
 
 
 def _delete_object_by_url_sync(url: str) -> None:
@@ -394,17 +372,6 @@ async def delete_object_by_url(url: str) -> None:
     await to_thread.run_sync(_delete_object_by_url_sync, url)
 
 
-async def fetch_text_by_url(url: str) -> str:
-    """根据 URL 从 OSS 异步读取文本内容。
-
-    Args:
-        url: OSS 对象的公开访问 URL。
-
-    Returns:
-        解码后的文本（优先 UTF-8，回退 GBK）。
-
-    Raises:
-        ValueError: URL 非法时抛出。
-        RuntimeError: OSS 读取失败时抛出。
-    """
-    return await to_thread.run_sync(_fetch_text_by_url_sync, url)
+async def sign_url_by_url(url: str, expires_seconds: int = 600) -> str:
+    """根据 OSS URL 异步生成临时签名访问 URL。"""
+    return await to_thread.run_sync(_sign_url_by_url_sync, url, expires_seconds)

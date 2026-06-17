@@ -50,7 +50,7 @@
 | 10010 | `USER_NOT_FOUND` | 404 | 用户不存在 |
 | 10021 | `CANNOT_FOLLOW_SELF` | 400 | 不能关注自己 |
 | 10022 | `ALREADY_FOLLOWING` | 409 | 已关注该用户 |
-| 10023 | `NOT_FOLLOWING` | 404 | 未关注该用户 |
+| 10023 | `NOT_FOLLOWING` | 400 | 未关注该用户 |
 | 10024 | `CANNOT_BLOCK_SELF` | 400 | 不能屏蔽自己 |
 | 10025 | `BLOCKED_BY_USER` | 403 | 已被对方屏蔽 |
 | 10100 | `MUSIC_NOT_FOUND` | 404 | 音乐不存在或未发布 |
@@ -63,8 +63,6 @@
 | 10200 | `ALBUM_NOT_FOUND` | 404 | 专辑不存在或已删除 |
 | 10201 | `ALBUM_AUTHOR_NOT_FOUND` | 404 | 专辑作者不存在或已删除 |
 | 10300 | `PLAYLIST_NOT_FOUND` | 404 | 歌单不存在 |
-| 10301 | `PLAYLIST_SYSTEM_TITLE_IMMUTABLE` | 403 | 系统歌单不可修改标题 |
-| 10302 | `PLAYLIST_SYSTEM_MUST_PRIVATE` | 403 | 系统歌单必须保持私密 |
 | 10303 | `PLAYLIST_SYSTEM_NOT_DELETABLE` | 403 | 系统歌单不可删除 |
 | 10310 | `CANNOT_COLLECT_OWN_PLAYLIST` | 403 | 不能收藏自己的歌单 |
 | 10400 | `COMMENT_NOT_FOUND` | 404 | 评论不存在 |
@@ -99,7 +97,7 @@
 | ---: | --- | ---: | --- |
 | 20001 | `AUTH_CREDENTIALS_INVALID` | 401 | 用户名或密码错误 |
 | 20002 | `AUTH_ACCOUNT_DELETED` | 401 | 账号已被删除 |
-| 20003 | `AUTH_ACCOUNT_BANNED` | 401 | 账号已被封禁 |
+| 20003 | `AUTH_ACCOUNT_BANNED` | 403 | 账号已被封禁 |
 | 20010 | `AUTH_REFRESH_TOKEN_INVALID` | 401 | 刷新令牌无效或已过期 |
 | 20011 | `AUTH_TOKEN_REVOKED` | 401 | 令牌已被吊销 |
 | 20012 | `AUTH_USER_NOT_FOUND` | 401 | 认证用户不存在 |

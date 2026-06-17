@@ -45,7 +45,7 @@ export const createMusicApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => 
     },
     getMusicDetail: (musicId: number) => request<MusicDetail>(`/music/${musicId}`, {}, false),
     getMusicLyrics: (musicId: number) =>
-      request<{ content: string }>(`/music/${musicId}/lyrics`, {}, false),
+      request<{ url: string }>(`/music/${musicId}/lyrics`, {}, false),
     adminImportMusic: (input: {
       title: string;
       audio_file: File;
