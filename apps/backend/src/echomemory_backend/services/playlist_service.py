@@ -395,10 +395,12 @@ async def update_playlist(
     title: str | None = None,
     description: str | None = None,
     is_private: bool | None = None,
+    cover_icon_url: str | None = None,
 ) -> Playlist:
-    """更新歌单文本字段。
+    """更新歌单字段。
 
     标签由系统根据歌曲收藏自动计算，不允许手动传入。
+    cover_icon_url 为 None 时保留原封面，传入新 URL 则替换封面。
 
     Args:
         db: SQLAlchemy 异步 Session。
@@ -406,6 +408,7 @@ async def update_playlist(
         title: 新标题，可选。
         description: 新描述，可选。
         is_private: 新隐私状态，可选。
+        cover_icon_url: 新封面 URL，可选。
 
     Returns:
         更新后的歌单实例。
@@ -419,6 +422,8 @@ async def update_playlist(
         playlist.description = description
     if is_private is not None:
         playlist.is_private = is_private
+    if cover_icon_url is not None:
+        playlist.cover_icon_url = cover_icon_url
 
     await db.commit()
     await db.refresh(playlist)

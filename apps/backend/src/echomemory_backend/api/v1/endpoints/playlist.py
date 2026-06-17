@@ -13,8 +13,10 @@ from echomemory_backend.api.helpers import (
 )
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
     UploadCollector,
+    form_to_schema,
     upload_optional_image,
 )
+from echomemory_backend.core.clients import oss_client
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.schemas.playlist import PaginatedPlaylistListOut, PaginatedPlaylistMembershipOut, PlaylistOut, PlaylistUpdate
 from echomemory_backend.services import collection_service, playlist_service
@@ -181,9 +183,16 @@ async def update_playlist(
     db: SessionDep,
     current_user: ActiveUser,
     playlist_id: PositiveIntPath,
-    update_in: PlaylistUpdate,
+    title: str | None = Form(None, min_length=1, max_length=128),
+    description: str | None = Form(None, max_length=500),
+    is_private: bool | None = Form(None),
+    cover_icon: UploadFile | None = File(None),
 ):
-    """修改歌单信息（仅文本字段，不含封面替换和标签编辑）。"""
+    """修改歌单信息。
+
+    接收 multipart/form-data，可上传新封面替换旧封面；不上传封面时保留原封面。
+    不允许单独删除已有封面。
+    """
     playlist = await require_entity(
         playlist_service.get_playlist_by_id,
         db,
@@ -197,13 +206,34 @@ async def update_playlist(
             detail="You do not have permission to update this playlist",
         )
 
-    playlist = await playlist_service.update_playlist(
-        db,
-        playlist,
-        title=update_in.title,
-        description=update_in.description,
-        is_private=update_in.is_private,
+    update_in = form_to_schema(
+        PlaylistUpdate,
+        title=title,
+        description=description,
+        is_private=is_private,
     )
+
+    old_cover_url = playlist.cover_icon_url
+    async with UploadCollector() as uploads:
+        cover_icon_url = await upload_optional_image(
+            cover_icon,
+            folder="playlist_covers",
+            prefix="icon",
+            detail_name="Cover icon",
+        )
+        uploads.add(cover_icon_url)
+
+        playlist = await playlist_service.update_playlist(
+            db,
+            playlist,
+            title=update_in.title,
+            description=update_in.description,
+            is_private=update_in.is_private,
+            cover_icon_url=cover_icon_url,
+        )
+
+    if cover_icon_url and old_cover_url and old_cover_url != cover_icon_url:
+        await oss_client.delete_object_by_url(old_cover_url)
 
     # 重新加载完整关联数据
     playlist = await playlist_service.get_playlist_by_id(db, playlist.id)

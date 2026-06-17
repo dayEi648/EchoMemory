@@ -374,6 +374,7 @@ export const PlaylistDetailPage = () => {
                 title: playlist.title,
                 description: playlist.description,
                 is_private: playlist.is_private,
+                cover_icon_url: playlist.cover_icon_url,
               }
             : undefined
         }

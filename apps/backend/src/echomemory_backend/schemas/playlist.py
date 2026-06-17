@@ -153,7 +153,7 @@ class PaginatedPlaylistMembershipOut(BaseModel):
 
 
 class PlaylistUpdate(BaseModel):
-    """修改歌单信息的请求体（不含封面替换和标签编辑）。"""
+    """修改歌单文本字段的请求体（不含标签编辑）。"""
 
     title: str | None = Field(None, min_length=1, max_length=128)
     description: str | None = Field(None, max_length=500)

@@ -8,6 +8,7 @@ from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.core.clients import oss_client
 from echomemory_backend.core.security.security import create_access_token, get_password_hash
 from echomemory_backend.models.dictionary import EmotionTag, InterestTag
 from echomemory_backend.models.enums import UserRole
@@ -409,10 +410,10 @@ class TestUpdatePlaylist:
         resp = client.patch(
             f"{BASE_URL}/{playlist.id}",
             headers=_auth_header(user),
-            json={
+            data={
                 "title": "NewTitle",
                 "description": "Updated desc",
-                "is_private": True,
+                "is_private": "true",
             },
         )
         assert resp.status_code == 200
@@ -430,7 +431,7 @@ class TestUpdatePlaylist:
         resp = client.patch(
             f"{BASE_URL}/{playlist.id}",
             headers=_auth_header(hacker),
-            json={"title": "Hacked"},
+            data={"title": "Hacked"},
         )
         assert resp.status_code == 403
 
@@ -450,13 +451,65 @@ class TestUpdatePlaylist:
         resp = client.patch(
             f"{BASE_URL}/{playlist.id}",
             headers=_auth_header(user),
-            json={"title": "公开喜欢", "is_private": False},
+            data={"title": "公开喜欢", "is_private": "false"},
         )
 
         assert resp.status_code == 200
         data = api_data(resp)
         assert data["title"] == "公开喜欢"
         assert data["is_private"] is False
+
+    async def test_update_playlist_cover_replace(
+        self, client: TestClient, db_session: AsyncSession, monkeypatch
+    ):
+        """上传新封面时应替换已有封面，并删除旧封面文件。"""
+        user = await _create_user(db_session, "update_cover_user")
+        old_url = "https://old-oss.example.com/playlist/old.jpg"
+        playlist = await _create_playlist_directly(
+            db_session, user.id, title="CoverOld", cover_icon_url=old_url
+        )
+
+        deleted_urls: list[str] = []
+
+        async def fake_delete(url: str):
+            deleted_urls.append(url)
+            return None
+
+        monkeypatch.setattr(oss_client, "delete_object_by_url", fake_delete)
+
+        resp = client.patch(
+            f"{BASE_URL}/{playlist.id}",
+            headers=_auth_header(user),
+            data={"title": "CoverNew"},
+            files={
+                "cover_icon": ("cover.jpg", io.BytesIO(_make_image_bytes()), "image/jpeg"),
+            },
+        )
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["title"] == "CoverNew"
+        assert data["cover_icon_url"] == "https://fake-oss.example.com/playlists/cover.jpg"
+        assert old_url in deleted_urls
+
+    async def test_update_playlist_without_cover_keeps_existing(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """不上传封面时，仅修改文本字段，原有封面保持不变。"""
+        user = await _create_user(db_session, "update_keep_cover")
+        old_url = "https://old-oss.example.com/playlist/keep.jpg"
+        playlist = await _create_playlist_directly(
+            db_session, user.id, title="KeepCover", cover_icon_url=old_url
+        )
+
+        resp = client.patch(
+            f"{BASE_URL}/{playlist.id}",
+            headers=_auth_header(user),
+            data={"title": "KeepCoverNew"},
+        )
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["title"] == "KeepCoverNew"
+        assert data["cover_icon_url"] == old_url
 
 
 # ---------------------------------------------------------------------------

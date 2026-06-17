@@ -396,6 +396,7 @@ export type PlaylistUpdateInput = {
   title?: string;
   description?: string;
   is_private?: boolean;
+  cover_icon?: File;
 };
 
 /* ==================== Comment ==================== */

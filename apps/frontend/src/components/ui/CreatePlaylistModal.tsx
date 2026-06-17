@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { Image } from "lucide-react";
 import { toast } from "sonner";
 
 import { playlistApi } from "../../shared/api/instances";
@@ -18,6 +19,7 @@ interface CreatePlaylistModalProps {
     title: string;
     description: string | null;
     is_private: boolean;
+    cover_icon_url?: string | null;
   };
   /** 编辑成功后回调（传入更新后的简要信息）。 */
   onUpdated?: (playlist: PlaylistListItem) => void;
@@ -34,19 +36,30 @@ export const CreatePlaylistModal = ({
   onDeleted,
 }: CreatePlaylistModalProps) => {
   const isEdit = !!edit;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const localPreviewRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (localPreviewRef.current) {
+      URL.revokeObjectURL(localPreviewRef.current);
+      localPreviewRef.current = null;
+    }
     if (!open) {
       setTitle("");
       setDescription("");
       setIsPrivate(false);
+      setCoverFile(null);
+      setCoverPreview(null);
       setSubmitting(false);
       setDeleteModalOpen(false);
       setDeleting(false);
@@ -54,10 +67,42 @@ export const CreatePlaylistModal = ({
       setTitle(edit.title);
       setDescription(edit.description ?? "");
       setIsPrivate(edit.is_private);
+      setCoverFile(null);
+      setCoverPreview(edit.cover_icon_url ?? null);
       setDeleteModalOpen(false);
       setDeleting(false);
+    } else {
+      setTitle("");
+      setDescription("");
+      setIsPrivate(false);
+      setCoverFile(null);
+      setCoverPreview(null);
     }
   }, [open, edit]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewRef.current) {
+        URL.revokeObjectURL(localPreviewRef.current);
+      }
+    };
+  }, []);
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("请选择图片文件");
+      return;
+    }
+    if (localPreviewRef.current) {
+      URL.revokeObjectURL(localPreviewRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    localPreviewRef.current = url;
+    setCoverFile(file);
+    setCoverPreview(url);
+  };
 
   const handleSubmit = async () => {
     const trimmedTitle = title.trim();
@@ -73,6 +118,7 @@ export const CreatePlaylistModal = ({
           title: trimmedTitle,
           description: description.trim() || undefined,
           is_private: isPrivate,
+          cover_icon: coverFile ?? undefined,
         });
         toast.success("歌单已更新");
         onUpdated?.({
@@ -89,6 +135,7 @@ export const CreatePlaylistModal = ({
           title: trimmedTitle,
           description: description.trim() || undefined,
           is_private: isPrivate,
+          cover_icon: coverFile ?? undefined,
         });
         toast.success("歌单创建成功");
         onCreated?.({
@@ -182,6 +229,62 @@ export const CreatePlaylistModal = ({
               maxLength={128}
               onKeyDown={(e) => e.key === "Enter" && void handleSubmit()}
             />
+          </div>
+          <div className="form-field">
+            <span className="form-field-label">封面</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <motion.button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: 10,
+                  border: "1px dashed var(--color-border)",
+                  background: "var(--color-surface-soft)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                {coverPreview ? (
+                  <img
+                    src={coverPreview}
+                    alt="封面预览"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                      color: "var(--color-muted)",
+                    }}
+                  >
+                    <Image size={28} />
+                    <span style={{ fontSize: 12 }}>上传封面</span>
+                  </div>
+                )}
+              </motion.button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleCoverChange}
+              />
+              <span style={{ fontSize: 12, color: "var(--color-muted)", lineHeight: 1.5 }}>
+                点击左侧上传图片<br />
+                {isEdit ? "不上传则保留原封面" : "不上传则无封面"}
+              </span>
+            </div>
           </div>
           <div className="form-field form-field--long">
             <span className="form-field-label">简介</span>

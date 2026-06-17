@@ -230,7 +230,7 @@ export const PlaylistsPage = () => {
         onClose={() => setEditPlaylist(null)}
         edit={
           editPlaylist
-            ? { id: editPlaylist.id, title: editPlaylist.title, description: null, is_private: editPlaylist.is_private }
+            ? { id: editPlaylist.id, title: editPlaylist.title, description: null, is_private: editPlaylist.is_private, cover_icon_url: editPlaylist.cover_icon_url }
             : undefined
         }
         onUpdated={handleUpdated}

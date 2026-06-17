@@ -63,12 +63,17 @@ export const createPlaylistApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) 
     },
 
     /** 更新歌单信息。 */
-    updatePlaylist: (playlistId: number, input: PlaylistUpdateInput) =>
-      request<PlaylistDetail>(`/playlists/${playlistId}`, {
+    updatePlaylist: (playlistId: number, input: PlaylistUpdateInput) => {
+      const formData = new FormData();
+      appendDefined(formData, "title", input.title);
+      appendDefined(formData, "description", input.description);
+      appendDefined(formData, "is_private", input.is_private);
+      appendDefined(formData, "cover_icon", input.cover_icon);
+      return request<PlaylistDetail>(`/playlists/${playlistId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      }),
+        body: formData,
+      });
+    },
 
     /** 删除歌单。 */
     deletePlaylist: (playlistId: number) =>
