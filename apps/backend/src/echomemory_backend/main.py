@@ -19,6 +19,7 @@ from echomemory_backend.core.exceptions.handlers import (
     validation_exception_handler,
 )
 from echomemory_backend.core.exceptions.business import BusinessError
+from echomemory_backend.core.logging import LogContextMiddleware, setup_logging, shutdown_logging
 from echomemory_backend.ai.graphs.checkpointer import close_checkpointer, setup_checkpointer
 from echomemory_backend.core.clients.redis_client import redis_client
 from echomemory_backend.core.utils.seed_data import seed_dictionary_tables
@@ -69,6 +70,9 @@ async def lifespan(app: FastAPI):
         )
 
     await seed_dictionary_tables()
+
+    # 初始化数据库日志持久化（WARNING 及以上级别自动入库）
+    setup_logging()
 
     # 启动热度定时维护任务（每 4 小时全量重算，实现时间衰减）
     async def _hotness_maintenance_loop():
@@ -126,6 +130,10 @@ async def lifespan(app: FastAPI):
     hotness_task.cancel()
     recommend_task.cancel()
     try:
+        shutdown_logging()
+    except Exception:
+        logger.exception("Failed to shutdown database logging")
+    try:
         await hotness_task
     except asyncio.CancelledError:
         pass
@@ -162,5 +170,6 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
 app.add_middleware(ApiEnvelopeMiddleware)
+app.add_middleware(LogContextMiddleware)
 
 app.include_router(api_v1_router, prefix="/api")

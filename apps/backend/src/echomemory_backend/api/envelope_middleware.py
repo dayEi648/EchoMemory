@@ -13,9 +13,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from echomemory_backend.core.exceptions.codes import HttpStatus
+from echomemory_backend.core.logging.context import update_log_context
 from echomemory_backend.schemas.response import error_body, is_envelope, wrap_success_payload
 
 API_V1_PREFIX = "/api/v1"
+_MAX_RESPONSE_BODY_LOG_CHARS = 4 * 1024
 _STREAMING_MEDIA_TYPE = "text/event-stream"
 
 
@@ -90,6 +92,18 @@ class ApiEnvelopeMiddleware(BaseHTTPMiddleware):
                 media_type=response.media_type,
             )
             return passthrough
+
+        # 将 JSON 响应体补充到日志上下文，供数据库日志记录使用
+        if content_type.startswith("application/json"):
+            try:
+                response_text = body.decode("utf-8", errors="replace")
+                if len(response_text) > _MAX_RESPONSE_BODY_LOG_CHARS:
+                    response_text = (
+                        response_text[:_MAX_RESPONSE_BODY_LOG_CHARS] + "\n... [truncated]"
+                    )
+                update_log_context(response_body=response_text)
+            except Exception:
+                pass
 
         if is_envelope(payload):
             wrapped = JSONResponse(status_code=response.status_code, content=payload)

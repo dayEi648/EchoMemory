@@ -610,3 +610,36 @@ export type InboxEvent =
       content: string;
     };
 
+/* ==================== System Log ==================== */
+
+export type SystemLogLevel = "WARNING" | "ERROR" | "CRITICAL";
+
+export type SystemLogItem = {
+  id: number;
+  created_at: string;
+  level: SystemLogLevel;
+  logger: string;
+  message: string;
+  request_method: string | null;
+  request_path: string | null;
+  has_stack_trace: boolean;
+};
+
+export type SystemLogDetail = {
+  id: number;
+  created_at: string;
+  level: SystemLogLevel;
+  logger: string;
+  message: string;
+  stack_trace: string | null;
+  request_method: string | null;
+  request_path: string | null;
+  request_body: string | null;
+  response_body: string | null;
+  extra: string | null;
+};
+
+export type PaginatedSystemLogs = {
+  items: SystemLogItem[];
+  total: number;
+};

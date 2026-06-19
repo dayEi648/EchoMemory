@@ -122,7 +122,7 @@ def clean_tables():
             user_languages, user_styles,
             user_daily_recommendations, user_radar_recommendations,
             notifications, conversations, direct_messages, user_blocks,
-            vector_documents, ai_conversations
+            vector_documents, ai_conversations, system_logs
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(get_dictionary_seed_sql()))

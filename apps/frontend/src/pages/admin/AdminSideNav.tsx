@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Music, BookOpen, Activity, Disc3, Image, Flame } from "lucide-react";
+import { Users, Music, BookOpen, Activity, Disc3, Image, Flame, ScrollText } from "lucide-react";
 import { motion } from "framer-motion";
 
 const adminLinks = [
@@ -10,6 +10,7 @@ const adminLinks = [
   { to: "/admin/carousel", icon: Image, label: "推图管理" },
   { to: "/admin/dict", icon: BookOpen, label: "字典维护" },
   { to: "/admin/hotness", icon: Flame, label: "热度管理" },
+  { to: "/admin/logs", icon: ScrollText, label: "系统日志" },
 ];
 
 export const AdminSideNav = () => {

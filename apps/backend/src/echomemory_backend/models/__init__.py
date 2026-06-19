@@ -58,6 +58,7 @@ from echomemory_backend.models.space_post import (
     SpacePostImage,
     SpacePostLike,
 )
+from echomemory_backend.models.system_log import SystemLog
 from echomemory_backend.models.user import (
     User,
     UserFollow,
@@ -105,6 +106,7 @@ __all__ = [
     "SpacePostImage",
     "SpacePostLike",
     "Style",
+    "SystemLog",
     "User",
     "UserAlbumCollection",
     "UserBlock",

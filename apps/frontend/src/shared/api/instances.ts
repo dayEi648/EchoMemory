@@ -12,6 +12,7 @@ import { createCommentApi } from "./commentApi";
 import { createSpacePostApi } from "./spacePostApi";
 import { createDictionaryApi } from "./dictionaryApi";
 import { createCarouselApi } from "./carouselApi";
+import { createLogApi } from "./logApi";
 import { createUserApi } from "./userApi";
 import { createNotificationApi } from "./notificationApi";
 import { createMessageApi } from "./messageApi";
@@ -44,6 +45,7 @@ export type ApiRegistry = {
   notificationApi: ReturnType<typeof createNotificationApi>;
   messageApi: ReturnType<typeof createMessageApi>;
   recommendationApi: ReturnType<typeof createRecommendationApi>;
+  logApi: ReturnType<typeof createLogApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -62,6 +64,7 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     notificationApi: createNotificationApi(options),
     messageApi: createMessageApi(options),
     recommendationApi: createRecommendationApi(options),
+    logApi: createLogApi(options),
   };
 }
 
@@ -90,6 +93,7 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   notificationApi = apis.notificationApi;
   messageApi = apis.messageApi;
   recommendationApi = apis.recommendationApi;
+  logApi = apis.logApi;
 }
 
 export let userApi = apis.userApi;
@@ -105,3 +109,4 @@ export let carouselApi = apis.carouselApi;
 export let notificationApi = apis.notificationApi;
 export let messageApi = apis.messageApi;
 export let recommendationApi = apis.recommendationApi;
+export let logApi = apis.logApi;

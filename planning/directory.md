@@ -40,6 +40,11 @@
 │   │   │       │   │   └── handlers.py       # FastAPI 全局异常处理器
 │   │   │       │   ├── inbox/      # 私信/通知 Pub/Sub
 │   │   │       │   │   └── pubsub.py
+│   │   │       │   ├── logging/    # 数据库日志持久化
+│   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── context.py        # 请求上下文 ContextVar
+│   │   │       │   │   ├── handler.py        # QueueHandler/DBLogHandler
+│   │   │       │   │   └── middleware.py     # 请求上下文中间件
 │   │   │       │   ├── security/   # 安全工具
 │   │   │       │   │   └── security.py     # JWT、密码哈希等
 │   │   │       │   └── utils/      # 通用工具
@@ -77,6 +82,7 @@
 │   │   │       │       ├── router.py   # v1 路由聚合
 │   │   │       │       └── endpoints/  # 业务路由端点
 │   │   │       │           ├── __init__.py
+│   │   │       │           ├── admin_logs.py       # 管理员系统日志接口
 │   │   │       │           ├── ai_conversation.py  # AI 对话
 │   │   │       │           ├── album.py
 │   │   │       │           ├── auth.py
@@ -108,6 +114,7 @@
 │   │   │       │   ├── playlist.py
 │   │   │       │   ├── recommendation.py
 │   │   │       │   ├── space_post.py
+│   │   │       │   ├── system_log.py       # 系统日志模型
 │   │   │       │   ├── user.py
 │   │   │       │   ├── user_tag.py
 │   │   │       │   └── vector_document.py  # RAG 向量文档模型
@@ -125,6 +132,7 @@
 │   │   │       │   ├── play_history.py
 │   │   │       │   ├── playlist.py
 │   │   │       │   ├── space_post.py
+│   │   │       │   ├── system_log.py       # 系统日志 Schema
 │   │   │       │   ├── user.py
 │   │   │       │   └── user_tag.py
 │   │   │       ├── services/       # 业务逻辑服务层
@@ -138,6 +146,7 @@
 │   │   │       │   ├── comment_service.py
 │   │   │       │   ├── dictionary_reference_service.py
 │   │   │       │   ├── dictionary_service.py
+│   │   │       │   ├── log_service.py          # 系统日志业务服务
 │   │   │       │   ├── message_service.py
 │   │   │       │   ├── music_service.py
 │   │   │       │   ├── notification_service.py
@@ -179,6 +188,7 @@
 │   │       ├── test_redis_client.py
 │   │       ├── test_security.py
 │   │       ├── test_space_post.py
+│   │       ├── test_system_log.py     # 系统日志持久化与接口测试
 │   │       ├── test_user_tag.py
 │   │       ├── test_users.py
 │   │       ├── test_utils.py
@@ -197,9 +207,14 @@
 │       │   ├── shared/             # 共享模块
 │       │   │   ├── api/            # API client 与类型定义
 │       │   │   │   ├── types.ts
+│       │   │   │   ├── logApi.ts
 │       │   │   │   └── userApi.ts
 │       │   │   └── auth/           # Token 状态管理
 │       │   │       └── tokenStore.ts
+│       │   ├── pages/              # 页面组件
+│       │   │   └── admin/
+│       │   │       ├── AdminLogPage.tsx      # 系统日志管理页
+│       │   │       └── ...                   # 其他管理后台页面
 │       │   └── test/               # 前端测试 setup
 │       │       └── setup.ts
 │       └── src-tauri/              # Tauri Rust 层
