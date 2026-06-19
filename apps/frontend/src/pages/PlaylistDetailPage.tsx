@@ -333,7 +333,7 @@ export const PlaylistDetailPage = () => {
           <EmptyState icon={Music} title="该歌单暂无歌曲" description="歌单创建者可以通过搜索将歌曲添加到歌单。" />
         ) : (
           <StaggerContainer staggerDelay={0.04}>
-            {sortedMusics.map((pm, i) => (
+            {sortedMusics.map((pm) => (
               <StaggerItem key={`${pm.music.id}-${pm.ordinal}`}>
                 <SongRow
                   name={pm.music.title}

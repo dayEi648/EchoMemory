@@ -557,11 +557,13 @@ async def dislike_comment(db: AsyncSession, user_id: int, comment_id: int) -> No
         None。
 
     Raises:
-        BusinessError: 评论不存在时抛出 404。
+        BusinessError: 评论不存在或不能自踩时抛出 404/403。
     """
     comment = await db.get(Comment, comment_id)
     if comment is None or comment.is_deleted:
         raise BusinessError("Comment not found", code=ErrorCode.COMMENT_NOT_FOUND)
+    if comment.user_id == user_id:
+        raise BusinessError("Cannot dislike your own comment", code=ErrorCode.PERMISSION_DENIED)
 
     existing = await db.get(CommentDislike, (comment_id, user_id))
     if existing is not None:

@@ -190,7 +190,7 @@ export const LibraryPage = () => {
           ) : (
             <FadeIn delay={0.12}>
               <StaggerContainer staggerDelay={0.03}>
-                {songs.map((item, i) => (
+                {songs.map((item) => (
                   <StaggerItem key={item.music.id}>
                     <SongRow
                       name={item.music.title}

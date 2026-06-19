@@ -760,42 +760,44 @@ class TestDislikeComment:
 
     async def test_dislike_comment_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常点踩评论。"""
-        user = await _create_user(db_session, "dislike_user")
+        author = await _create_user(db_session, "dislike_comment_author")
+        disliker = await _create_user(db_session, "dislike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Dislike me", music_id=music.id
+            db_session, author.id, "Dislike me", music_id=music.id
         )
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/dislike",
-            headers=_auth_header(user),
+            headers=_auth_header(disliker),
         )
         assert resp.status_code == 201
 
     async def test_dislike_comment_idempotent(self, client: TestClient, db_session: AsyncSession):
         """测试重复点踩具有幂等性，仅生成一条记录。"""
-        user = await _create_user(db_session, "dislike_idem_user")
+        author = await _create_user(db_session, "dislike_idem_author")
+        disliker = await _create_user(db_session, "dislike_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Dislike idem", music_id=music.id
+            db_session, author.id, "Dislike idem", music_id=music.id
         )
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/dislike",
-            headers=_auth_header(user),
+            headers=_auth_header(disliker),
         )
         assert resp.status_code == 201
 
         resp = client.post(
             f"{BASE_URL}/{comment.id}/dislike",
-            headers=_auth_header(user),
+            headers=_auth_header(disliker),
         )
         assert resp.status_code == 201
 
         result = await db_session.execute(
             select(CommentDislike).where(
                 CommentDislike.comment_id == comment.id,
-                CommentDislike.user_id == user.id,
+                CommentDislike.user_id == disliker.id,
             )
         )
         assert len(result.scalars().all()) == 1
@@ -809,6 +811,23 @@ class TestDislikeComment:
             headers=_auth_header(user),
         )
         assert resp.status_code == 404
+
+    async def test_dislike_own_comment_rejected(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试不能点踩自己的评论。"""
+        author = await _create_user(db_session, "self_disliker")
+        music = await _create_music_directly(db_session)
+        comment = await _create_comment_directly(
+            db_session, author.id, "My own", music_id=music.id
+        )
+
+        resp = client.post(
+            f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(author)
+        )
+        assert resp.status_code == 403
+        await db_session.refresh(comment)
+        assert comment.dislike_count == 0
 
     async def test_dislike_comment_unauthorized(self, client: TestClient, db_session: AsyncSession):
         """测试未登录用户点踩评论时返回 401。"""
@@ -827,17 +846,18 @@ class TestUndislikeComment:
 
     async def test_undislike_comment_success(self, client: TestClient, db_session: AsyncSession):
         """测试正常取消点踩并删除记录。"""
-        user = await _create_user(db_session, "undislike_user")
+        author = await _create_user(db_session, "undislike_comment_author")
+        disliker = await _create_user(db_session, "undislike_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Undislike me", music_id=music.id
+            db_session, author.id, "Undislike me", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
 
         resp = client.delete(
             f"{BASE_URL}/{comment.id}/dislike",
-            headers=_auth_header(user),
+            headers=_auth_header(disliker),
         )
         assert resp.status_code == 200
         assert api_data(resp) is None
@@ -845,7 +865,7 @@ class TestUndislikeComment:
         result = await db_session.execute(
             select(CommentDislike).where(
                 CommentDislike.comment_id == comment.id,
-                CommentDislike.user_id == user.id,
+                CommentDislike.user_id == disliker.id,
             )
         )
         assert result.scalar_one_or_none() is None
@@ -1116,13 +1136,14 @@ class TestDislikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试点踩后评论点踩计数增加。"""
-        user = await _create_user(db_session, "dislike_count_user")
+        author = await _create_user(db_session, "dislike_count_author")
+        disliker = await _create_user(db_session, "dislike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Dislike me", music_id=music.id
+            db_session, author.id, "Dislike me", music_id=music.id
         )
 
-        resp = client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
+        resp = client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
         assert resp.status_code == 201
 
         await db_session.refresh(comment)
@@ -1132,14 +1153,15 @@ class TestDislikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试重复点踩不会导致点踩计数异常增加。"""
-        user = await _create_user(db_session, "dislike_count_idem_user")
+        author = await _create_user(db_session, "dislike_count_idem_author")
+        disliker = await _create_user(db_session, "dislike_count_idem_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Dislike idem", music_id=music.id
+            db_session, author.id, "Dislike idem", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
-        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
+        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
 
         await db_session.refresh(comment)
         assert comment.dislike_count == 1
@@ -1148,17 +1170,18 @@ class TestDislikeCount:
         self, client: TestClient, db_session: AsyncSession
     ):
         """测试取消点踩后评论点踩计数减少。"""
-        user = await _create_user(db_session, "undislike_count_user")
+        author = await _create_user(db_session, "undislike_count_author")
+        disliker = await _create_user(db_session, "undislike_count_user")
         music = await _create_music_directly(db_session)
         comment = await _create_comment_directly(
-            db_session, user.id, "Undislike me", music_id=music.id
+            db_session, author.id, "Undislike me", music_id=music.id
         )
 
-        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
+        client.post(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
         await db_session.refresh(comment)
         assert comment.dislike_count == 1
 
-        resp = client.delete(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(user))
+        resp = client.delete(f"{BASE_URL}/{comment.id}/dislike", headers=_auth_header(disliker))
         assert resp.status_code == 200
         assert api_data(resp) is None
 

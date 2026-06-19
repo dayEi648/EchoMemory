@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Users, Music, Album, MessageCircle, FileText, ListMusic } from "lucide-react";
+import { Users, Music, Album, MessageCircle, FileText, ListMusic } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 

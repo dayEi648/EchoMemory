@@ -1,7 +1,36 @@
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act } from "@testing-library/react";
 
-const mockMusicDetail = {
+import { usePlayMusic } from "./usePlayMusic";
+import { musicApi } from "./api/instances";
+import { usePlayerStore } from "./stores/playerStore";
+import type { MusicDetail, MusicListItem } from "./api/types";
+
+vi.mock("./api/instances", () => ({
+  musicApi: {
+    getMusicDetail: vi.fn(),
+  },
+}));
+
+vi.mock("./stores/playerStore", () => ({
+  usePlayerStore: vi.fn(),
+}));
+
+const mockMusicListItem: MusicListItem = {
+  id: 2,
+  title: "List Song",
+  is_vip: false,
+  hot: 0,
+  play_count: 0,
+  cover_icon_url: null,
+  authors: [],
+  emotion_tags: [],
+  interest_tags: [],
+  albums: [],
+  created_at: "2026-01-01T00:00:00Z",
+};
+
+const mockMusicDetail: MusicDetail = {
   id: 1,
   title: "Test Song",
   is_vip: false,
@@ -27,104 +56,67 @@ const mockMusicDetail = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
-const mockMusicListItem = {
-  id: 2,
-  title: "List Song",
-  is_vip: false,
-  hot: 0,
-  play_count: 0,
-  cover_icon_url: null,
-  authors: [],
-  emotion_tags: [],
-  interest_tags: [],
-  albums: [],
-  created_at: "2026-01-01T00:00:00Z",
-};
-
-// Mock the player store and API
-vi.mock("./stores/playerStore", () => ({
-  usePlayerStore: vi.fn(() => ({
-    playStandalone: vi.fn(),
-  })),
-}));
-
-vi.mock("./api/instances", () => ({
-  musicApi: {
-    getMusicDetail: vi.fn(),
-  },
-}));
-
-import { usePlayerStore } from "./stores/playerStore";
-import { musicApi } from "./api/instances";
-
-// Re-create usePlayMusic inline for testing
-const mockPlayMusic = () => {
-  const playStandalone = usePlayerStore((s: any) => s.playStandalone);
-
-  const playMusicListItem = async (music: typeof mockMusicListItem) => {
-    try {
-      const detail = await musicApi.getMusicDetail(music.id);
-      if ((detail as any).file_url) {
-        await playStandalone(expect.any(Object));
-      }
-    } catch {
-      // noop
-    }
-  };
-
-  const playMusicById = async (musicId: number) => {
-    try {
-      const detail = await musicApi.getMusicDetail(musicId);
-      if ((detail as any).file_url) {
-        await playStandalone(expect.any(Object));
-      }
-    } catch {
-      // noop
-    }
-  };
-
-  return { playMusicListItem, playMusicById };
-};
-
 describe("usePlayMusic", () => {
+  const playStandalone = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(usePlayerStore).mockReturnValue(playStandalone);
   });
 
   it("calls getMusicDetail with the correct id for list items", async () => {
-    (musicApi.getMusicDetail as any).mockResolvedValue(mockMusicDetail);
+    vi.mocked(musicApi.getMusicDetail).mockResolvedValue(mockMusicDetail);
 
-    const { playMusicListItem } = mockPlayMusic();
-    await playMusicListItem(mockMusicListItem);
+    const { result } = renderHook(() => usePlayMusic());
+    await act(async () => {
+      await result.current.playMusicListItem(mockMusicListItem);
+    });
 
-    expect(musicApi.getMusicDetail).toHaveBeenCalledWith(2);
+    expect(musicApi.getMusicDetail).toHaveBeenCalledWith(mockMusicListItem.id);
   });
 
   it("calls getMusicDetail with the correct id for direct play", async () => {
-    (musicApi.getMusicDetail as any).mockResolvedValue(mockMusicDetail);
+    vi.mocked(musicApi.getMusicDetail).mockResolvedValue(mockMusicDetail);
 
-    const { playMusicById } = mockPlayMusic();
-    await playMusicById(1);
+    const { result } = renderHook(() => usePlayMusic());
+    await act(async () => {
+      await result.current.playMusicById(mockMusicDetail.id);
+    });
 
-    expect(musicApi.getMusicDetail).toHaveBeenCalledWith(1);
+    expect(musicApi.getMusicDetail).toHaveBeenCalledWith(mockMusicDetail.id);
+  });
+
+  it("calls playStandalone when file_url is present", async () => {
+    vi.mocked(musicApi.getMusicDetail).mockResolvedValue(mockMusicDetail);
+
+    const { result } = renderHook(() => usePlayMusic());
+    await act(async () => {
+      await result.current.playMusicById(mockMusicDetail.id);
+    });
+
+    await waitFor(() => {
+      expect(playStandalone).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("does not call playStandalone when file_url is missing", async () => {
-    (musicApi.getMusicDetail as any).mockResolvedValue({ ...mockMusicDetail, file_url: null });
-    const playStandalone = vi.fn();
-    vi.mocked(usePlayerStore).mockReturnValue(playStandalone as any);
+    vi.mocked(musicApi.getMusicDetail).mockResolvedValue({
+      ...mockMusicDetail,
+      file_url: null,
+    });
 
-    const { playMusicById } = mockPlayMusic();
-    await playMusicById(1);
+    const { result } = renderHook(() => usePlayMusic());
+    await act(async () => {
+      await result.current.playMusicById(mockMusicDetail.id);
+    });
 
     expect(playStandalone).not.toHaveBeenCalled();
   });
 
   it("handles API errors silently in playMusicById", async () => {
-    (musicApi.getMusicDetail as any).mockRejectedValue(new Error("Network error"));
+    vi.mocked(musicApi.getMusicDetail).mockRejectedValue(new Error("Network error"));
 
-    const { playMusicById } = mockPlayMusic();
-    // Should not throw
-    await expect(playMusicById(1)).resolves.toBeUndefined();
+    const { result } = renderHook(() => usePlayMusic());
+    await expect(result.current.playMusicById(1)).resolves.toBeUndefined();
   });
 });

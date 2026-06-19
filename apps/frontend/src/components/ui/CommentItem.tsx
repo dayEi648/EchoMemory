@@ -73,6 +73,10 @@ export const CommentItem = ({
   }, [replyRefreshKey, showReplies, isRoot, comment.id]);
 
   const handleLike = async () => {
+    if (!liked && isOwner) {
+      toast.info("不能给自己的评论点赞");
+      return;
+    }
     try {
       if (liked) {
         await commentApi.unlikeComment(comment.id);
@@ -90,6 +94,10 @@ export const CommentItem = ({
   };
 
   const handleDislike = async () => {
+    if (!disliked && isOwner) {
+      toast.info("不能给自己的评论点踩");
+      return;
+    }
     try {
       if (disliked) {
         await commentApi.undislikeComment(comment.id);

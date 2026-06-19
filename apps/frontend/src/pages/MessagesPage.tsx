@@ -114,7 +114,6 @@ function ChatPanel({ conversationId }: { conversationId: number }) {
     loadMessages,
     blockUser,
     unblockUser,
-    markConversationRead,
   } = useInboxStore();
   const [input, setInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -313,12 +312,9 @@ function ChatPanel({ conversationId }: { conversationId: number }) {
 export const MessagesPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const {
     conversations,
     loadConversations,
-    selectConversation,
-    currentConversationId,
   } = useInboxStore();
   const initialTab = searchParams.get("tab") ?? "messages";
   const [selectedTab, setSelectedTab] = useState<"notifications" | string>(

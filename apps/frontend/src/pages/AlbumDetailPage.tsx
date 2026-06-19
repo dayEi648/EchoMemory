@@ -221,7 +221,7 @@ export const AlbumDetailPage = () => {
           <EmptyState icon={Music} title="该专辑暂无歌曲" />
         ) : (
           <StaggerContainer staggerDelay={0.04}>
-            {album.musics.map((music, i) => (
+            {album.musics.map((music) => (
               <StaggerItem key={music.id}>
                 <SongRow
                   name={music.title}

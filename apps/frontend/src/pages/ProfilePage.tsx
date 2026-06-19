@@ -238,7 +238,7 @@ export const ProfilePage = () => {
                     <EmptyState icon={Music2} title="暂无播放记录" description="开始听歌吧" compact />
                   ) : (
                     <StaggerContainer staggerDelay={0.04}>
-                      {myHistory.map((item, i) => (
+                      {myHistory.map((item) => (
                         <StaggerItem key={item.id}>
                           <SongRow
                             name={item.music.title}

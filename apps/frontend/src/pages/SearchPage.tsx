@@ -337,7 +337,7 @@ export const SearchPage = () => {
                     {(activeTab === "all"
                       ? songResults.slice(0, 6)
                       : songResults
-                    ).map((song, i) => (
+                    ).map((song) => (
                       <StaggerItem key={song.id}>
                         <SongRow
                           name={song.title}

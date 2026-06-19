@@ -44,6 +44,10 @@ export const SpacePostCard = ({
   const sortedImages = [...post.images].sort((a, b) => a.ordinal - b.ordinal);
 
   const handleLike = async () => {
+    if (!liked && isOwner) {
+      toast.info("不能给自己的说说点赞");
+      return;
+    }
     try {
       if (liked) {
         await onUnlike(post.id);
