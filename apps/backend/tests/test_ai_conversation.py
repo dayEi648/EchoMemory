@@ -7,6 +7,7 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.graphs.conversation.builder import (
@@ -14,15 +15,21 @@ from echomemory_backend.ai.graphs.conversation.builder import (
     get_thread_config,
 )
 from echomemory_backend.ai.langchain.deepseek_chat import _filter_llm_messages
+from echomemory_backend.api.v1.endpoints.ai_conversation import (
+    _resolve_message_view,
+)
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
-from echomemory_backend.models.ai_conversation import (
-    AIConversation,
-    AIConversationStatus,
-)
+from echomemory_backend.models.enums import UserRole
 from echomemory_backend.models.user import User
 from echomemory_backend.services import ai_conversation_service
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from tests.api_helpers import api_data
 
 AI_CONVERSATIONS_URL = "/api/v1/ai/conversations"
@@ -79,7 +86,15 @@ class TestAIConversationCreate:
             headers={"Authorization": f"Bearer {token}"},
         )
         messages = api_data(messages_resp)["messages"]
-        assert [message["role"] for message in messages] == ["system"]
+        assert messages == []
+
+        forged_internal_view = client.get(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
+            headers={"Authorization": f"Bearer {token}"},
+            params=[("message_types", "system"), ("message_types", "tool")],
+        )
+        assert forged_internal_view.status_code == 200
+        assert api_data(forged_internal_view)["messages"] == []
 
     async def test_create_conversation_with_first_message(self, client: TestClient):
         """附带首条消息时应返回 AI 回复并自动生成标题。"""
@@ -172,7 +187,7 @@ class TestAIConversationMessages:
         assert "你好，我是 AI 助手。" in data["content"]
 
     async def test_get_messages(self, client: TestClient):
-        """应能读取会话中的完整消息列表。"""
+        """普通用户读取历史时只应看到 human 与最终 ai 消息。"""
         token = _register_and_login(client, "ai_user_5")
         create_resp = client.post(
             AI_CONVERSATIONS_URL,
@@ -189,9 +204,77 @@ class TestAIConversationMessages:
         data = api_data(resp)
         messages = data["messages"]
         roles = [m["role"] for m in messages]
-        assert "system" in roles
-        assert "human" in roles
-        assert "ai" in roles
+        assert roles == ["human", "ai"]
+
+    async def test_admin_can_filter_complete_checkpoint_history(
+        self,
+        client: TestClient,
+        db_session: AsyncSession,
+    ):
+        """管理员显式筛选时应能读取完整的内部消息序列。"""
+        token = _register_and_login(client, "ai_admin_messages")
+        user = await db_session.scalar(
+            select(User).where(User.username == "ai_admin_messages")
+        )
+        assert user is not None
+        user.role = UserRole.ADMIN
+        await db_session.commit()
+
+        create_resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+        )
+        conversation = api_data(create_resp)["conversation"]
+        graph = build_graph(conversation["model"])
+        await graph.aupdate_state(
+            get_thread_config(conversation["thread_id"]),
+            {
+                "messages": [
+                    HumanMessage(content="搜索新闻"),
+                    AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": "search_web",
+                                "args": {"query": "新闻"},
+                                "id": "call-1",
+                                "type": "tool_call",
+                            }
+                        ],
+                    ),
+                    ToolMessage(
+                        content=[{"type": "text", "text": "# 搜索结果"}],
+                        tool_call_id="call-1",
+                        name="search_web",
+                    ),
+                    AIMessage(content="最终回答"),
+                ]
+            },
+        )
+
+        resp = client.get(
+            f"{AI_CONVERSATIONS_URL}/{conversation['id']}/messages",
+            headers={"Authorization": f"Bearer {token}"},
+            params=[
+                ("message_types", "system"),
+                ("message_types", "human"),
+                ("message_types", "ai"),
+                ("message_types", "tool"),
+            ],
+        )
+
+        assert resp.status_code == 200
+        messages = api_data(resp)["messages"]
+        assert [message["role"] for message in messages] == [
+            "system",
+            "human",
+            "ai",
+            "tool",
+            "ai",
+        ]
+        assert messages[2]["tool_calls"][0]["name"] == "search_web"
+        assert messages[3]["tool_call_id"] == "call-1"
 
     async def test_stream_message(self, client: TestClient):
         """流式发送消息应返回 SSE 事件流。"""
@@ -230,7 +313,7 @@ class TestAIConversationMessages:
             headers={"Authorization": f"Bearer {token}"},
         )
         messages = api_data(messages_resp)["messages"]
-        assert [message["role"] for message in messages] == ["system", "human", "ai"]
+        assert [message["role"] for message in messages] == ["human", "ai"]
         assert messages[-1]["content"] == "你好，我是 AI 助手。"
         assert messages[-1]["reasoning_content"] == "先理解用户的问候，再简洁回应。"
 
@@ -339,6 +422,97 @@ class TestContextTrimming:
             assert result[-1].content == "tool"
         finally:
             settings.ai_max_context_messages = original_max
+
+
+class TestConversationMessageViews:
+    """测试会话历史的用户视图与管理员调试视图。"""
+
+    def test_user_view_hides_system_tool_and_tool_call_ai_messages(self):
+        messages = [
+            SystemMessage(content="system"),
+            HumanMessage(content="搜索新闻"),
+            AIMessageChunk(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "search_web",
+                        "args": {"query": "新闻"},
+                        "id": "call-1",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=[{"type": "text", "text": "# 搜索结果"}],
+                tool_call_id="call-1",
+                name="search_web",
+            ),
+            AIMessage(content="这是搜索后的自然语言回答。"),
+        ]
+
+        filtered = ai_conversation_service._filter_messages_for_view(
+            messages,
+            message_types={"human", "ai"},
+            include_intermediate_ai=False,
+        )
+
+        assert [message.type for message in filtered] == ["human", "ai"]
+        assert filtered[-1].content == "这是搜索后的自然语言回答。"
+
+    def test_admin_view_can_select_all_message_types(self):
+        messages = [
+            SystemMessage(content="system"),
+            HumanMessage(content="hello"),
+            AIMessage(content="", tool_calls=[{
+                "name": "search_web",
+                "args": {"query": "hello"},
+                "id": "call-1",
+                "type": "tool_call",
+            }]),
+            ToolMessage(content="result", tool_call_id="call-1", name="search_web"),
+            AIMessage(content="answer"),
+        ]
+
+        filtered = ai_conversation_service._filter_messages_for_view(
+            messages,
+            message_types={"system", "human", "ai", "tool"},
+            include_intermediate_ai=True,
+        )
+
+        assert [message.type for message in filtered] == [
+            "system",
+            "human",
+            "ai",
+            "tool",
+            "ai",
+        ]
+
+    def test_normal_user_cannot_request_internal_message_types(self):
+        message_types, include_intermediate = _resolve_message_view(
+            UserRole.USER,
+            ["system", "tool"],
+        )
+
+        assert message_types == {"human", "ai"}
+        assert include_intermediate is False
+
+    def test_admin_can_request_internal_message_types(self):
+        message_types, include_intermediate = _resolve_message_view(
+            UserRole.ADMIN,
+            ["system", "tool"],
+        )
+
+        assert message_types == {"system", "tool"}
+        assert include_intermediate is True
+
+    def test_admin_without_filter_uses_safe_conversation_view(self):
+        message_types, include_intermediate = _resolve_message_view(
+            UserRole.SUPER_ADMIN,
+            None,
+        )
+
+        assert message_types == {"human", "ai"}
+        assert include_intermediate is False
 
     def test_filter_llm_messages_no_system(self):
         """无系统消息时仅截断最近 N 条非工具消息。"""

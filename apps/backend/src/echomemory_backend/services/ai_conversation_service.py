@@ -5,7 +5,7 @@
 """
 
 from __future__ import annotations
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
 from typing import Any, AsyncIterator
@@ -38,6 +38,7 @@ from echomemory_backend.models.ai_conversation import (
 )
 from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.schemas.ai_conversation import (
+    AIConversationMessageRole,
     AIConversationMessageOut,
     AIConversationOut,
     AIStreamChunkOut,
@@ -73,6 +74,9 @@ def _message_to_dict(message: BaseMessage) -> dict[str, Any]:
             content, reasoning = parse_legacy_tagged_response(message.content)
             data["content"] = content
         data["reasoning_content"] = reasoning
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            data["tool_calls"] = list(tool_calls)
     elif isinstance(message, ToolMessage):
         data["tool_call_id"] = message.tool_call_id
         data["name"] = message.name
@@ -89,6 +93,36 @@ def _messages_to_dicts(messages: list[BaseMessage]) -> list[dict[str, Any]]:
         输出字典列表。
     """
     return [_message_to_dict(m) for m in messages]
+
+
+def _filter_messages_for_view(
+    messages: list[BaseMessage],
+    *,
+    message_types: set[AIConversationMessageRole],
+    include_intermediate_ai: bool,
+) -> list[BaseMessage]:
+    """按消息历史视图过滤 checkpoint 中的内部消息。
+
+    参数:
+        messages: LangGraph checkpoint 中的完整消息序列。
+        message_types: 当前视图允许返回的消息类型。
+        include_intermediate_ai: 是否返回带 tool_calls 的中间 AI 消息。
+
+    返回:
+        仅包含当前调用者可见消息的列表。
+    """
+    filtered: list[BaseMessage] = []
+    for message in messages:
+        if message.type not in message_types:
+            continue
+        if (
+            message.type == "ai"
+            and getattr(message, "tool_calls", None)
+            and not include_intermediate_ai
+        ):
+            continue
+        filtered.append(message)
+    return filtered
 
 
 def _remove_orphan_assistant_messages(
@@ -443,6 +477,8 @@ async def get_messages(
     db: AsyncSession,
     *,
     conversation: AIConversation,
+    message_types: set[AIConversationMessageRole],
+    include_intermediate_ai: bool = False,
 ) -> list[AIConversationMessageOut]:
     """获取会话消息列表。
 
@@ -451,6 +487,8 @@ async def get_messages(
     参数:
         db: SQLAlchemy 异步 Session（兼容性参数，实际读取 checkpoint）。
         conversation: AIConversation 实例。
+        message_types: 需要返回的消息类型。
+        include_intermediate_ai: 是否包含发起工具调用的中间 AI 消息。
 
     返回:
         AIConversationMessageOut 列表。
@@ -460,6 +498,11 @@ async def get_messages(
     state = await graph.aget_state(config)
     messages = state.values.get("messages", []) if state else []
     messages = _remove_orphan_assistant_messages(messages)
+    messages = _filter_messages_for_view(
+        messages,
+        message_types=message_types,
+        include_intermediate_ai=include_intermediate_ai,
+    )
     return [AIConversationMessageOut(**msg) for msg in _messages_to_dicts(messages)]
 
 

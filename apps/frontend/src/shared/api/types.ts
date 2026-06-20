@@ -655,6 +655,7 @@ export type AIConversationMessage = {
   reasoning_content?: string | null;
   tool_call_id?: string | null;
   name?: string | null;
+  tool_calls?: Record<string, unknown>[] | null;
   additional_kwargs?: Record<string, unknown> | null;
   created_at?: string | null;
 };

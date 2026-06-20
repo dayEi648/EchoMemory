@@ -70,7 +70,20 @@ def _format_mcp_result(result: Any) -> str:
     """把 MCP 工具结果转换为可供模型读取的文本。"""
     if isinstance(result, str):
         return result
-    if isinstance(result, (dict, list)):
+    if isinstance(result, list):
+        text_blocks = [
+            block["text"]
+            for block in result
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "text"
+                and isinstance(block.get("text"), str)
+            )
+        ]
+        if text_blocks and len(text_blocks) == len(result):
+            return "\n\n".join(text_blocks)
+        return json.dumps(result, ensure_ascii=False)
+    if isinstance(result, dict):
         return json.dumps(result, ensure_ascii=False)
     return str(result)
 

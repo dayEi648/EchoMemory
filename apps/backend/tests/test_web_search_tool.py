@@ -113,3 +113,14 @@ def test_build_iqs_mcp_client_uses_official_transport_and_header(
     assert connection["transport"] == "http"
     assert connection["url"] == patched_settings.iqs_mcp_url
     assert connection["headers"] == {"X-API-Key": "test-api-key"}
+
+
+def test_format_mcp_text_blocks_returns_readable_markdown():
+    result = web_search_module._format_mcp_result(
+        [
+            {"type": "text", "text": "# 搜索结果"},
+            {"type": "text", "text": "第二段"},
+        ]
+    )
+
+    assert result == "# 搜索结果\n\n第二段"

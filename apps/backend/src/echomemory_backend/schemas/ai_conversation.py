@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+AIConversationMessageRole = Literal["system", "human", "ai", "tool"]
+
 
 class AIConversationMessageOut(BaseModel):
     """单条消息输出 Schema。
@@ -15,11 +17,12 @@ class AIConversationMessageOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    role: Literal["system", "human", "ai", "tool"]
+    role: AIConversationMessageRole
     content: str | list[dict[str, Any]]
     reasoning_content: str | None = None
     tool_call_id: str | None = None
     name: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     additional_kwargs: dict[str, Any] | None = None
     created_at: datetime | None = None
 

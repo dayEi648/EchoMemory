@@ -161,6 +161,29 @@ describe("createAIConversationApi JSON endpoints", () => {
     expect(result.total).toBe(1);
   });
 
+  it("encodes selected message types when loading conversation history", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 0,
+          msg: "success",
+          data: { messages: [] },
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const api = createAIConversationApi({ baseUrl, fetcher: fetchMock, tokenStore });
+    await api.getMessages(7, {
+      messageTypes: ["system", "human", "ai", "tool"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/ai/conversations/7/messages?message_types=system&message_types=human&message_types=ai&message_types=tool`,
+      expect.anything(),
+    );
+  });
+
   it("updates conversation title", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

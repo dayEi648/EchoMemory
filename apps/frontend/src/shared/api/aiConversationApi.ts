@@ -4,6 +4,7 @@ import type {
   AIConversationMessage,
   AIConversationMessageCreateInput,
   AIConversationMessages,
+  AIConversationRole,
   AIConversationWithFirstMessage,
   AIStreamChunk,
   PaginatedAIConversationList,
@@ -44,10 +45,19 @@ export const createAIConversationApi = ({
       }),
 
     /** 获取指定会话的消息列表。 */
-    getMessages: (conversationId: number) =>
-      request<AIConversationMessages>(
-        `/ai/conversations/${conversationId}/messages`,
-      ),
+    getMessages: (
+      conversationId: number,
+      options: { messageTypes?: AIConversationRole[] } = {},
+    ) => {
+      const query = new URLSearchParams();
+      for (const messageType of options.messageTypes ?? []) {
+        query.append("message_types", messageType);
+      }
+      const suffix = query.size > 0 ? `?${query.toString()}` : "";
+      return request<AIConversationMessages>(
+        `/ai/conversations/${conversationId}/messages${suffix}`,
+      );
+    },
 
     /** 非流式发送消息。 */
     sendMessage: (

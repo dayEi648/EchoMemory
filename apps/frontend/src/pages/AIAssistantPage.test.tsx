@@ -5,8 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AIAssistantPage } from "./AIAssistantPage";
 import { aiConversationApi } from "../shared/api/instances";
+import { useAuthStore } from "../shared/stores/authStore";
+import type { UserMe } from "../shared/api/types";
 
 vi.mock("../shared/api/instances", () => ({
+  API_BASE_URL: "http://127.0.0.1:8000/api/v1",
   aiConversationApi: {
     listConversations: vi.fn(),
     getMessages: vi.fn(),
@@ -28,9 +31,36 @@ const conversation = {
   created_at: "2026-06-20T10:00:00Z",
 };
 
+const normalUser = {
+  id: 7,
+  username: "user",
+  nickname: "用户",
+  gender: 0,
+  role: 0,
+  level: 1,
+  exp: 0,
+  city: null,
+  birth: null,
+  bio: null,
+  is_verified: false,
+  is_official: false,
+  like_count: 0,
+  avatar_url: null,
+  created_at: null,
+  email: null,
+  phone: null,
+  status: 0,
+  safety_score: 10,
+  is_deleted: false,
+  last_login_at: null,
+  banned_at: null,
+  ban_duration: null,
+} satisfies UserMe;
+
 describe("AIAssistantPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useAuthStore.setState({ user: normalUser });
     vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
       items: [],
       total: 0,
@@ -113,6 +143,138 @@ describe("AIAssistantPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("根据用户想听歌的意图给出简洁建议。")).toBeVisible();
+    });
+  });
+
+  it("does not show internal message filters to normal users", async () => {
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+
+    expect(screen.queryByRole("group", { name: "消息类型筛选" })).not.toBeInTheDocument();
+    expect(aiConversationApi.getMessages).toHaveBeenCalledWith(1, {
+      messageTypes: ["human", "ai"],
+    });
+  });
+
+  it("lets administrators filter all persisted message types", async () => {
+    useAuthStore.setState({
+      user: { ...normalUser, role: 2, nickname: "管理员" },
+    });
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+    vi.mocked(aiConversationApi.getMessages).mockResolvedValue({
+      messages: [
+        { role: "system", content: "system prompt" },
+        { role: "human", content: "搜索新闻" },
+        {
+          role: "tool",
+          content: '[{"type":"text","text":"# 搜索结果"}]',
+          name: "search_web",
+          tool_call_id: "call-1",
+        },
+        { role: "ai", content: "最终回答" },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+    const filterGroup = screen.getByRole("group", { name: "消息类型筛选" });
+    expect(filterGroup).toBeVisible();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "系统" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "工具" }));
+
+    await waitFor(() => {
+      expect(aiConversationApi.getMessages).toHaveBeenLastCalledWith(1, {
+        messageTypes: ["system", "human", "ai", "tool"],
+      });
+    });
+    expect(await screen.findByText("system prompt")).toBeVisible();
+    expect(screen.getByText(/搜索结果/)).toBeVisible();
+  });
+
+  it("lets administrators collapse and reopen the message filter panel", async () => {
+    useAuthStore.setState({
+      user: { ...normalUser, role: 2, nickname: "管理员" },
+    });
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+
+    const toggle = screen.getByRole("button", { name: "收起消息视图筛选" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("checkbox", { name: "系统" })).toBeVisible();
+
+    await userEvent.click(toggle);
+
+    expect(
+      screen.getByRole("button", { name: "展开消息视图筛选" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("checkbox", { name: "系统" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("用户、AI")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "展开消息视图筛选" }),
+    );
+
+    expect(screen.getByRole("checkbox", { name: "系统" })).toBeVisible();
+  });
+
+  it("resets to the safe message view after an administrator is downgraded", async () => {
+    useAuthStore.setState({
+      user: { ...normalUser, role: 2, nickname: "管理员" },
+    });
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+    await userEvent.click(screen.getByRole("checkbox", { name: "工具" }));
+
+    useAuthStore.setState({ user: normalUser });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("group", { name: "消息类型筛选" }),
+      ).not.toBeInTheDocument();
+      expect(aiConversationApi.getMessages).toHaveBeenLastCalledWith(1, {
+        messageTypes: ["human", "ai"],
+      });
     });
   });
 

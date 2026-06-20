@@ -4,6 +4,7 @@ import {
   Bot,
   ChevronLeft,
   ChevronRight,
+  SlidersHorizontal,
   MessageSquarePlus,
   PanelLeftOpen,
   RefreshCw,
@@ -19,8 +20,10 @@ import { getApiErrorMessage } from "../shared/apiError";
 import type {
   AIConversation,
   AIConversationMessage,
+  AIConversationRole,
   AIStreamChunk,
 } from "../shared/api/types";
+import { useAuthStore } from "../shared/stores/authStore";
 import { formatRelativeTime } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
@@ -37,9 +40,57 @@ type UIChatMessage = AIConversationMessage & {
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const nowIso = () => new Date().toISOString();
+const MESSAGE_TYPE_ORDER: AIConversationRole[] = ["system", "human", "ai", "tool"];
+const MESSAGE_TYPE_LABELS: Record<AIConversationRole, string> = {
+  system: "系统",
+  human: "用户",
+  ai: "AI",
+  tool: "工具",
+};
+const DEFAULT_MESSAGE_TYPES: AIConversationRole[] = ["human", "ai"];
+
+const formatContentBlocks = (blocks: unknown[]): string =>
+  blocks
+    .map((block) => {
+      if (
+        typeof block === "object" &&
+        block !== null &&
+        "text" in block &&
+        typeof block.text === "string"
+      ) {
+        return block.text;
+      }
+      return JSON.stringify(block, null, 2);
+    })
+    .join("\n\n");
+
+const formatMessageContent = (message: AIConversationMessage): string => {
+  if (typeof message.content === "string" && message.content) {
+    if (message.role === "tool" && message.content.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(message.content);
+        if (Array.isArray(parsed)) {
+          return formatContentBlocks(parsed);
+        }
+      } catch {
+        // 历史工具消息不一定是 JSON，按原始文本展示。
+      }
+    }
+    return message.content;
+  }
+  if (Array.isArray(message.content)) {
+    return formatContentBlocks(message.content);
+  }
+  if (message.tool_calls?.length) {
+    return JSON.stringify(message.tool_calls, null, 2);
+  }
+  return "";
+};
 
 export const AIAssistantPage = () => {
   const navigate = useNavigate();
+  const currentUser = useAuthStore((state) => state.user);
+  const isAdmin = currentUser?.role === 2 || currentUser?.role === 3;
 
   const [conversations, setConversations] = useState<AIConversation[]>([]);
   const [currentId, setCurrentId] = useState<number | null>(null);
@@ -55,6 +106,9 @@ export const AIAssistantPage = () => {
   const [showReasoning, setShowReasoning] = useState<Record<string, boolean>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
+  const [selectedMessageTypes, setSelectedMessageTypes] =
+    useState<AIConversationRole[]>(DEFAULT_MESSAGE_TYPES);
+  const [messageFilterExpanded, setMessageFilterExpanded] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -72,6 +126,13 @@ export const AIAssistantPage = () => {
   );
 
   const hasActiveChat = currentConversation != null || isDraft;
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setSelectedMessageTypes(DEFAULT_MESSAGE_TYPES);
+      setMessageFilterExpanded(true);
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -123,7 +184,7 @@ export const AIAssistantPage = () => {
     let cancelled = false;
     setLoadingMessages(true);
     aiConversationApi
-      .getMessages(currentId)
+      .getMessages(currentId, { messageTypes: selectedMessageTypes })
       .then((res) => {
         if (cancelled) return;
         const restoredReasoning: Record<string, string> = {};
@@ -153,7 +214,7 @@ export const AIAssistantPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [currentId]);
+  }, [currentId, selectedMessageTypes]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -462,6 +523,18 @@ export const AIAssistantPage = () => {
     }
   };
 
+  const toggleMessageType = (messageType: AIConversationRole) => {
+    setSelectedMessageTypes((current) => {
+      const next = current.includes(messageType)
+        ? current.filter((item) => item !== messageType)
+        : [...current, messageType];
+      if (next.length === 0) {
+        return current;
+      }
+      return MESSAGE_TYPE_ORDER.filter((item) => next.includes(item));
+    });
+  };
+
   const renderChatHeader = () => {
     if (isDraft) {
       return (
@@ -611,6 +684,63 @@ export const AIAssistantPage = () => {
             <>
               {renderChatHeader()}
 
+              {isAdmin && currentConversation && (
+                <section className="ai-message-filter">
+                  <button
+                    type="button"
+                    className="ai-message-filter__toggle"
+                    aria-expanded={messageFilterExpanded}
+                    aria-controls="ai-message-filter-options"
+                    aria-label={
+                      messageFilterExpanded
+                        ? "收起消息视图筛选"
+                        : "展开消息视图筛选"
+                    }
+                    onClick={() =>
+                      setMessageFilterExpanded((expanded) => !expanded)
+                    }
+                  >
+                    <span className="ai-message-filter__heading">
+                      <SlidersHorizontal size={15} />
+                      <span>消息视图</span>
+                    </span>
+                    <span className="ai-message-filter__summary">
+                      {selectedMessageTypes
+                        .map((messageType) => MESSAGE_TYPE_LABELS[messageType])
+                        .join("、")}
+                    </span>
+                    <ChevronRight
+                      size={15}
+                      className={`ai-message-filter__chevron ${
+                        messageFilterExpanded
+                          ? "ai-message-filter__chevron--expanded"
+                          : ""
+                      }`}
+                    />
+                  </button>
+
+                  {messageFilterExpanded && (
+                    <fieldset
+                      id="ai-message-filter-options"
+                      className="ai-message-filter__options"
+                      aria-label="消息类型筛选"
+                    >
+                      <legend className="sr-only">消息类型筛选</legend>
+                      {MESSAGE_TYPE_ORDER.map((messageType) => (
+                        <label key={messageType}>
+                          <input
+                            type="checkbox"
+                            checked={selectedMessageTypes.includes(messageType)}
+                            onChange={() => toggleMessageType(messageType)}
+                          />
+                          <span>{MESSAGE_TYPE_LABELS[messageType]}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+                </section>
+              )}
+
               <div className="ai-assistant-messages">
                 {loadingMessages ? (
                   <div className="ai-assistant-empty">加载消息中...</div>
@@ -618,8 +748,16 @@ export const AIAssistantPage = () => {
                   <div className="ai-assistant-empty">开始对话吧</div>
                 ) : (
                   messages.map((msg) => {
-                    if (msg.role === "system") return null;
+                    if (
+                      !isAdmin &&
+                      msg.role !== "human" &&
+                      msg.role !== "ai"
+                    ) {
+                      return null;
+                    }
                     const isUser = msg.role === "human";
+                    const isInternal = msg.role === "system" || msg.role === "tool";
+                    const displayContent = formatMessageContent(msg);
                     const reasoning = reasoningMap[msg.id];
                     const hasReasoning = Boolean(reasoning);
                     const isFailed =
@@ -633,12 +771,22 @@ export const AIAssistantPage = () => {
                     return (
                       <div
                         key={msg.id}
-                        className={`ai-assistant-message ${isUser ? "user" : "ai"}`}
+                        className={`ai-assistant-message ${
+                          isUser ? "user" : isInternal ? "internal" : "ai"
+                        }`}
                       >
                         <div className="ai-message-avatar">
                           {isUser ? <User size={16} /> : <Bot size={16} />}
                         </div>
                         <div className="ai-message-content">
+                          {isAdmin && (
+                            <div
+                              className={`ai-message-role ai-message-role--${msg.role}`}
+                            >
+                              {MESSAGE_TYPE_LABELS[msg.role]}
+                              {msg.name ? ` · ${msg.name}` : ""}
+                            </div>
+                          )}
                           {!isUser && (hasReasoning || isThinking) && (
                             <div className="ai-thinking-panel">
                               <button
@@ -665,9 +813,9 @@ export const AIAssistantPage = () => {
                             </div>
                           )}
 
-                          {(msg.content as string) !== "" && (
+                          {displayContent !== "" && (
                             <div className="ai-message-bubble">
-                              {msg.content as string}
+                              {displayContent}
                               {msg.streaming && (
                                 <span className="ai-message-cursor" />
                               )}

@@ -7,6 +7,7 @@
 | 文件 | 说明 |
 | --- | --- |
 | `error-codes.md` | 统一错误码与 HTTP 状态码规范。由后端脚本自动生成。 |
+| `ai-conversation-messages.md` | AI 会话消息历史的角色权限与类型筛选契约。 |
 
 ## 错误码文档生成
 
