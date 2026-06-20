@@ -47,7 +47,6 @@ class UserProfile(Base):
     )
 
     __table_args__ = (
-        Index("idx_user_profiles_user_id", "user_id", unique=True),
         Index("idx_user_profiles_updated_at", "updated_at"),
     )
 

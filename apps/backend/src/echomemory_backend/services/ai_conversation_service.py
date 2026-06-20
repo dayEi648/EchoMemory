@@ -616,7 +616,6 @@ async def stream_message(
     config = _build_thread_config(conversation.thread_id)
 
     model_name: str | None = conversation.model
-    emitted_error = False
     accumulated_content = ""
 
     try:
@@ -664,24 +663,25 @@ async def stream_message(
 
     except Exception:
         logger.exception("AI stream failed for conversation %s", conversation.id)
-        emitted_error = True
         yield AIStreamChunkOut(
             type="error",
             data="AI 流式响应失败",
             model=model_name,
         )
-    finally:
-        if not emitted_error:
-            yield AIStreamChunkOut(type="done", data="", model=model_name)
-            try:
-                await user_profile_service.maybe_update_user_profile(
-                    db, user_id=user_id, conversation=conversation
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to update user profile for conversation %s",
-                    conversation.id,
-                )
+        return
+
+    try:
+        await user_profile_service.maybe_update_user_profile(
+            db, user_id=user_id, conversation=conversation
+        )
+    except Exception:
+        logger.exception(
+            "Failed to update user profile for conversation %s",
+            conversation.id,
+        )
+
+    # done 是客户端停止读取的协议边界，必须在画像维护完成后发送。
+    yield AIStreamChunkOut(type="done", data="", model=model_name)
 
 
 async def delete_conversation(

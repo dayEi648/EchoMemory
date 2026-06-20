@@ -130,8 +130,13 @@ class User(Base):
     followers: Mapped[list["UserFollow"]] = relationship(
         "UserFollow", foreign_keys="UserFollow.followee_id", back_populates="followee"
     )
-    profile: Mapped["UserProfile"] = relationship(
-        "UserProfile", back_populates="user", uselist=False
+    profile: Mapped["UserProfile | None"] = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        single_parent=True,
     )
 
 
