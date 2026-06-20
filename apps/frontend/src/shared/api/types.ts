@@ -420,6 +420,7 @@ export type CommentItem = {
   parent_id: number | null;
   root_id: number | null;
   is_nested_reply: boolean;
+  parent_user?: CommentUser | null;
   created_at: string;
   liked_by_me?: boolean;
   disliked_by_me?: boolean;

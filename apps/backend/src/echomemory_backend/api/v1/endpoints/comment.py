@@ -46,7 +46,8 @@ async def create_comment(
         content=data.content,
         parent_id=data.parent_id,
     )
-    return comment_service.build_comment_out(comment, set(), set())
+    outs = await comment_service.build_comment_outs(db, [comment], current_user.id)
+    return outs[0]
 
 
 @router.get("/{target_type}/{target_id}", response_model=PaginatedCommentOut)

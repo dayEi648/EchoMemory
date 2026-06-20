@@ -9,7 +9,7 @@ from sqlalchemy.orm import aliased, selectinload
 from echomemory_backend.db.pagination import paginate
 from echomemory_backend.models.comment import Comment, CommentDislike, CommentLike
 from echomemory_backend.models.enums import NotificationType
-from echomemory_backend.schemas.comment import CommentOut
+from echomemory_backend.schemas.comment import CommentOut, CommentUserOut
 from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
@@ -632,10 +632,40 @@ async def _get_user_comment_reactions(
     return set(liked_result.scalars().all()), set(disliked_result.scalars().all())
 
 
+async def _get_parent_users(
+    db: AsyncSession,
+    parent_ids: list[int],
+) -> dict[int, CommentUserOut]:
+    """批量查询父评论的作者信息。
+
+    Args:
+        db: SQLAlchemy 异步 Session。
+        parent_ids: 父评论主键列表。
+
+    Returns:
+        父评论 ID 到作者信息（CommentUserOut）的映射。
+    """
+    if not parent_ids:
+        return {}
+    from echomemory_backend.models.user import User
+
+    stmt = (
+        select(Comment.id, User)
+        .join(User, Comment.user_id == User.id)
+        .where(Comment.id.in_(parent_ids))
+    )
+    result = await db.execute(stmt)
+    return {
+        comment_id: CommentUserOut.model_validate(user)
+        for comment_id, user in result.all()
+    }
+
+
 def build_comment_out(
     comment: Comment,
     liked_ids: set[int],
     disliked_ids: set[int],
+    parent_user: CommentUserOut | None = None,
 ) -> CommentOut:
     """将评论 ORM 实例转换为带互动状态的 CommentOut。
 
@@ -643,14 +673,16 @@ def build_comment_out(
         comment: 评论 ORM 实例。
         liked_ids: 当前用户已点赞的评论 ID 集合。
         disliked_ids: 当前用户已点踩的评论 ID 集合。
+        parent_user: 父评论作者信息，无父评论时为 None。
 
     Returns:
-        包含 liked_by_me / disliked_by_me 的 CommentOut。
+        包含 liked_by_me / disliked_by_me / parent_user 的 CommentOut。
     """
     return CommentOut.model_validate(comment).model_copy(
         update={
             "liked_by_me": comment.id in liked_ids,
             "disliked_by_me": comment.id in disliked_ids,
+            "parent_user": parent_user,
         }
     )
 
@@ -674,6 +706,11 @@ async def build_comment_outs(
     liked_ids, disliked_ids = await _get_user_comment_reactions(
         db, viewer_user_id, comment_ids
     )
+    parent_ids = list({c.parent_id for c in comments if c.parent_id is not None})
+    parent_users = await _get_parent_users(db, parent_ids)
     return [
-        build_comment_out(comment, liked_ids, disliked_ids) for comment in comments
+        build_comment_out(
+            comment, liked_ids, disliked_ids, parent_users.get(comment.parent_id)
+        )
+        for comment in comments
     ]

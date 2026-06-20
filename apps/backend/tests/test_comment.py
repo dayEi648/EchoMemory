@@ -231,6 +231,42 @@ class TestCreateComment:
         assert data["root_id"] == root.id
         assert data["is_nested_reply"] is True
 
+    async def test_create_nested_reply_includes_parent_user(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试创建嵌套回复时响应包含父评论作者信息。"""
+        root_author = await _create_user(db_session, "root_author_pu")
+        reply_author = await _create_user(db_session, "reply_author_pu")
+        nested_author = await _create_user(db_session, "nested_author_pu")
+        music = await _create_music_directly(db_session, title="SongWithParentUser")
+        root = await _create_comment_directly(
+            db_session, root_author.id, "Root", music_id=music.id
+        )
+        reply = await _create_comment_directly(
+            db_session,
+            reply_author.id,
+            "Reply",
+            music_id=music.id,
+            parent_id=root.id,
+            root_id=root.id,
+        )
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(nested_author),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Nested with parent user",
+                "parent_id": reply.id,
+            },
+        )
+        assert resp.status_code == 201
+        data = api_data(resp)
+        assert data["parent_user"] is not None
+        assert data["parent_user"]["id"] == reply_author.id
+        assert data["parent_user"]["nickname"] == reply_author.nickname
+
     async def test_create_comment_invalid_target_type(self, client: TestClient, db_session: AsyncSession):
         """测试使用无效目标类型发表评论时返回 400。"""
         user = await _create_user(db_session, "comment_invalid_type")
@@ -470,6 +506,33 @@ class TestListComments:
         data = api_data(resp)
         assert data["total"] == 2
         assert len(data["items"]) == 2
+
+    async def test_list_replies_includes_parent_user(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试回复列表包含父评论作者信息。"""
+        root_author = await _create_user(db_session, "root_author_lpu")
+        reply_author = await _create_user(db_session, "reply_author_lpu")
+        music = await _create_music_directly(db_session)
+        root = await _create_comment_directly(
+            db_session, root_author.id, "Root", music_id=music.id
+        )
+        await _create_comment_directly(
+            db_session,
+            reply_author.id,
+            "Reply",
+            music_id=music.id,
+            parent_id=root.id,
+            root_id=root.id,
+        )
+
+        resp = client.get(f"{BASE_URL}/replies/{root.id}")
+        assert resp.status_code == 200
+        items = api_data(resp)["items"]
+        assert len(items) == 1
+        assert items[0]["parent_user"] is not None
+        assert items[0]["parent_user"]["id"] == root_author.id
+        assert items[0]["parent_user"]["nickname"] == root_author.nickname
 
     async def test_list_replies_empty_when_root_deleted(
         self, client: TestClient, db_session: AsyncSession

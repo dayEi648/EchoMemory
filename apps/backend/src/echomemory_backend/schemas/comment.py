@@ -30,6 +30,7 @@ class CommentOut(BaseModel):
     parent_id: int | None = None
     root_id: int | None = None
     is_nested_reply: bool
+    parent_user: CommentUserOut | None = None
     created_at: datetime
     liked_by_me: bool = False
     disliked_by_me: bool = False

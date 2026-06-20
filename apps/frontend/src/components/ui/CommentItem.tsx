@@ -44,6 +44,7 @@ export const CommentItem = ({
 
   const isOwner = currentUserId === comment.user.id;
   const isRoot = comment.parent_id === null;
+  const isNestedReply = comment.is_nested_reply;
   const lastReplyRefreshKey = useRef(replyRefreshKey);
 
   useEffect(() => {
@@ -141,12 +142,25 @@ export const CommentItem = ({
 
   return (
     <>
-      <div className={isRoot ? "comment-item" : "comment-item comment-item--reply"}>
+      <div
+        className={[
+          "comment-item",
+          !isRoot ? "comment-item--reply" : "",
+          isNestedReply ? "comment-item--nested-reply" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <div style={{ display: "flex", gap: 10 }}>
         <Avatar user={comment.user} size="sm" />
         <div className="comment-item-body">
           <div className="comment-item-meta">
             <span className="comment-item-author">{comment.user.nickname}</span>
+            {comment.parent_user && (
+              <span className="comment-item-reply-to">
+                回复 <strong>@{comment.parent_user.nickname}</strong>
+              </span>
+            )}
             <span className="comment-item-time">{formatRelativeTime(comment.created_at)}</span>
           </div>
           <p className="comment-item-content">{comment.content}</p>

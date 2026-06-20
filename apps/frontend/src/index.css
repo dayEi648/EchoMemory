@@ -2066,6 +2066,12 @@ textarea {
   margin-bottom: 8px;
 }
 
+.comment-item--nested-reply {
+  margin-left: 16px;
+  padding-left: 12px;
+  border-left: 2px solid var(--color-hairline);
+}
+
 .comment-item-body {
   flex: 1;
   min-width: 0;
@@ -2080,6 +2086,16 @@ textarea {
 
 .comment-item-author {
   font-size: 13px;
+  font-weight: 600;
+}
+
+.comment-item-reply-to {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.comment-item-reply-to strong {
+  color: var(--color-accent-2);
   font-weight: 600;
 }
 
