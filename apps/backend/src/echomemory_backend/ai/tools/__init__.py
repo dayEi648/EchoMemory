@@ -5,12 +5,29 @@
 
 工具可以复用 ``services/`` 中的核心领域能力（如用户鉴权、歌单 CRUD），
 但不应把 AI 域逻辑强行下沉到 ``services/``，避免 Agent 服务无法独立演进。
-当前尚未注册任何工具；后续按业务领域新增模块（如 ``music.py``、``playlist.py``），
-并在此 ``__init__`` 的 ``TOOLS`` 列表中汇总，供 ``ToolNode`` 或动态发现使用。
 """
 
-from typing import Any
+from echomemory_backend.ai.tools.registry import (
+    ToolMetadata,
+    ToolRegistry,
+    ToolResolutionContext,
+    get_tool_registry,
+)
+from echomemory_backend.ai.tools.web_search import search_web
 
-TOOLS: list[Any] = []
+# 全局默认注册表，启动时即挂载所有可用工具。
+_default_registry = get_tool_registry()
+_default_registry.register(
+    search_web,
+    read_only=True,
+    allow_parallel=True,
+    tags=["search", "web"],
+)
 
-__all__ = ["TOOLS"]
+__all__ = [
+    "ToolMetadata",
+    "ToolRegistry",
+    "ToolResolutionContext",
+    "get_tool_registry",
+    "search_web",
+]

@@ -29,10 +29,15 @@ dependencies = [
     "openai>=2.41.1",
     "pgvector>=0.4.2",
     "langgraph-checkpoint-postgres>=3.1.0",
+    "langchain-mcp-adapters>=0.3.0",
 ]
 
 [project.scripts]
 start = "echomemory_backend.cli:start"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
 
 [project.optional-dependencies]
 dev = [

@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     ai_default_model: str = "deepseek-v4-flash"
     ai_default_title: str = "新对话"
     ai_max_context_messages: int = 50
+    ai_tool_recursion_limit: int = 15
+
+    # IQS 联网搜索
+    iqs_api_key: str | None = None
+    iqs_mcp_url: str = (
+        "https://iqs-mcp.aliyuncs.com/mcp-servers/iqs-mcp-server-search"
+    )
+    iqs_mcp_tool_name: str = "common_search"
 
     # Embedding（阿里云 DashScope text-embedding-v4）
     dashscope_api_key: str | None = None

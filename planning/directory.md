@@ -61,6 +61,8 @@
 │   │   │       │   │   └── deepseek_chat.py # DeepSeek ChatModel 适配器
 │   │   │       │   ├── tools/              # 跨 Graph/Chain 复用的工具
 │   │   │       │   │   ├── __init__.py
+│   │   │       │   │   ├── registry.py     # 工具元数据、动态解析与并发限制
+│   │   │       │   │   ├── web_search.py   # 阿里云 IQS Search MCP 联网搜索
 │   │   │       │   │   └── ...             # 未来：music.py, playlist.py 等
 │   │   │       │   └── graphs/             # LangGraph 工作流与共享设施
 │   │   │       │       ├── __init__.py
@@ -71,6 +73,7 @@
 │   │   │       │           ├── nodes/      # 普通节点目录
 │   │   │       │           │   ├── __init__.py
 │   │   │       │           │   ├── chatbot.py
+│   │   │       │           │   ├── tool_node.py # 元数据感知的工具执行节点
 │   │   │       │           │   └── streaming_parser.py # 旧标签回复兼容解析
 │   │   │       │           ├── builder.py  # 状态图构建器
 │   │   │       │           └── prompts.py  # 对话提示词常量
@@ -170,6 +173,10 @@
 │   │       ├── __init__.py
 │   │       ├── conftest.py         # 测试夹具（数据库、FakeRedis、TestClient）
 │   │       ├── test_ai_conversation.py   # AI 对话测试
+│   │       ├── test_deepseek_tool_calling.py # DeepSeek 工具调用协议测试
+│   │       ├── test_tool_node.py         # 工具执行节点测试
+│   │       ├── test_tool_registry.py     # 工具注册与解析测试
+│   │       ├── test_web_search_tool.py   # IQS MCP 联网搜索测试
 │   │       ├── test_streaming_parser.py  # 旧标签回复兼容解析测试
 │   │       ├── test_album.py
 │   │       ├── test_auth.py

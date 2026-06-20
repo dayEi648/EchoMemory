@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any, AsyncIterator, Iterator
 
 from langchain_core.callbacks import (
@@ -19,12 +21,16 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 
 from echomemory_backend.ai.clients.deepseek import ChatMessage, DeepSeekClient
 from echomemory_backend.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _convert_message(message: BaseMessage) -> ChatMessage:
@@ -44,15 +50,51 @@ def _convert_message(message: BaseMessage) -> ChatMessage:
     if isinstance(message, HumanMessage):
         return ChatMessage(role="user", content=str(message.content))
     if isinstance(message, AIMessage):
-        return ChatMessage(role="assistant", content=str(message.content))
+        return ChatMessage(
+            role="assistant",
+            content=str(message.content),
+            tool_calls=_convert_langchain_tool_calls(message.tool_calls),
+        )
+    if isinstance(message, ToolMessage):
+        return ChatMessage(
+            role="tool",
+            content=str(message.content),
+            tool_call_id=message.tool_call_id,
+            name=getattr(message, "name", None),
+        )
     raise ValueError(f"不支持发送给 LLM 的消息类型: {type(message).__name__}")
+
+
+def _convert_langchain_tool_calls(
+    tool_calls: list[dict[str, Any]],
+) -> list[dict[str, Any]] | None:
+    """把 LangChain ToolCall 转换为 OpenAI assistant tool_calls。"""
+    if not tool_calls:
+        return None
+
+    return [
+        {
+            "id": tool_call.get("id", ""),
+            "type": "function",
+            "function": {
+                "name": tool_call.get("name", ""),
+                "arguments": json.dumps(
+                    tool_call.get("args", {}),
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+            },
+        }
+        for tool_call in tool_calls
+    ]
 
 
 def _filter_llm_messages(messages: list[BaseMessage]) -> list[ChatMessage]:
     """过滤并截断可发送给 LLM 的消息。
 
-    - ToolMessage 仅用于状态保存，不透传给模型。
-    - 保留 SystemMessage 与最近的 ``ai_max_context_messages`` 条消息，
+    - 保留 SystemMessage、HumanMessage、AIMessage 与 ToolMessage；
+      ToolMessage 会透传给模型以支持函数调用上下文。
+    - 保留 SystemMessage 与最近的 ``ai_max_context_messages`` 条非系统消息，
       避免上下文窗口无限增长。
 
     参数:
@@ -66,8 +108,6 @@ def _filter_llm_messages(messages: list[BaseMessage]) -> list[ChatMessage]:
     has_user_message = False
 
     for message in messages:
-        if message.type == "tool":
-            continue
         if isinstance(message, SystemMessage):
             if system_message is None:
                 system_message = message
@@ -84,13 +124,72 @@ def _filter_llm_messages(messages: list[BaseMessage]) -> list[ChatMessage]:
 
     max_context = settings.ai_max_context_messages
     if len(llm_messages) > max_context:
-        llm_messages = llm_messages[-max_context:]
+        start_index = len(llm_messages) - max_context
+        while (
+            start_index > 0
+            and isinstance(llm_messages[start_index], ToolMessage)
+        ):
+            start_index -= 1
+            if (
+                isinstance(llm_messages[start_index], AIMessage)
+                and llm_messages[start_index].tool_calls
+            ):
+                break
+        llm_messages = llm_messages[start_index:]
 
     result: list[ChatMessage] = []
     if system_message is not None:
         result.append(_convert_message(system_message))
     result.extend(_convert_message(m) for m in llm_messages)
     return result
+
+
+def _parse_tool_call_arguments(arguments: str) -> dict[str, Any]:
+    """将工具调用的 JSON 参数字符串解析为字典。"""
+    if not arguments:
+        return {}
+    try:
+        return json.loads(arguments)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse tool call arguments: %s", arguments)
+        return {}
+
+
+def _convert_client_tool_calls(tool_calls: list[dict] | None) -> list[dict[str, Any]]:
+    """将 DeepSeekClient 返回的 OpenAI 格式 tool_calls 转为 LangChain ToolCall 列表。"""
+    if not tool_calls:
+        return []
+    result: list[dict[str, Any]] = []
+    for tc in tool_calls:
+        function = tc.get("function", {})
+        result.append(
+            {
+                "id": tc.get("id", ""),
+                "type": "tool_call",
+                "name": function.get("name", ""),
+                "args": _parse_tool_call_arguments(function.get("arguments", "")),
+            }
+        )
+    return result
+
+
+def _convert_client_tool_call_chunks(
+    tool_call_chunks: list[dict] | None,
+) -> list[dict[str, Any]]:
+    """把底层流式工具调用片段转换为 LangChain ToolCallChunk。"""
+    if not tool_call_chunks:
+        return []
+
+    return [
+        {
+            "name": chunk.get("name"),
+            "args": chunk.get("args", ""),
+            "id": chunk.get("id"),
+            "index": chunk.get("index"),
+            "type": "tool_call_chunk",
+        }
+        for chunk in tool_call_chunks
+    ]
 
 
 class DeepSeekChatModel(BaseChatModel):
@@ -130,6 +229,25 @@ class DeepSeekChatModel(BaseChatModel):
             )
         return self._client
 
+    def bind_tools(
+        self,
+        tools: Any,
+        *,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """绑定工具到模型。
+
+        参数:
+            tools: BaseTool 列表或已格式化的工具定义。
+            tool_choice: 工具选择策略，如 "auto" / "required" / "none"。
+
+        返回:
+            绑定工具后的 Runnable。
+        """
+        formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
+        return self.bind(tools=formatted_tools, tool_choice=tool_choice, **kwargs)
+
     def _build_chat_messages(self, messages: list[BaseMessage]) -> list[ChatMessage]:
         """构建发送给 DeepSeek 的消息列表。
 
@@ -141,12 +259,18 @@ class DeepSeekChatModel(BaseChatModel):
         """
         return _filter_llm_messages(messages)
 
-    def _build_ai_message(self, content: str, reasoning_content: str | None = None) -> AIMessage:
+    def _build_ai_message(
+        self,
+        content: str,
+        reasoning_content: str | None = None,
+        tool_calls: list[dict] | None = None,
+    ) -> AIMessage:
         """根据模型返回构造 AIMessage。
 
         参数:
             content: 模型生成的文本内容。
             reasoning_content: 思考模型的推理内容，可选。
+            tool_calls: 模型请求调用的工具列表，可选。
 
         返回:
             AIMessage 实例。
@@ -154,7 +278,11 @@ class DeepSeekChatModel(BaseChatModel):
         additional_kwargs: dict[str, Any] = {}
         if reasoning_content:
             additional_kwargs["reasoning_content"] = reasoning_content
-        return AIMessage(content=content, additional_kwargs=additional_kwargs)
+        return AIMessage(
+            content=content,
+            tool_calls=_convert_client_tool_calls(tool_calls),
+            additional_kwargs=additional_kwargs,
+        )
 
     def _generate(
         self,
@@ -169,12 +297,22 @@ class DeepSeekChatModel(BaseChatModel):
         本方法主要用于兼容 LangChain 同步调用链。
         """
         chat_messages = self._build_chat_messages(messages)
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
         response = self.client.chat_sync(
             chat_messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            tools=tools,
+            tool_choice=tool_choice,
         )
-        generation = ChatGeneration(message=self._build_ai_message(response.content, response.reasoning_content))
+        generation = ChatGeneration(
+            message=self._build_ai_message(
+                response.content,
+                response.reasoning_content,
+                response.tool_calls,
+            )
+        )
         return ChatResult(generations=[generation])
 
     async def _agenerate(
@@ -186,12 +324,22 @@ class DeepSeekChatModel(BaseChatModel):
     ) -> ChatResult:
         """异步生成模型回复。"""
         chat_messages = self._build_chat_messages(messages)
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
         response = await self.client.chat(
             chat_messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            tools=tools,
+            tool_choice=tool_choice,
         )
-        generation = ChatGeneration(message=self._build_ai_message(response.content, response.reasoning_content))
+        generation = ChatGeneration(
+            message=self._build_ai_message(
+                response.content,
+                response.reasoning_content,
+                response.tool_calls,
+            )
+        )
         return ChatResult(generations=[generation])
 
     async def _astream(
@@ -203,10 +351,14 @@ class DeepSeekChatModel(BaseChatModel):
     ) -> AsyncIterator[ChatGenerationChunk]:
         """异步流式生成模型回复。"""
         chat_messages = self._build_chat_messages(messages)
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
         async for chunk in self.client.chat_stream(
             chat_messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            tools=tools,
+            tool_choice=tool_choice,
         ):
             additional_kwargs: dict[str, Any] = {}
             if chunk.reasoning_content:
@@ -214,6 +366,24 @@ class DeepSeekChatModel(BaseChatModel):
             yield ChatGenerationChunk(
                 message=AIMessageChunk(
                     content=chunk.content,
+                    tool_call_chunks=(
+                        _convert_client_tool_call_chunks(chunk.tool_call_chunks)
+                        or [
+                            {
+                                "name": tool_call["name"],
+                                "args": json.dumps(
+                                    tool_call["args"],
+                                    ensure_ascii=False,
+                                ),
+                                "id": tool_call["id"],
+                                "index": index,
+                                "type": "tool_call_chunk",
+                            }
+                            for index, tool_call in enumerate(
+                                _convert_client_tool_calls(chunk.tool_calls)
+                            )
+                        ]
+                    ),
                     additional_kwargs=additional_kwargs,
                 ),
                 generation_info={"model": chunk.model} if chunk.model else None,
@@ -228,10 +398,14 @@ class DeepSeekChatModel(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         """同步流式生成模型回复（LangChain 接口要求）。"""
         chat_messages = self._build_chat_messages(messages)
+        tools = kwargs.get("tools")
+        tool_choice = kwargs.get("tool_choice")
         for chunk in self.client.chat_stream_sync(
             chat_messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            tools=tools,
+            tool_choice=tool_choice,
         ):
             additional_kwargs: dict[str, Any] = {}
             if chunk.reasoning_content:
@@ -239,6 +413,24 @@ class DeepSeekChatModel(BaseChatModel):
             yield ChatGenerationChunk(
                 message=AIMessageChunk(
                     content=chunk.content,
+                    tool_call_chunks=(
+                        _convert_client_tool_call_chunks(chunk.tool_call_chunks)
+                        or [
+                            {
+                                "name": tool_call["name"],
+                                "args": json.dumps(
+                                    tool_call["args"],
+                                    ensure_ascii=False,
+                                ),
+                                "id": tool_call["id"],
+                                "index": index,
+                                "type": "tool_call_chunk",
+                            }
+                            for index, tool_call in enumerate(
+                                _convert_client_tool_calls(chunk.tool_calls)
+                            )
+                        ]
+                    ),
                     additional_kwargs=additional_kwargs,
                 ),
                 generation_info={"model": chunk.model} if chunk.model else None,

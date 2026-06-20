@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, status
 from fastapi.responses import StreamingResponse
 
 from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
+from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.schemas.ai_conversation import (
     AIConversationCreate,
     AIConversationMessageCreate,
@@ -21,6 +22,12 @@ from echomemory_backend.schemas.ai_conversation import (
 from echomemory_backend.services import ai_conversation_service
 
 logger = logging.getLogger(__name__)
+
+
+def _read_only_for_user(user: ActiveUser) -> bool:
+    """根据用户状态判断是否只允许使用只读工具。"""
+    return user.status in (UserStatus.MUTED, UserStatus.RESTRICTED)
+
 
 router = APIRouter(prefix="/ai/conversations", tags=["ai-conversations"])
 
@@ -71,6 +78,7 @@ async def create_ai_conversation(
     若 ``stream=True`` 且 ``first_message`` 非空，则以 ``text/event-stream`` 格式流式返回首条回复；
     首个 content chunk 的 ``meta.conversation`` 携带会话元数据。
     """
+    read_only = _read_only_for_user(current_user)
     if data.stream and data.first_message:
         stream = ai_conversation_service.stream_first_message(
             db,
@@ -78,6 +86,7 @@ async def create_ai_conversation(
             title=data.title,
             model=data.model,
             content=data.first_message,
+            read_only=read_only,
         )
         return StreamingResponse(
             _stream_response(stream),
@@ -90,6 +99,7 @@ async def create_ai_conversation(
         title=data.title,
         model=data.model,
         first_message=data.first_message,
+        read_only=read_only,
     )
     return AIConversationWithFirstMessageOut(
         conversation=AIConversationOut.model_validate(conversation),
@@ -123,6 +133,7 @@ async def send_ai_message(
     当 ``stream=True`` 时，以 ``text/event-stream`` 格式流式返回 AI 回复；
     否则返回完整的 AI 回复消息 JSON。
     """
+    read_only = _read_only_for_user(current_user)
     conversation = await ai_conversation_service.get_conversation(
         db, user_id=current_user.id, conversation_id=conversation_id
     )
@@ -133,6 +144,7 @@ async def send_ai_message(
             user_id=current_user.id,
             conversation=conversation,
             content=data.content,
+            read_only=read_only,
         )
         return StreamingResponse(
             _stream_response(stream),
@@ -144,6 +156,7 @@ async def send_ai_message(
         user_id=current_user.id,
         conversation=conversation,
         content=data.content,
+        read_only=read_only,
     )
     return ai_message
 

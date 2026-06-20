@@ -9,11 +9,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
+from echomemory_backend.ai.graphs.conversation.builder import (
+    build_graph,
+    get_thread_config,
+)
 from echomemory_backend.ai.langchain.deepseek_chat import _filter_llm_messages
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
-from echomemory_backend.models.ai_conversation import AIConversation, AIConversationStatus
+from echomemory_backend.models.ai_conversation import (
+    AIConversation,
+    AIConversationStatus,
+)
 from echomemory_backend.models.user import User
 from echomemory_backend.services import ai_conversation_service
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -211,7 +217,7 @@ class TestAIConversationMessages:
                 continue
             prefix = "data: "
             if line.startswith(prefix):
-                events.append(json.loads(line[len(prefix):]))
+                events.append(json.loads(line[len(prefix) :]))
 
         content_parts = [e["data"] for e in events if e["type"] == "content"]
         reasoning_parts = [e["data"] for e in events if e["type"] == "reasoning"]
@@ -312,7 +318,7 @@ class TestContextTrimming:
     """测试上下文截断逻辑。"""
 
     def test_filter_llm_messages_keeps_system_and_recent(self):
-        """应保留系统消息与最近 N 条非工具消息。"""
+        """应保留系统消息与最近 N 条消息（含工具消息）。"""
         original_max = settings.ai_max_context_messages
         settings.ai_max_context_messages = 3
         try:
@@ -327,10 +333,10 @@ class TestContextTrimming:
             result = _filter_llm_messages(messages)
             roles = [m.role for m in result]
             assert roles[0] == "system"
-            assert "tool" not in roles
-            assert len(result) == 4  # system + 3 recent
-            assert result[1].content == "msg2"
-            assert result[-1].content == "msg4"
+            assert "tool" in roles
+            assert len(result) == 4  # system + 3 recent (human, ai, tool)
+            assert result[1].content == "msg3"
+            assert result[-1].content == "tool"
         finally:
             settings.ai_max_context_messages = original_max
 
@@ -524,9 +530,7 @@ class TestAIConversationTitle:
         )
         assert resp.status_code == 404
 
-    async def test_manual_title_prevents_auto_generation(
-        self, client: TestClient
-    ):
+    async def test_manual_title_prevents_auto_generation(self, client: TestClient):
         """手动设置标题后，首条消息不再触发自动标题生成。"""
         token = _register_and_login(client, "ai_user_title_8")
         create_resp = client.post(

@@ -22,7 +22,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.clients.deepseek import ChatMessage, DeepSeekClient
-from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
+from echomemory_backend.ai.graphs.conversation.builder import build_graph
 from echomemory_backend.ai.graphs.conversation.nodes.streaming_parser import (
     parse_legacy_tagged_response,
 )
@@ -32,7 +32,11 @@ from echomemory_backend.ai.graphs.conversation.prompts import (
 )
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
-from echomemory_backend.models.ai_conversation import AIConversation, AIConversationStatus
+from echomemory_backend.models.ai_conversation import (
+    AIConversation,
+    AIConversationStatus,
+)
+from echomemory_backend.models.enums import UserStatus
 from echomemory_backend.schemas.ai_conversation import (
     AIConversationMessageOut,
     AIConversationOut,
@@ -136,6 +140,33 @@ def _sanitize_title(title: str) -> str:
     return cleaned
 
 
+def _is_read_only_user(status: int | None) -> bool:
+    """根据用户状态判断是否只允许使用只读工具。"""
+    if status is None:
+        return False
+    return status in (UserStatus.MUTED, UserStatus.RESTRICTED)
+
+
+def _build_graph_state(
+    user_id: int,
+    *,
+    read_only: bool = False,
+) -> dict[str, Any]:
+    """构造传入 LangGraph 的 state 基础字段。"""
+    return {
+        "user_id": user_id,
+        "read_only": read_only,
+    }
+
+
+def _build_thread_config(thread_id: str) -> dict[str, Any]:
+    """构造 LangGraph 线程配置，包含 recursion_limit 等运行时限制。"""
+    return {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": settings.ai_tool_recursion_limit,
+    }
+
+
 async def generate_conversation_title(
     user_message: str,
     ai_response: str,
@@ -205,6 +236,7 @@ async def create_conversation(
     title: str | None = None,
     model: str | None = None,
     first_message: str | None = None,
+    read_only: bool = False,
 ) -> tuple[AIConversation, AIConversationMessageOut | None]:
     """创建 AI 对话会话。
 
@@ -217,6 +249,7 @@ async def create_conversation(
         title: 会话标题；None 时使用默认标题。
         model: 模型 ID；None 时使用配置默认模型。
         first_message: 首条用户消息；None 表示仅创建空会话。
+        read_only: 是否只允许使用只读工具。
 
     返回:
         (AIConversation 实例, 首条 AI 回复消息或 None)。
@@ -233,12 +266,12 @@ async def create_conversation(
     conversation.thread_id = str(conversation.id)
 
     graph = build_graph(conversation.model)
-    config = get_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id)
     try:
         await graph.ainvoke(
             {
                 "messages": [SystemMessage(content=get_system_prompt())],
-                "user_id": user_id,
+                **_build_graph_state(user_id, read_only=read_only),
             },
             config,
         )
@@ -252,7 +285,11 @@ async def create_conversation(
     ai_reply: AIConversationMessageOut | None = None
     if first_message:
         ai_reply = await send_message(
-            db, user_id=user_id, conversation=conversation, content=first_message
+            db,
+            user_id=user_id,
+            conversation=conversation,
+            content=first_message,
+            read_only=read_only,
         )
 
     return conversation, ai_reply
@@ -265,6 +302,7 @@ async def stream_first_message(
     title: str | None = None,
     model: str | None = None,
     content: str,
+    read_only: bool = False,
 ) -> AsyncIterator[AIStreamChunkOut]:
     """创建会话并流式返回首条 AI 回复。
 
@@ -277,6 +315,7 @@ async def stream_first_message(
         title: 会话标题；None 时使用默认标题。
         model: 模型 ID；None 时使用配置默认模型。
         content: 首条用户消息内容。
+        read_only: 是否只允许使用只读工具。
 
     返回:
         异步迭代器，产出 AIStreamChunkOut 数据包。
@@ -293,12 +332,12 @@ async def stream_first_message(
     conversation.thread_id = str(conversation.id)
 
     graph = build_graph(conversation.model)
-    config = get_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id)
     try:
         await graph.ainvoke(
             {
                 "messages": [SystemMessage(content=get_system_prompt())],
-                "user_id": user_id,
+                **_build_graph_state(user_id, read_only=read_only),
             },
             config,
         )
@@ -319,7 +358,11 @@ async def stream_first_message(
     )
 
     async for chunk in stream_message(
-        db, user_id=user_id, conversation=conversation, content=content
+        db,
+        user_id=user_id,
+        conversation=conversation,
+        content=content,
+        read_only=read_only,
     ):
         yield chunk
 
@@ -386,9 +429,13 @@ async def get_conversation(
     """
     conversation = await db.get(AIConversation, conversation_id)
     if conversation is None or conversation.user_id != user_id:
-        raise BusinessError("Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND)
+        raise BusinessError(
+            "Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND
+        )
     if conversation.status == AIConversationStatus.DELETED:
-        raise BusinessError("Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND)
+        raise BusinessError(
+            "Conversation not found", code=ErrorCode.AI_CONVERSATION_NOT_FOUND
+        )
     return conversation
 
 
@@ -409,7 +456,7 @@ async def get_messages(
         AIConversationMessageOut 列表。
     """
     graph = build_graph(conversation.model)
-    config = get_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id)
     state = await graph.aget_state(config)
     messages = state.values.get("messages", []) if state else []
     messages = _remove_orphan_assistant_messages(messages)
@@ -422,6 +469,7 @@ async def send_message(
     user_id: int,
     conversation: AIConversation,
     content: str,
+    read_only: bool = False,
 ) -> AIConversationMessageOut:
     """发送非流式消息并返回 AI 回复。
 
@@ -430,6 +478,7 @@ async def send_message(
         user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
         conversation: AIConversation 实例。
         content: 用户消息内容。
+        read_only: 是否只允许使用只读工具。
 
     返回:
         AI 回复消息输出。
@@ -441,21 +490,25 @@ async def send_message(
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     graph = build_graph(conversation.model)
-    config = get_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id)
     final_state = await graph.ainvoke(
         {
             "messages": [HumanMessage(content=content)],
-            "user_id": user_id,
+            **_build_graph_state(user_id, read_only=read_only),
         },
         config,
     )
     messages: list[BaseMessage] = final_state.get("messages", [])
     if not messages:
-        raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
+        raise BusinessError(
+            "Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED
+        )
 
     ai_message = messages[-1]
     if not isinstance(ai_message, AIMessage):
-        raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
+        raise BusinessError(
+            "Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED
+        )
 
     ai_reply = AIConversationMessageOut(**_message_to_dict(ai_message))
 
@@ -482,6 +535,7 @@ async def stream_message(
     user_id: int,
     conversation: AIConversation,
     content: str,
+    read_only: bool = False,
 ) -> AsyncIterator[AIStreamChunkOut]:
     """发送消息并以 SSE 流式返回 AI 回复内容。
 
@@ -494,6 +548,7 @@ async def stream_message(
         user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
         conversation: AIConversation 实例。
         content: 用户消息内容。
+        read_only: 是否只允许使用只读工具。
 
     返回:
         异步迭代器，产出 AIStreamChunkOut 数据包。
@@ -505,7 +560,7 @@ async def stream_message(
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     graph = build_graph(conversation.model)
-    config = get_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id)
 
     model_name: str | None = conversation.model
     emitted_error = False
@@ -515,7 +570,7 @@ async def stream_message(
         async for message_chunk, metadata in graph.astream(
             {
                 "messages": [HumanMessage(content=content)],
-                "user_id": user_id,
+                **_build_graph_state(user_id, read_only=read_only),
             },
             config,
             stream_mode="messages",
@@ -527,7 +582,9 @@ async def stream_message(
 
             reasoning = message_chunk.additional_kwargs.get("reasoning_content")
             if isinstance(reasoning, str) and reasoning:
-                yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
+                yield AIStreamChunkOut(
+                    type="reasoning", data=reasoning, model=model_name
+                )
 
             if isinstance(message_chunk.content, str) and message_chunk.content:
                 accumulated_content += message_chunk.content
@@ -541,9 +598,7 @@ async def stream_message(
         # 标题生成在 yield done 之前完成，确保前端刷新列表时标题已生效。
         if _is_default_title(conversation.title) and accumulated_content:
             try:
-                title = await generate_conversation_title(
-                    content, accumulated_content
-                )
+                title = await generate_conversation_title(content, accumulated_content)
                 if not _is_default_title(title):
                     conversation.title = title
                     await db.commit()
@@ -555,9 +610,7 @@ async def stream_message(
                 )
 
     except Exception:
-        logger.exception(
-            "AI stream failed for conversation %s", conversation.id
-        )
+        logger.exception("AI stream failed for conversation %s", conversation.id)
         emitted_error = True
         yield AIStreamChunkOut(
             type="error",
