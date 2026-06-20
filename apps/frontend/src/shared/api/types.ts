@@ -643,3 +643,62 @@ export type PaginatedSystemLogs = {
   items: SystemLogItem[];
   total: number;
 };
+
+
+/* ==================== AI Assistant ==================== */
+
+export type AIConversationRole = "system" | "human" | "ai" | "tool";
+
+export type AIConversationMessage = {
+  role: AIConversationRole;
+  content: string | Record<string, unknown>[];
+  reasoning_content?: string | null;
+  tool_call_id?: string | null;
+  name?: string | null;
+  additional_kwargs?: Record<string, unknown> | null;
+  created_at?: string | null;
+};
+
+export type AIConversation = {
+  id: number;
+  user_id: number;
+  title: string;
+  model: string;
+  status: number;
+  thread_id: string;
+  updated_at: string;
+  created_at: string;
+};
+
+export type PaginatedAIConversationList = {
+  items: AIConversation[];
+  total: number;
+};
+
+export type AIConversationMessages = {
+  messages: AIConversationMessage[];
+};
+
+export type AIConversationCreateInput = {
+  title?: string;
+  model?: string;
+  first_message?: string;
+  stream?: boolean;
+};
+
+export type AIConversationWithFirstMessage = {
+  conversation: AIConversation;
+  ai_message: AIConversationMessage | null;
+};
+
+export type AIConversationMessageCreateInput = {
+  content: string;
+  stream?: boolean;
+};
+
+export type AIStreamChunk = {
+  type: "content" | "reasoning" | "done" | "error";
+  data: string;
+  model: string | null;
+  meta?: Record<string, unknown> | null;
+};

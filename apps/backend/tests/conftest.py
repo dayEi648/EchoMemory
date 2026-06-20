@@ -169,16 +169,30 @@ def fake_deepseek_client(monkeypatch):
             self._enable_thinking = kwargs.get("enable_thinking", False)
 
         async def chat(self, messages, **kwargs):
-            return ChatResponse(content="你好，我是 AI 助手。", model=self.model)
+            return ChatResponse(
+                content="你好，我是 AI 助手。",
+                reasoning_content="先理解用户的问候，再简洁回应。" if self._enable_thinking else None,
+                model=self.model,
+            )
 
         async def chat_stream(self, messages, **kwargs):
+            if self._enable_thinking:
+                for text in ["先理解用户的", "问候，再简洁回应。"]:
+                    yield ChatResponse(reasoning_content=text, content="", model=self.model)
             for text in ["你好", "，", "我是", " AI 助手。"]:
                 yield ChatResponse(content=text, model=self.model)
 
         def chat_sync(self, messages, **kwargs):
-            return ChatResponse(content="你好，我是 AI 助手。", model=self.model)
+            return ChatResponse(
+                content="你好，我是 AI 助手。",
+                reasoning_content="先理解用户的问候，再简洁回应。" if self._enable_thinking else None,
+                model=self.model,
+            )
 
         def chat_stream_sync(self, messages, **kwargs):
+            if self._enable_thinking:
+                for text in ["先理解用户的", "问候，再简洁回应。"]:
+                    yield ChatResponse(reasoning_content=text, content="", model=self.model)
             for text in ["你好", "，", "我是", " AI 助手。"]:
                 yield ChatResponse(content=text, model=self.model)
 

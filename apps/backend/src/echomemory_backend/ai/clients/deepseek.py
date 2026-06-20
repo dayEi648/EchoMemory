@@ -182,16 +182,21 @@ class DeepSeekClient:
         body: dict = {
             "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
-            "temperature": temperature,
             "stream": stream,
+            "extra_body": {
+                "thinking": {
+                    "type": THINKING_TYPE if self._enable_thinking else "disabled",
+                }
+            },
         }
+        if not self._enable_thinking:
+            body["temperature"] = temperature
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
         if stream:
             body["stream_options"] = {"include_usage": True}
         if self._enable_thinking:
             body["reasoning_effort"] = REASONING_EFFORT
-            body["extra_body"] = {"thinking": {"type": THINKING_TYPE}}
         return body
 
     async def chat(

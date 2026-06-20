@@ -70,6 +70,7 @@ def test_pro_request_enables_thinking():
     assert body["model"] == "deepseek-v4-pro"
     assert body["reasoning_effort"] == REASONING_EFFORT
     assert body["extra_body"] == {"thinking": {"type": THINKING_TYPE}}
+    assert "temperature" not in body
 
 
 def test_flash_request_disables_thinking():
@@ -80,7 +81,7 @@ def test_flash_request_disables_thinking():
 
     assert body["model"] == "deepseek-v4-flash"
     assert "reasoning_effort" not in body
-    assert "extra_body" not in body
+    assert body["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
 def test_stream_request_includes_usage_option():

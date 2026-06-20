@@ -17,6 +17,7 @@ import { SearchPage } from "./pages/SearchPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AccountPage } from "./pages/AccountPage";
 import { MessagesPage } from "./pages/MessagesPage";
+import { AIAssistantPage } from "./pages/AIAssistantPage";
 import { AdminShell } from "./pages/admin/AdminShell";
 import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { UserManagementPage } from "./pages/admin/UserManagementPage";
@@ -210,6 +211,7 @@ export default function App() {
           <Route path="/space" element={<SpacePage />} />
           <Route path="/space/:userId" element={<SpacePage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/ai-assistant" element={<AIAssistantPage />} />
         </Route>
 
         {/* 管理后台路由 */}

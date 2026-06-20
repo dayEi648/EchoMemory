@@ -66,8 +66,23 @@ async def create_ai_conversation(
 ):
     """创建新的 AI 对话会话。
 
-    若请求体包含 ``first_message``，则自动发送该消息并返回 AI 首条回复。
+    若请求体包含 ``first_message`` 且 ``stream=False``，则自动发送该消息并返回 AI 首条回复。
+    若 ``stream=True`` 且 ``first_message`` 非空，则以 ``text/event-stream`` 格式流式返回首条回复；
+    首个 content chunk 的 ``meta.conversation`` 携带会话元数据。
     """
+    if data.stream and data.first_message:
+        stream = ai_conversation_service.stream_first_message(
+            db,
+            user_id=current_user.id,
+            title=data.title,
+            model=data.model,
+            content=data.first_message,
+        )
+        return StreamingResponse(
+            _stream_response(stream),
+            media_type="text/event-stream",
+        )
+
     conversation, ai_message = await ai_conversation_service.create_conversation(
         db,
         user_id=current_user.id,

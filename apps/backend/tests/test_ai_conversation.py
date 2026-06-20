@@ -67,6 +67,14 @@ class TestAIConversationCreate:
         assert data["conversation"]["model"] == "deepseek-v4-flash"
         assert data["ai_message"] is None
 
+        conversation_id = data["conversation"]["id"]
+        messages_resp = client.get(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        messages = api_data(messages_resp)["messages"]
+        assert [message["role"] for message in messages] == ["system"]
+
     async def test_create_conversation_with_first_message(self, client: TestClient):
         """附带首条消息时应返回 AI 回复。"""
         token = _register_and_login(client, "ai_user_2")
@@ -206,8 +214,19 @@ class TestAIConversationMessages:
                 events.append(json.loads(line[len(prefix):]))
 
         content_parts = [e["data"] for e in events if e["type"] == "content"]
+        reasoning_parts = [e["data"] for e in events if e["type"] == "reasoning"]
         assert "".join(content_parts) == "你好，我是 AI 助手。"
+        assert "".join(reasoning_parts) == "先理解用户的问候，再简洁回应。"
         assert any(e["type"] == "done" for e in events)
+
+        messages_resp = client.get(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        messages = api_data(messages_resp)["messages"]
+        assert [message["role"] for message in messages] == ["system", "human", "ai"]
+        assert messages[-1]["content"] == "你好，我是 AI 助手。"
+        assert messages[-1]["reasoning_content"] == "先理解用户的问候，再简洁回应。"
 
 
 class TestAIConversationSecurity:
@@ -331,6 +350,46 @@ class TestContextTrimming:
             assert result[1].content == "msg3"
         finally:
             settings.ai_max_context_messages = original_max
+
+    def test_filter_llm_messages_drops_assistant_output_before_first_user_message(self):
+        """历史遗留的无用户输入 AI 消息不应进入后续模型上下文。"""
+        messages = [
+            SystemMessage(content="system"),
+            AIMessage(content="做一个音乐推荐卡来介绍自己"),
+            HumanMessage(content="你好"),
+            AIMessage(content="你好，我是 AI 助手。"),
+        ]
+
+        result = _filter_llm_messages(messages)
+
+        assert [message.role for message in result] == ["system", "user", "assistant"]
+        assert all("音乐推荐卡" not in message.content for message in result)
+
+
+def test_remove_orphan_assistant_messages_from_history():
+    """消息历史不应向前端返回首条用户消息之前的 AI 输出。"""
+    messages = [
+        SystemMessage(content="system"),
+        AIMessage(content="做一个音乐推荐卡来介绍自己"),
+        HumanMessage(content="你好"),
+        AIMessage(content="你好，我是 AI 助手。"),
+    ]
+
+    filtered = ai_conversation_service._remove_orphan_assistant_messages(messages)
+
+    assert [message.type for message in filtered] == ["system", "human", "ai"]
+
+
+def test_message_to_dict_sanitizes_legacy_tagged_ai_content():
+    """旧 checkpoint 中的标签协议不应再暴露给前端。"""
+    message = AIMessage(
+        content="<thinking>分析用户意图</thinking><answer>最终回答<answer>"
+    )
+
+    result = ai_conversation_service._message_to_dict(message)
+
+    assert result["content"] == "最终回答"
+    assert result["reasoning_content"] == "分析用户意图"
 
 
 class TestAIConversationServiceSecurity:

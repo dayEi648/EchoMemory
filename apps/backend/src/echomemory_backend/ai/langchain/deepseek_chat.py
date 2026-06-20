@@ -63,6 +63,7 @@ def _filter_llm_messages(messages: list[BaseMessage]) -> list[ChatMessage]:
     """
     system_message: SystemMessage | None = None
     llm_messages: list[BaseMessage] = []
+    has_user_message = False
 
     for message in messages:
         if message.type == "tool":
@@ -70,6 +71,10 @@ def _filter_llm_messages(messages: list[BaseMessage]) -> list[ChatMessage]:
         if isinstance(message, SystemMessage):
             if system_message is None:
                 system_message = message
+            continue
+        if isinstance(message, HumanMessage):
+            has_user_message = True
+        elif isinstance(message, AIMessage) and not has_user_message:
             continue
         try:
             _convert_message(message)
@@ -100,7 +105,9 @@ class DeepSeekChatModel(BaseChatModel):
     """
 
     model: str = Field(default_factory=lambda: settings.ai_default_model)
-    enable_thinking: bool = False
+    enable_thinking: bool = Field(
+        default_factory=lambda: settings.deepseek_thinking_type == "enabled"
+    )
     temperature: float = Field(default_factory=lambda: settings.deepseek_default_temperature)
     max_tokens: int | None = None
     timeout: float = Field(default_factory=lambda: settings.deepseek_default_timeout)

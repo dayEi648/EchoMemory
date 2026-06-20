@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Compass, LayoutList, Heart, Clock, Sparkles, MessageCircle, ListMusic, Plus, SlidersHorizontal, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Compass, LayoutList, Heart, Clock, Sparkles, MessageCircle, ListMusic, Plus, SlidersHorizontal, MoreHorizontal, Pencil, Trash2, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -17,6 +17,7 @@ const mainLinks = [
   { to: "/library", icon: Heart, label: "我的收藏" },
   { to: "/history", icon: Clock, label: "最近播放" },
   { to: "/echo", icon: Sparkles, label: "AI 回声" },
+  { to: "/ai-assistant", icon: Bot, label: "AI 助手" },
 ];
 
 const communityLinks = [

@@ -22,6 +22,9 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
+from echomemory_backend.ai.graphs.conversation.nodes.streaming_parser import (
+    parse_legacy_tagged_response,
+)
 from echomemory_backend.ai.graphs.conversation.prompts import get_system_prompt
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
@@ -57,7 +60,11 @@ def _message_to_dict(message: BaseMessage) -> dict[str, Any]:
         "additional_kwargs": dict(message.additional_kwargs),
     }
     if role == "ai":
-        data["reasoning_content"] = message.additional_kwargs.get("reasoning_content")
+        reasoning = message.additional_kwargs.get("reasoning_content")
+        if isinstance(message.content, str) and not reasoning:
+            content, reasoning = parse_legacy_tagged_response(message.content)
+            data["content"] = content
+        data["reasoning_content"] = reasoning
     elif isinstance(message, ToolMessage):
         data["tool_call_id"] = message.tool_call_id
         data["name"] = message.name
@@ -74,6 +81,25 @@ def _messages_to_dicts(messages: list[BaseMessage]) -> list[dict[str, Any]]:
         输出字典列表。
     """
     return [_message_to_dict(m) for m in messages]
+
+
+def _remove_orphan_assistant_messages(
+    messages: list[BaseMessage],
+) -> list[BaseMessage]:
+    """移除首条用户消息之前的 AI 消息。
+
+    早期会话初始化会误执行 chatbot，并把无用户输入的回复写入 checkpoint。
+    该兼容过滤同时避免旧数据继续显示在前端。
+    """
+    filtered: list[BaseMessage] = []
+    has_user_message = False
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            has_user_message = True
+        elif isinstance(message, AIMessage) and not has_user_message:
+            continue
+        filtered.append(message)
+    return filtered
 
 
 def _build_ai_conversation_out(conversation: AIConversation) -> AIConversationOut:
@@ -146,6 +172,72 @@ async def create_conversation(
         )
 
     return conversation, ai_reply
+
+
+async def stream_first_message(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    title: str | None = None,
+    model: str | None = None,
+    content: str,
+) -> AsyncIterator[AIStreamChunkOut]:
+    """创建会话并流式返回首条 AI 回复。
+
+    先持久化会话元数据与初始系统消息，再对首条用户消息进行流式生成。
+    返回的 chunk 序列与普通 stream_message 一致，以 done 结束。
+
+    参数:
+        db: SQLAlchemy 异步 Session。
+        user_id: 用户主键。
+        title: 会话标题；None 时使用默认标题。
+        model: 模型 ID；None 时使用配置默认模型。
+        content: 首条用户消息内容。
+
+    返回:
+        异步迭代器，产出 AIStreamChunkOut 数据包。
+    """
+    conversation = AIConversation(
+        user_id=user_id,
+        title=title or settings.ai_default_title,
+        model=model or settings.ai_default_model,
+        status=AIConversationStatus.ACTIVE,
+        thread_id="",
+    )
+    db.add(conversation)
+    await db.flush()
+    conversation.thread_id = str(conversation.id)
+
+    graph = build_graph(conversation.model)
+    config = get_thread_config(conversation.thread_id)
+    try:
+        await graph.ainvoke(
+            {
+                "messages": [SystemMessage(content=get_system_prompt())],
+                "user_id": user_id,
+            },
+            config,
+        )
+    except Exception:
+        await db.rollback()
+        raise
+
+    await db.commit()
+    await db.refresh(conversation)
+
+    # 将会话元数据作为首包返回，方便前端立即切换会话
+    conversation_out = AIConversationOut.model_validate(conversation)
+    yield AIStreamChunkOut(
+        type="content",
+        data="",
+        model=conversation.model,
+        meta={"conversation": conversation_out.model_dump()},
+    )
+
+    async for chunk in stream_message(
+        db, user_id=user_id, conversation=conversation, content=content
+    ):
+        yield chunk
 
 
 async def list_conversations(
@@ -236,6 +328,7 @@ async def get_messages(
     config = get_thread_config(conversation.thread_id)
     state = await graph.aget_state(config)
     messages = state.values.get("messages", []) if state else []
+    messages = _remove_orphan_assistant_messages(messages)
     return [AIConversationMessageOut(**msg) for msg in _messages_to_dicts(messages)]
 
 
@@ -279,6 +372,7 @@ async def send_message(
     ai_message = messages[-1]
     if not isinstance(ai_message, AIMessage):
         raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
+
     return AIConversationMessageOut(**_message_to_dict(ai_message))
 
 
@@ -291,6 +385,8 @@ async def stream_message(
 ) -> AsyncIterator[AIStreamChunkOut]:
     """发送消息并以 SSE 流式返回 AI 回复内容。
 
+    使用 LangGraph messages 流捕获 LLM token 事件，并将 DeepSeek 原生
+    ``reasoning_content`` 与最终 ``content`` 分别输出。
     流式输出结束后，LangGraph 会自动将完整状态写入 checkpoint。
 
     参数:
@@ -311,10 +407,11 @@ async def stream_message(
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
 
-    model_name: str | None = None
+    model_name: str | None = conversation.model
+    emitted_error = False
 
     try:
-        async for chunk in graph.astream(
+        async for message_chunk, metadata in graph.astream(
             {
                 "messages": [HumanMessage(content=content)],
                 "user_id": user_id,
@@ -322,32 +419,35 @@ async def stream_message(
             config,
             stream_mode="messages",
         ):
-            message_chunk, metadata = chunk
-            if model_name is None:
-                model_name = metadata.get("model") if isinstance(metadata, dict) else None
+            if model_name is None and isinstance(metadata, dict):
+                model_name = metadata.get("model")
+            if not isinstance(message_chunk, AIMessageChunk):
+                continue
 
-            if isinstance(message_chunk, AIMessageChunk):
-                reasoning = message_chunk.additional_kwargs.get("reasoning_content")
-                if reasoning:
-                    yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
-                if message_chunk.content:
-                    yield AIStreamChunkOut(
-                        type="content",
-                        data=message_chunk.content,
-                        model=model_name,
-                    )
+            reasoning = message_chunk.additional_kwargs.get("reasoning_content")
+            if isinstance(reasoning, str) and reasoning:
+                yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
+
+            if isinstance(message_chunk.content, str) and message_chunk.content:
+                yield AIStreamChunkOut(
+                    type="content",
+                    data=message_chunk.content,
+                    model=model_name,
+                )
 
     except Exception:
         logger.exception(
             "AI stream failed for conversation %s", conversation.id
         )
+        emitted_error = True
         yield AIStreamChunkOut(
             type="error",
             data="AI 流式响应失败",
             model=model_name,
         )
     finally:
-        yield AIStreamChunkOut(type="done", data="", model=model_name)
+        if not emitted_error:
+            yield AIStreamChunkOut(type="done", data="", model=model_name)
 
 
 async def delete_conversation(

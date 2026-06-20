@@ -58,6 +58,7 @@ class AIConversationCreate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     model: str | None = Field(default=None, max_length=50)
     first_message: str | None = Field(default=None, max_length=4000)
+    stream: bool = False
 
 
 class AIConversationWithFirstMessageOut(BaseModel):
@@ -80,3 +81,4 @@ class AIStreamChunkOut(BaseModel):
     type: Literal["content", "reasoning", "done", "error"]
     data: str = ""
     model: str | None = None
+    meta: dict[str, Any] | None = None

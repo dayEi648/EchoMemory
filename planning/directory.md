@@ -70,9 +70,9 @@
 │   │   │       │           ├── state.py    # 对话状态定义
 │   │   │       │           ├── nodes/      # 普通节点目录
 │   │   │       │           │   ├── __init__.py
-│   │   │       │           │   └── chatbot.py
+│   │   │       │           │   ├── chatbot.py
+│   │   │       │           │   └── streaming_parser.py # 旧标签回复兼容解析
 │   │   │       │           ├── builder.py  # 状态图构建器
-│   │   │       │           ├── cache.py    # 对话 Redis 缓存
 │   │   │       │           └── prompts.py  # 对话提示词常量
 │   │   │       ├── api/            # API 层
 │   │   │       │   ├── __init__.py
@@ -170,6 +170,7 @@
 │   │       ├── __init__.py
 │   │       ├── conftest.py         # 测试夹具（数据库、FakeRedis、TestClient）
 │   │       ├── test_ai_conversation.py   # AI 对话测试
+│   │       ├── test_streaming_parser.py  # 旧标签回复兼容解析测试
 │   │       ├── test_album.py
 │   │       ├── test_auth.py
 │   │       ├── test_cache.py
@@ -207,11 +208,14 @@
 │       │   ├── shared/             # 共享模块
 │       │   │   ├── api/            # API client 与类型定义
 │       │   │   │   ├── types.ts
+│       │   │   │   ├── aiConversationApi.ts
 │       │   │   │   ├── logApi.ts
 │       │   │   │   └── userApi.ts
 │       │   │   └── auth/           # Token 状态管理
 │       │   │       └── tokenStore.ts
 │       │   ├── pages/              # 页面组件
+│       │   │   ├── AIAssistantPage.tsx
+│       │   │   ├── AIAssistantPage.test.tsx
 │       │   │   └── admin/
 │       │   │       ├── AdminLogPage.tsx      # 系统日志管理页
 │       │   │       └── ...                   # 其他管理后台页面
