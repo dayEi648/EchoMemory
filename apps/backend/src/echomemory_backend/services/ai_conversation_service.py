@@ -1,7 +1,7 @@
 """AI 对话业务服务模块。
 
 提供会话创建、消息发送、消息列表查询、软删除等能力，
-并负责维护 Redis 缓存与 LangGraph checkpoint 状态的一致性。
+直接读写 PostgreSQL 与 LangGraph checkpoint。
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
-from echomemory_backend.ai.graphs.conversation import cache as ai_cache_module
 from echomemory_backend.ai.graphs.conversation.prompts import get_system_prompt
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
@@ -140,8 +139,6 @@ async def create_conversation(
     await db.commit()
     await db.refresh(conversation)
 
-    await ai_cache_module.invalidate_conversation_list(user_id)
-
     ai_reply: AIConversationMessageOut | None = None
     if first_message:
         ai_reply = await send_message(
@@ -157,7 +154,6 @@ async def list_conversations(
     user_id: int,
     limit: int = 30,
     offset: int = 0,
-    use_cache: bool = True,
 ) -> dict[str, Any]:
     """分页列出当前用户的 AI 会话。
 
@@ -166,33 +162,22 @@ async def list_conversations(
         user_id: 用户主键。
         limit: 返回数量上限。
         offset: 偏移量。
-        use_cache: 是否读取 Redis 缓存。
 
     返回:
         {"items": AIConversationOut 列表, "total": 总记录数}。
     """
-    items: list[AIConversationOut] = []
-    loaded_from_cache = False
-
-    if use_cache and offset == 0:
-        cached = await ai_cache_module.get_conversation_list(user_id)
-        if cached is not None:
-            items = [AIConversationOut(**item) for item in cached]
-            loaded_from_cache = True
-
-    if not loaded_from_cache:
-        stmt = (
-            select(AIConversation)
-            .where(
-                AIConversation.user_id == user_id,
-                AIConversation.status == AIConversationStatus.ACTIVE,
-            )
-            .order_by(desc(AIConversation.updated_at))
-            .limit(limit)
-            .offset(offset)
+    stmt = (
+        select(AIConversation)
+        .where(
+            AIConversation.user_id == user_id,
+            AIConversation.status == AIConversationStatus.ACTIVE,
         )
-        result = await db.execute(stmt)
-        items = [_build_ai_conversation_out(conv) for conv in result.scalars().all()]
+        .order_by(desc(AIConversation.updated_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(stmt)
+    items = [_build_ai_conversation_out(conv) for conv in result.scalars().all()]
 
     total_stmt = (
         select(func.count())
@@ -203,9 +188,6 @@ async def list_conversations(
         )
     )
     total = (await db.execute(total_stmt)).scalar_one()
-
-    if use_cache and offset == 0 and not loaded_from_cache:
-        await ai_cache_module.set_conversation_list(user_id, [item.model_dump() for item in items])
 
     return {"items": items, "total": total}
 
@@ -238,35 +220,23 @@ async def get_messages(
     db: AsyncSession,
     *,
     conversation: AIConversation,
-    use_cache: bool = True,
 ) -> list[AIConversationMessageOut]:
     """获取会话消息列表。
 
-    优先读取 Redis 缓存；未命中时从 LangGraph checkpoint 加载状态并回写缓存。
+    直接从 LangGraph checkpoint 加载状态。
 
     参数:
         db: SQLAlchemy 异步 Session（兼容性参数，实际读取 checkpoint）。
         conversation: AIConversation 实例。
-        use_cache: 是否读取 Redis 缓存。
 
     返回:
         AIConversationMessageOut 列表。
     """
-    if use_cache:
-        cached = await ai_cache_module.get_messages(conversation.id)
-        if cached is not None:
-            return [AIConversationMessageOut(**msg) for msg in cached]
-
     graph = build_graph(conversation.model)
     config = get_thread_config(conversation.thread_id)
     state = await graph.aget_state(config)
     messages = state.values.get("messages", []) if state else []
-    message_dicts = _messages_to_dicts(messages)
-
-    if use_cache:
-        await ai_cache_module.set_messages(conversation.id, message_dicts)
-
-    return [AIConversationMessageOut(**msg) for msg in message_dicts]
+    return [AIConversationMessageOut(**msg) for msg in _messages_to_dicts(messages)]
 
 
 async def send_message(
@@ -306,9 +276,6 @@ async def send_message(
     if not messages:
         raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
 
-    await ai_cache_module.invalidate_messages(conversation.id)
-    await ai_cache_module.invalidate_conversation_list(conversation.user_id)
-
     ai_message = messages[-1]
     if not isinstance(ai_message, AIMessage):
         raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
@@ -325,7 +292,6 @@ async def stream_message(
     """发送消息并以 SSE 流式返回 AI 回复内容。
 
     流式输出结束后，LangGraph 会自动将完整状态写入 checkpoint。
-    本函数同时负责失效相关缓存。
 
     参数:
         db: SQLAlchemy 异步 Session。
@@ -371,8 +337,6 @@ async def stream_message(
                         model=model_name,
                     )
 
-        await ai_cache_module.invalidate_messages(conversation.id)
-        await ai_cache_module.invalidate_conversation_list(conversation.user_id)
     except Exception:
         logger.exception(
             "AI stream failed for conversation %s", conversation.id
@@ -407,5 +371,3 @@ async def delete_conversation(
 
     conversation.status = AIConversationStatus.DELETED
     await db.commit()
-    await ai_cache_module.invalidate_conversation_list(conversation.user_id)
-    await ai_cache_module.invalidate_messages(conversation.id)

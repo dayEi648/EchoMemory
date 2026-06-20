@@ -41,8 +41,6 @@ class Settings(BaseSettings):
     # AI 对话
     ai_default_model: str = "deepseek-v4-flash"
     ai_default_title: str = "新对话"
-    ai_conversation_list_cache_ttl_seconds: int = 300
-    ai_conversation_messages_cache_ttl_seconds: int = 300
     ai_max_context_messages: int = 50
 
     # Embedding（阿里云 DashScope text-embedding-v4）

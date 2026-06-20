@@ -289,34 +289,6 @@ class TestAIConversationDelete:
         assert resp.status_code == 404
 
 
-class TestAICache:
-    """测试 Redis 缓存行为。"""
-
-    async def test_conversation_list_cache_hit(self, client: TestClient, fake_ai_cache):
-        """第二次获取会话列表应从缓存命中。"""
-        token = _register_and_login(client, "ai_user_cache")
-        client.post(
-            AI_CONVERSATIONS_URL,
-            headers={"Authorization": f"Bearer {token}"},
-            json={},
-        )
-        # 第一次查询会写入缓存
-        resp1 = client.get(
-            AI_CONVERSATIONS_URL,
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp1.status_code == 200
-        assert fake_ai_cache.get(f"list:{api_data(resp1)['items'][0]['user_id']}") is not None
-
-        # 第二次查询从缓存读取，结果一致
-        resp2 = client.get(
-            AI_CONVERSATIONS_URL,
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp2.status_code == 200
-        assert api_data(resp2) == api_data(resp1)
-
-
 class TestContextTrimming:
     """测试上下文截断逻辑。"""
 
@@ -369,7 +341,6 @@ class TestAIConversationServiceSecurity:
         db_session: AsyncSession,
         fake_ai_checkpointer,
         fake_deepseek_client,
-        fake_ai_cache,
     ):
         """服务层显式校验 user_id，禁止用他人身份发送消息。"""
         owner = await _create_user(db_session, "owner")
@@ -392,7 +363,6 @@ class TestAIConversationServiceSecurity:
         db_session: AsyncSession,
         fake_ai_checkpointer,
         fake_deepseek_client,
-        fake_ai_cache,
     ):
         """创建会话后，user_id 应写入 LangGraph checkpoint 状态。"""
         user = await _create_user(db_session, "state_owner")
@@ -412,7 +382,6 @@ class TestAIConversationServiceSecurity:
         db_session: AsyncSession,
         fake_ai_checkpointer,
         fake_deepseek_client,
-        fake_ai_cache,
     ):
         """服务层显式校验 user_id，禁止用他人身份删除会话。"""
         owner = await _create_user(db_session, "delete_owner")

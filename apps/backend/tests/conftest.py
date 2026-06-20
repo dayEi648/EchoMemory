@@ -25,7 +25,6 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from contextlib import asynccontextmanager
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -37,7 +36,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from echomemory_backend.ai import langchain as ai_langchain
 from echomemory_backend.ai.clients.deepseek import ChatResponse
 from echomemory_backend.ai.graphs import checkpointer as ai_checkpointer
-from echomemory_backend.ai.graphs.conversation import cache as ai_cache_module
 from echomemory_backend.api.deps import get_db
 from echomemory_backend.core.clients import redis_client as rc
 from echomemory_backend.core.utils.seed_data import get_dictionary_seed_sql
@@ -188,40 +186,9 @@ def fake_deepseek_client(monkeypatch):
     yield _FakeDeepSeekClient
 
 
-@pytest.fixture
-def fake_ai_cache(monkeypatch):
-    """使用内存字典替代 Redis 缓存 AI 会话相关数据，避免 FakeRedis 事件循环冲突。"""
-    _store: dict[str, Any] = {}
-
-    async def _get_conversation_list(user_id: int):
-        return _store.get(f"list:{user_id}")
-
-    async def _set_conversation_list(user_id: int, items: list[Any]):
-        _store[f"list:{user_id}"] = items
-
-    async def _invalidate_conversation_list(user_id: int):
-        _store.pop(f"list:{user_id}", None)
-
-    async def _get_messages(conversation_id: int):
-        return _store.get(f"msgs:{conversation_id}")
-
-    async def _set_messages(conversation_id: int, messages: list[Any]):
-        _store[f"msgs:{conversation_id}"] = messages
-
-    async def _invalidate_messages(conversation_id: int):
-        _store.pop(f"msgs:{conversation_id}", None)
-
-    monkeypatch.setattr(ai_cache_module, "get_conversation_list", _get_conversation_list)
-    monkeypatch.setattr(ai_cache_module, "set_conversation_list", _set_conversation_list)
-    monkeypatch.setattr(ai_cache_module, "invalidate_conversation_list", _invalidate_conversation_list)
-    monkeypatch.setattr(ai_cache_module, "get_messages", _get_messages)
-    monkeypatch.setattr(ai_cache_module, "set_messages", _set_messages)
-    monkeypatch.setattr(ai_cache_module, "invalidate_messages", _invalidate_messages)
-    yield _store
-
 
 @pytest_asyncio.fixture
-async def client(fake_redis, fake_ai_checkpointer, fake_deepseek_client, fake_ai_cache):
+async def client(fake_redis, fake_ai_checkpointer, fake_deepseek_client):
     """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
     AsyncTestingSessionLocal = _make_testing_sessionmaker(engine)
