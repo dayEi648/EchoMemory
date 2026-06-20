@@ -202,17 +202,18 @@ async def create_comment(
     db.add(comment)
     await db.flush()
 
-    # 维护目标实体或父评论的计数（原子 UPDATE）
-    if parent_id is None:
-        target_cls = {"music": Music, "playlist": Playlist, "space_post": SpacePost}[
-            target_type
-        ]
-        await db.execute(
-            update(target_cls)
-            .where(target_cls.id == target_id)
-            .values(comment_count=target_cls.comment_count + 1)
-        )
-    else:
+    # 维护目标实体的评论计数：所有评论（根评论、回复、嵌套回复）均计入
+    target_cls = {"music": Music, "playlist": Playlist, "space_post": SpacePost}[
+        target_type
+    ]
+    await db.execute(
+        update(target_cls)
+        .where(target_cls.id == target_id)
+        .values(comment_count=target_cls.comment_count + 1)
+    )
+
+    # 维护父评论的回复计数（仅统计直接子回复）
+    if parent_id is not None:
         await db.execute(
             update(Comment)
             .where(Comment.id == parent_id)
@@ -396,6 +397,17 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
 
     comment.is_deleted = True
 
+    # 确定评论所属目标类型与主键
+    if comment.music_id is not None:
+        target_type, target_id = "music", comment.music_id
+    elif comment.playlist_id is not None:
+        target_type, target_id = "playlist", comment.playlist_id
+    elif comment.space_post_id is not None:
+        target_type, target_id = "space_post", comment.space_post_id
+    else:
+        # 数据一致性兜底，理论上不会发生
+        target_type, target_id = None, None
+
     # 清理点赞记录并扣减作者 like_count
     likes_result = await db.execute(
         select(CommentLike).where(CommentLike.comment_id == comment_id)
@@ -416,30 +428,50 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
         )
         comment.like_count = max(0, comment.like_count - len(likes))
 
-    # 维护目标实体或父评论的计数（原子 UPDATE + 防负保护）
-    if comment.parent_id is None:
-        if comment.music_id is not None:
-            await db.execute(
-                update(Music)
-                .where(Music.id == comment.music_id, Music.comment_count > 0)
-                .values(comment_count=Music.comment_count - 1)
-            )
-        elif comment.playlist_id is not None:
-            await db.execute(
-                update(Playlist)
-                .where(Playlist.id == comment.playlist_id, Playlist.comment_count > 0)
-                .values(comment_count=Playlist.comment_count - 1)
-            )
-        elif comment.space_post_id is not None:
-            await db.execute(
-                update(SpacePost)
-                .where(
-                    SpacePost.id == comment.space_post_id,
-                    SpacePost.comment_count > 0,
-                )
-                .values(comment_count=SpacePost.comment_count - 1)
-            )
+    # 维护目标实体的评论计数（原子 UPDATE + 防负保护）
+    if target_type is None:
+        target_cls = None
     else:
+        target_cls = {
+            "music": Music,
+            "playlist": Playlist,
+            "space_post": SpacePost,
+        }[target_type]
+    if target_cls is not None and comment.parent_id is None:
+        # 根评论删除：其下所有可见回复也一并从目标计数中移除
+        descendants_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(Comment)
+                .where(
+                    Comment.root_id == comment.id,
+                    Comment.is_deleted.is_(False),
+                )
+            )
+        ).scalar_one()
+        total_to_remove = 1 + descendants_count
+        await db.execute(
+            update(target_cls)
+            .where(
+                target_cls.id == target_id,
+                target_cls.comment_count >= total_to_remove,
+            )
+            .values(comment_count=target_cls.comment_count - total_to_remove)
+        )
+    elif target_cls is not None:
+        # 非根评论删除：仅当其所属根评论未删除时才扣减目标计数
+        root = (
+            await db.get(Comment, comment.root_id)
+            if comment.root_id is not None
+            else None
+        )
+        if root is not None and not root.is_deleted:
+            await db.execute(
+                update(target_cls)
+                .where(target_cls.id == target_id, target_cls.comment_count > 0)
+                .values(comment_count=target_cls.comment_count - 1)
+            )
+        # 维护父评论的回复计数
         await db.execute(
             update(Comment)
             .where(Comment.id == comment.parent_id, Comment.reply_count > 0)

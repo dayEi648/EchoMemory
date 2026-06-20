@@ -1010,6 +1010,79 @@ class TestCommentCountOnCreate:
         await db_session.refresh(post)
         assert post.comment_count == 1
 
+    async def test_create_reply_increases_target_comment_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试创建回复后目标实体的评论计数同样增加。"""
+        user = await _create_user(db_session, "count_reply_user")
+        music = await _create_music_directly(db_session)
+
+        root_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"target_type": "music", "target_id": music.id, "content": "Root"},
+        )
+        assert root_resp.status_code == 201
+        root_id = api_data(root_resp)["id"]
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Reply",
+                "parent_id": root_id,
+            },
+        )
+        assert resp.status_code == 201
+
+        await db_session.refresh(music)
+        assert music.comment_count == 2
+
+    async def test_create_nested_reply_increases_target_comment_count(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试创建嵌套回复后目标实体的评论计数同样增加。"""
+        user = await _create_user(db_session, "count_nested_user")
+        music = await _create_music_directly(db_session)
+
+        root_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"target_type": "music", "target_id": music.id, "content": "Root"},
+        )
+        assert root_resp.status_code == 201
+        root_id = api_data(root_resp)["id"]
+
+        reply_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Reply",
+                "parent_id": root_id,
+            },
+        )
+        assert reply_resp.status_code == 201
+        reply_id = api_data(reply_resp)["id"]
+
+        resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Nested",
+                "parent_id": reply_id,
+            },
+        )
+        assert resp.status_code == 201
+
+        await db_session.refresh(music)
+        assert music.comment_count == 3
+
 
 class TestReplyCountOnCreate:
     """测试创建回复时父评论回复计数维护。"""
@@ -1100,12 +1173,17 @@ class TestCommentCountOnDelete:
     async def test_delete_reply_decreases_parent_reply_count(
         self, client: TestClient, db_session: AsyncSession
     ):
-        """测试删除回复后父评论回复计数减少。"""
+        """测试删除回复后父评论回复计数与目标评论计数均减少。"""
         user = await _create_user(db_session, "del_reply_count_user")
         music = await _create_music_directly(db_session)
-        root = await _create_comment_directly(
-            db_session, user.id, "Root", music_id=music.id
+
+        root_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"target_type": "music", "target_id": music.id, "content": "Root"},
         )
+        assert root_resp.status_code == 201
+        root_id = api_data(root_resp)["id"]
 
         # 通过 API 创建回复
         resp = client.post(
@@ -1115,12 +1193,13 @@ class TestCommentCountOnDelete:
                 "target_type": "music",
                 "target_id": music.id,
                 "content": "Reply to delete",
-                "parent_id": root.id,
+                "parent_id": root_id,
             },
         )
         assert resp.status_code == 201
         reply_id = api_data(resp)["id"]
 
+        root = await db_session.get(Comment, root_id)
         await db_session.refresh(root)
         assert root.reply_count == 1
 
@@ -1129,7 +1208,59 @@ class TestCommentCountOnDelete:
         assert api_data(resp) is None
 
         await db_session.refresh(root)
+        await db_session.refresh(music)
         assert root.reply_count == 0
+        assert music.comment_count == 1
+
+    async def test_delete_root_decreases_target_count_including_descendants(
+        self, client: TestClient, db_session: AsyncSession
+    ):
+        """测试删除根评论时目标计数一并扣除其下所有可见回复。"""
+        user = await _create_user(db_session, "del_root_count_user")
+        music = await _create_music_directly(db_session)
+
+        root_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={"target_type": "music", "target_id": music.id, "content": "Root"},
+        )
+        assert root_resp.status_code == 201
+        root_id = api_data(root_resp)["id"]
+
+        reply_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Reply",
+                "parent_id": root_id,
+            },
+        )
+        assert reply_resp.status_code == 201
+        reply_id = api_data(reply_resp)["id"]
+
+        nested_resp = client.post(
+            BASE_URL + "/",
+            headers=_auth_header(user),
+            json={
+                "target_type": "music",
+                "target_id": music.id,
+                "content": "Nested",
+                "parent_id": reply_id,
+            },
+        )
+        assert nested_resp.status_code == 201
+
+        await db_session.refresh(music)
+        assert music.comment_count == 3
+
+        resp = client.delete(f"{BASE_URL}/{root_id}", headers=_auth_header(user))
+        assert resp.status_code == 200
+        assert api_data(resp) is None
+
+        await db_session.refresh(music)
+        assert music.comment_count == 0
 
 
 class TestLikeCount:
