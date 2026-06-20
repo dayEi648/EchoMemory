@@ -14,7 +14,10 @@ from echomemory_backend.models.music import Music
 from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
 from echomemory_backend.core.exceptions.business import BusinessError
-from echomemory_backend.services.cache_service import invalidate_music_detail
+from echomemory_backend.services.cache_service import (
+    invalidate_music_detail,
+    invalidate_playlist_detail,
+)
 from echomemory_backend.services.notification_service import create_notification
 from echomemory_backend.services.space_post_service import can_view_space_post
 
@@ -256,9 +259,11 @@ async def create_comment(
 
     await db.commit()
 
-    # 在事务提交后失效音乐详情缓存，避免并发场景下旧数据被重新写回缓存
+    # 在事务提交后失效相关详情缓存，避免并发场景下旧数据被重新写回缓存
     if target_type == "music":
         await invalidate_music_detail(target_id)
+    elif target_type == "playlist":
+        await invalidate_playlist_detail(target_id)
 
     return await _get_comment_with_user(db, comment_id)
 
@@ -488,6 +493,8 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
 
     if music_id is not None:
         await invalidate_music_detail(music_id)
+    elif comment.playlist_id is not None:
+        await invalidate_playlist_detail(comment.playlist_id)
 
 
 async def like_comment(db: AsyncSession, user_id: int, comment_id: int) -> None:
