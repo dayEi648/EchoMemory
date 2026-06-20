@@ -5,7 +5,7 @@
 ### 1.1 基本信息
 
 - **项目名称**: echomemory（回声记忆）
-- **项目简介**: 围绕 AI Agent 的本地桌面客户端 + 云端 API 音乐平台。当前阶段仅构建 Windows 桌面端。
+- **项目简介**: 围绕 AI Agent 的本地桌面客户端 + 云端 API 音乐平台。 Windows 桌面端为主要构建方向。
 
 ### 1.2 技术栈
 
@@ -20,32 +20,7 @@
 
 ---
 
-## 2. 工作规则
-
-<workrules>
-
-1. Thinking and Communication
-	- Clearly state your assumptions, rather than making silent guesses.
-	- When encountering doubts, uncertainties, or information gaps, you must ask questions.
-	- If there are multiple interpretations, present all of them - do not silently choose one.
-	- When encountering ambiguity: immediately pause, mark the problem and ask questions. 
-2. Scope and Design Decisions
-	- Before proposing a repair solution, assess whether this solution is the best option, whether it can truly solve the problem, and ensure that it does not introduce regression issues.
-	- Do not build beyond the requirements scope.
-	- Prohibit speculative design or abstraction.
-	- When unsure how to proceed with development, consider how senior engineers or official documentation would solve the problem. You can search online to confirm.
-	- Avoid reinventing the wheel. If there is a reliable dependency that can reduce 200 lines of code to just a few lines, use it first.
-	- If you find isolated code that already exists, inform the user; do not delete it on your own. 
-3. Good Work Habits
-	- It is necessary to use the SKILL that is useful for the current task, even if it has only 1% relevance to the current task.
-	- It is necessary to use the Tool that is useful for the current work.
-	- All code that is not written according to the specifications and operations that are not carried out as required will not be recognized. Therefore, you must strictly abide by various development specifications and work requirements.
-
-	</workrules>
-
----
-
-## 3. 上下文检索索引
+## 2. 上下文检索索引
 
 根据当前任务按需访问项目资源：
 
