@@ -12,6 +12,7 @@ vi.mock("../shared/api/instances", () => ({
     getMessages: vi.fn(),
     streamFirstMessage: vi.fn(),
     streamMessage: vi.fn(),
+    updateTitle: vi.fn(),
     deleteConversation: vi.fn(),
   },
 }));
@@ -152,3 +153,73 @@ describe("AIAssistantPage", () => {
     expect(userMessages[0]).toHaveTextContent("你好");
   });
 });
+
+
+  it("allows editing the conversation title", async () => {
+    const updatedConversation = { ...conversation, title: "自定义标题" };
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+    vi.mocked(aiConversationApi.getMessages).mockResolvedValue({ messages: [] });
+    vi.mocked(aiConversationApi.updateTitle).mockResolvedValue(updatedConversation);
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+    await userEvent.click(screen.getByTitle("点击修改标题"));
+
+    const titleInput = screen.getByDisplayValue("新对话");
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, "自定义标题");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(screen.getByTitle("点击修改标题")).toHaveTextContent("自定义标题");
+    });
+    expect(aiConversationApi.updateTitle).toHaveBeenCalledWith(1, "自定义标题");
+  });
+
+  it("refreshes the conversation list after the first streamed message", async () => {
+    const titledConversation = { ...conversation, title: "生成的标题" };
+    vi.mocked(aiConversationApi.listConversations)
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [titledConversation], total: 1 });
+    vi.mocked(aiConversationApi.getMessages).mockResolvedValue({ messages: [] });
+    vi.mocked(aiConversationApi.streamFirstMessage).mockImplementation(async function* () {
+      yield {
+        type: "content",
+        data: "",
+        model: conversation.model,
+        meta: { conversation },
+      };
+      yield {
+        type: "content",
+        data: "AI 回复内容",
+        model: conversation.model,
+      };
+      yield { type: "done", data: "", model: conversation.model };
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "新建对话" }));
+    const input = screen.getByPlaceholderText("输入消息，Enter 发送，Shift+Enter 换行");
+    await userEvent.type(input, "你好");
+    await userEvent.click(screen.getByRole("button", { name: "发送消息" }));
+
+    await screen.findByText("AI 回复内容");
+
+    await waitFor(() => {
+      expect(screen.getByTitle("点击修改标题")).toHaveTextContent("生成的标题");
+    });
+    expect(aiConversationApi.listConversations).toHaveBeenCalled();
+  });

@@ -27,6 +27,22 @@ SYSTEM_PROMPT = """你是 <system-name>echomemory（回声记忆）</system-name
 """
 
 
+TITLE_GENERATION_PROMPT = """请为下面的对话生成一个简洁的会话标题。
+
+要求：
+- 仅输出标题文本，不要输出任何解释、引号、XML 标签或格式说明。
+- 标题长度控制在 20 个字符以内。
+- 标题应准确概括对话主题，便于用户在会话列表中识别。
+
+对话内容：
+用户提问：
+{user_message}
+
+AI 回复：
+{ai_response}
+"""
+
+
 def get_system_prompt() -> str:
     """返回 AI 对话默认系统提示词。
 
@@ -34,3 +50,18 @@ def get_system_prompt() -> str:
         系统提示词文本。
     """
     return SYSTEM_PROMPT
+
+
+def get_title_generation_prompt(user_message: str, ai_response: str) -> str:
+    """返回用于生成会话标题的提示词。
+
+    参数:
+        user_message: 首条用户消息。
+        ai_response: 对应 AI 回复。
+
+    返回:
+        格式化后的提示词文本。
+    """
+    return TITLE_GENERATION_PROMPT.format(
+        user_message=user_message, ai_response=ai_response
+    )

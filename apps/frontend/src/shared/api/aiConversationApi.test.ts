@@ -160,4 +160,32 @@ describe("createAIConversationApi JSON endpoints", () => {
     expect(result.items).toHaveLength(1);
     expect(result.total).toBe(1);
   });
+
+  it("updates conversation title", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 0,
+          msg: "success",
+          data: { id: 1, title: "新标题" },
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const api = createAIConversationApi({ baseUrl, fetcher: fetchMock, tokenStore });
+    const result = await api.updateTitle(1, "新标题");
+    expect(result.title).toBe("新标题");
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/ai/conversations/1`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        }),
+        body: JSON.stringify({ title: "新标题" }),
+      }),
+    );
+  });
 });

@@ -53,10 +53,18 @@ export const AIAssistantPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<AIConversation | null>(null);
   const [reasoningMap, setReasoningMap] = useState<Record<string, string>>({});
   const [showReasoning, setShowReasoning] = useState<Record<string, boolean>>({});
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const skipMessageLoadForIdRef = useRef<number | null>(null);
+  const currentIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    currentIdRef.current = currentId;
+  }, [currentId]);
 
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === currentId) ?? null,
@@ -80,7 +88,15 @@ export const AIAssistantPage = () => {
       .listConversations({ limit: 100 })
       .then((res) => {
         if (cancelled) return;
-        setConversations(res.items ?? []);
+        setConversations((prev) => {
+          const items = res.items ?? [];
+          const activeId = currentIdRef.current;
+          if (activeId == null) return items;
+          const hasCurrent = items.some((c) => c.id === activeId);
+          if (hasCurrent) return items;
+          const current = prev.find((c) => c.id === activeId);
+          return current ? [current, ...items] : items;
+        });
       })
       .catch((err) => {
         toast.error(getApiErrorMessage(err, "加载会话列表失败"));
@@ -153,6 +169,7 @@ export const AIAssistantPage = () => {
 
   const handleNewConversation = () => {
     if (isStreaming) return;
+    currentIdRef.current = null;
     setCurrentId(null);
     setIsDraft(true);
     setMessages([]);
@@ -164,6 +181,7 @@ export const AIAssistantPage = () => {
 
   const handleSelectConversation = (id: number) => {
     if (isStreaming) return;
+    currentIdRef.current = id;
     setCurrentId(id);
     setIsDraft(false);
   };
@@ -182,6 +200,7 @@ export const AIAssistantPage = () => {
           return [conv, ...prev];
         });
         skipMessageLoadForIdRef.current = conv.id;
+        currentIdRef.current = conv.id;
         setCurrentId(conv.id);
         setIsDraft(false);
       }
@@ -221,7 +240,15 @@ export const AIAssistantPage = () => {
     aiConversationApi
       .listConversations({ limit: 100 })
       .then((res) => {
-        setConversations(res.items ?? []);
+        setConversations((prev) => {
+          const items = res.items ?? [];
+          const activeId = currentIdRef.current;
+          if (activeId == null) return items;
+          const hasCurrent = items.some((c) => c.id === activeId);
+          if (hasCurrent) return items;
+          const current = prev.find((c) => c.id === activeId);
+          return current ? [current, ...items] : items;
+        });
       })
       .catch(() => {
         // 忽略刷新失败
@@ -327,6 +354,7 @@ export const AIAssistantPage = () => {
     } finally {
       setIsStreaming(false);
       finalizeAIResponse(aiMessageId);
+      refreshConversationList();
     }
   };
 
@@ -374,6 +402,7 @@ export const AIAssistantPage = () => {
       await aiConversationApi.deleteConversation(deleteTarget.id);
       setConversations((prev) => prev.filter((c) => c.id !== deleteTarget.id));
       if (currentId === deleteTarget.id) {
+        currentIdRef.current = null;
         setCurrentId(null);
         setIsDraft(false);
         setMessages([]);
@@ -390,6 +419,49 @@ export const AIAssistantPage = () => {
     setShowReasoning((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleTitleClick = () => {
+    if (isStreaming || !currentConversation) return;
+    setEditTitleValue(currentConversation.title);
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const handleTitleSave = async () => {
+    if (!currentConversation || isStreaming) return;
+    const trimmed = editTitleValue.trim();
+    if (!trimmed || trimmed === currentConversation.title) {
+      setIsEditingTitle(false);
+      return;
+    }
+    try {
+      const updated = await aiConversationApi.updateTitle(
+        currentConversation.id,
+        trimmed,
+      );
+      setConversations((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c)),
+      );
+      setIsEditingTitle(false);
+      toast.success("标题已更新");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "更新标题失败"));
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setIsEditingTitle(false);
+    setEditTitleValue(currentConversation?.title ?? "");
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleTitleSave();
+    } else if (e.key === "Escape") {
+      handleTitleCancel();
+    }
+  };
+
   const renderChatHeader = () => {
     if (isDraft) {
       return (
@@ -401,7 +473,27 @@ export const AIAssistantPage = () => {
     if (currentConversation) {
       return (
         <div className="ai-assistant-chat-header">
-          <span className="ai-chat-title">{currentConversation.title}</span>
+          {isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              className="ai-chat-title-input"
+              type="text"
+              value={editTitleValue}
+              onChange={(e) => setEditTitleValue(e.target.value)}
+              onBlur={() => void handleTitleSave()}
+              onKeyDown={handleTitleKeyDown}
+              disabled={isStreaming}
+              maxLength={200}
+            />
+          ) : (
+            <span
+              className="ai-chat-title ai-chat-title--editable"
+              onClick={handleTitleClick}
+              title="点击修改标题"
+            >
+              {currentConversation.title}
+            </span>
+          )}
           <span className="ai-chat-model">{currentConversation.model}</span>
         </div>
       );

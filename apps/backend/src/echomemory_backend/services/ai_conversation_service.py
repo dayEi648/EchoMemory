@@ -21,11 +21,15 @@ from langchain_core.messages import (
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from echomemory_backend.ai.clients.deepseek import ChatMessage, DeepSeekClient
 from echomemory_backend.ai.graphs.conversation.builder import build_graph, get_thread_config
 from echomemory_backend.ai.graphs.conversation.nodes.streaming_parser import (
     parse_legacy_tagged_response,
 )
-from echomemory_backend.ai.graphs.conversation.prompts import get_system_prompt
+from echomemory_backend.ai.graphs.conversation.prompts import (
+    get_system_prompt,
+    get_title_generation_prompt,
+)
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.models.ai_conversation import AIConversation, AIConversationStatus
@@ -112,6 +116,86 @@ def _build_ai_conversation_out(conversation: AIConversation) -> AIConversationOu
         AIConversationOut 实例。
     """
     return AIConversationOut.model_validate(conversation)
+
+
+def _is_default_title(title: str) -> bool:
+    """判断标题是否为默认占位标题。"""
+    return title == settings.ai_default_title
+
+
+def _sanitize_title(title: str) -> str:
+    """清理模型生成的标题。
+
+    去除首尾空白、引号，超长截断，空标题返回默认标题。
+    """
+    cleaned = title.strip().strip('"').strip("'").strip()
+    if not cleaned:
+        return settings.ai_default_title
+    if len(cleaned) > 200:
+        cleaned = cleaned[:200]
+    return cleaned
+
+
+async def generate_conversation_title(
+    user_message: str,
+    ai_response: str,
+    model: str = "deepseek-v4-flash",
+) -> str:
+    """根据首条用户消息与 AI 回复生成会话标题。
+
+    使用轻量模型（默认 deepseek-v4-flash）进行一次性非流式调用。
+
+    参数:
+        user_message: 首条用户消息。
+        ai_response: 对应 AI 回复文本。
+        model: 用于生成标题的模型 ID。
+
+    返回:
+        清理后的标题文本；生成失败时返回默认标题。
+    """
+    try:
+        client = DeepSeekClient(model=model, enable_thinking=False)
+        prompt = get_title_generation_prompt(user_message, ai_response)
+        response = await client.chat(
+            [ChatMessage(role="system", content=prompt)],
+            temperature=0.5,
+        )
+        return _sanitize_title(response.content or "")
+    except Exception:
+        logger.exception("Failed to generate conversation title")
+        return settings.ai_default_title
+
+
+async def update_conversation_title(
+    db: AsyncSession,
+    *,
+    user_id: int,
+    conversation: AIConversation,
+    title: str,
+) -> AIConversation:
+    """手动更新会话标题。
+
+    参数:
+        db: SQLAlchemy 异步 Session。
+        user_id: 当前登录用户 ID；必须与 conversation.user_id 一致。
+        conversation: AIConversation 实例。
+        title: 新标题。
+
+    返回:
+        更新后的 AIConversation 实例。
+
+    异常:
+        BusinessError: user_id 与 conversation 所属用户不一致时抛出 403。
+    """
+    if user_id != conversation.user_id:
+        raise BusinessError(
+            "Permission denied", code=ErrorCode.AI_CONVERSATION_PERMISSION_DENIED
+        )
+
+    conversation.title = _sanitize_title(title)
+    await db.commit()
+    await db.refresh(conversation)
+    return conversation
 
 
 async def create_conversation(
@@ -373,7 +457,23 @@ async def send_message(
     if not isinstance(ai_message, AIMessage):
         raise BusinessError("Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED)
 
-    return AIConversationMessageOut(**_message_to_dict(ai_message))
+    ai_reply = AIConversationMessageOut(**_message_to_dict(ai_message))
+
+    if _is_default_title(conversation.title):
+        try:
+            title = await generate_conversation_title(
+                content, str(ai_reply.content or "")
+            )
+            if not _is_default_title(title):
+                conversation.title = title
+                await db.commit()
+                await db.refresh(conversation)
+        except Exception:
+            logger.exception(
+                "Failed to auto-generate title for conversation %s", conversation.id
+            )
+
+    return ai_reply
 
 
 async def stream_message(
@@ -409,6 +509,7 @@ async def stream_message(
 
     model_name: str | None = conversation.model
     emitted_error = False
+    accumulated_content = ""
 
     try:
         async for message_chunk, metadata in graph.astream(
@@ -429,10 +530,28 @@ async def stream_message(
                 yield AIStreamChunkOut(type="reasoning", data=reasoning, model=model_name)
 
             if isinstance(message_chunk.content, str) and message_chunk.content:
+                accumulated_content += message_chunk.content
                 yield AIStreamChunkOut(
                     type="content",
                     data=message_chunk.content,
                     model=model_name,
+                )
+
+        # 流式内容输出完成后，若标题仍为默认值，则同步生成并更新。
+        # 标题生成在 yield done 之前完成，确保前端刷新列表时标题已生效。
+        if _is_default_title(conversation.title) and accumulated_content:
+            try:
+                title = await generate_conversation_title(
+                    content, accumulated_content
+                )
+                if not _is_default_title(title):
+                    conversation.title = title
+                    await db.commit()
+                    await db.refresh(conversation)
+            except Exception:
+                logger.exception(
+                    "Failed to auto-generate title for conversation %s",
+                    conversation.id,
                 )
 
     except Exception:

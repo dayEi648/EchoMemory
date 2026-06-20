@@ -1,4 +1,5 @@
 import type {
+  AIConversation,
   AIConversationCreateInput,
   AIConversationMessage,
   AIConversationMessageCreateInput,
@@ -170,6 +171,14 @@ export const createAIConversationApi = ({
         reader.releaseLock();
       }
     },
+
+    /** 手动更新会话标题。 */
+    updateTitle: (conversationId: number, title: string) =>
+      request<AIConversation>(`/ai/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      }),
 
     /** 软删除指定会话。 */
     deleteConversation: (conversationId: number) =>

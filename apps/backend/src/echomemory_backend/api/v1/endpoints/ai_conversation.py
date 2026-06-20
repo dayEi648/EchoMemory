@@ -13,6 +13,7 @@ from echomemory_backend.schemas.ai_conversation import (
     AIConversationMessageCreate,
     AIConversationMessagesOut,
     AIConversationOut,
+    AIConversationTitleUpdate,
     AIConversationWithFirstMessageOut,
     AIStreamChunkOut,
     PaginatedAIConversationOut,
@@ -145,6 +146,23 @@ async def send_ai_message(
         content=data.content,
     )
     return ai_message
+
+
+@router.patch("/{conversation_id}", response_model=AIConversationOut)
+async def update_ai_conversation_title(
+    db: SessionDep,
+    current_user: ActiveUser,
+    conversation_id: PositiveIntPath,
+    data: AIConversationTitleUpdate,
+):
+    """手动更新指定 AI 会话的标题。"""
+    conversation = await ai_conversation_service.get_conversation(
+        db, user_id=current_user.id, conversation_id=conversation_id
+    )
+    updated = await ai_conversation_service.update_conversation_title(
+        db, user_id=current_user.id, conversation=conversation, title=data.title
+    )
+    return AIConversationOut.model_validate(updated)
 
 
 @router.delete("/{conversation_id}", status_code=HttpStatus.NO_CONTENT)

@@ -696,6 +696,10 @@ export type AIConversationMessageCreateInput = {
   stream?: boolean;
 };
 
+export type AIConversationTitleUpdateInput = {
+  title: string;
+};
+
 export type AIStreamChunk = {
   type: "content" | "reasoning" | "done" | "error";
   data: string;

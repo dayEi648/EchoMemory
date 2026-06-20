@@ -4971,6 +4971,35 @@ textarea {
   background: var(--color-surface-card);
 }
 
+.ai-chat-title--editable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  transition: background 0.15s ease;
+}
+
+.ai-chat-title--editable:hover {
+  background: var(--color-surface-card);
+}
+
+.ai-chat-title-input {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  padding: 4px 10px;
+  outline: none;
+  min-width: 120px;
+  max-width: 60%;
+}
+
+.ai-chat-title-input:focus {
+  border-color: var(--color-primary);
+}
+
 .ai-assistant-welcome {
   flex: 1;
   display: flex;

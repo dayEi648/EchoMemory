@@ -200,9 +200,20 @@ def fake_deepseek_client(monkeypatch):
     yield _FakeDeepSeekClient
 
 
+@pytest.fixture
+def fake_title_generator(monkeypatch):
+    """固定标题生成结果，避免测试依赖真实 LLM 输出。"""
+    from echomemory_backend.services import ai_conversation_service
+
+    async def _generate(*args, **kwargs):
+        return "生成的标题"
+
+    monkeypatch.setattr(ai_conversation_service, "generate_conversation_title", _generate)
+    yield _generate
+
 
 @pytest_asyncio.fixture
-async def client(fake_redis, fake_ai_checkpointer, fake_deepseek_client):
+async def client(fake_redis, fake_ai_checkpointer, fake_deepseek_client, fake_title_generator):
     """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
     AsyncTestingSessionLocal = _make_testing_sessionmaker(engine)

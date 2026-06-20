@@ -75,6 +75,12 @@ class AIConversationMessageCreate(BaseModel):
     stream: bool = False
 
 
+class AIConversationTitleUpdate(BaseModel):
+    """手动更新会话标题的请求体。"""
+
+    title: str = Field(..., min_length=1, max_length=200)
+
+
 class AIStreamChunkOut(BaseModel):
     """流式响应 SSE 数据包 Schema。"""
 

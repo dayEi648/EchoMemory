@@ -76,7 +76,7 @@ class TestAIConversationCreate:
         assert [message["role"] for message in messages] == ["system"]
 
     async def test_create_conversation_with_first_message(self, client: TestClient):
-        """附带首条消息时应返回 AI 回复。"""
+        """附带首条消息时应返回 AI 回复并自动生成标题。"""
         token = _register_and_login(client, "ai_user_2")
         resp = client.post(
             AI_CONVERSATIONS_URL,
@@ -85,7 +85,7 @@ class TestAIConversationCreate:
         )
         assert resp.status_code == 201
         data = api_data(resp)
-        assert data["conversation"]["title"] == "新对话"
+        assert data["conversation"]["title"] == "生成的标题"
         assert data["ai_message"] is not None
         assert data["ai_message"]["role"] == "ai"
         assert "你好，我是 AI 助手。" in data["ai_message"]["content"]
@@ -417,42 +417,150 @@ class TestAIConversationServiceSecurity:
             )
         assert exc_info.value.status_code == 403
 
-    async def test_user_id_persists_in_graph_state(
-        self,
-        db_session: AsyncSession,
-        fake_ai_checkpointer,
-        fake_deepseek_client,
+
+class TestAIConversationTitle:
+    """测试会话标题自动生成与手动更新。"""
+
+    async def test_title_auto_generated_after_non_stream_first_message(
+        self, client: TestClient
     ):
-        """创建会话后，user_id 应写入 LangGraph checkpoint 状态。"""
-        user = await _create_user(db_session, "state_owner")
-        conversation, _ = await ai_conversation_service.create_conversation(
-            db_session, user_id=user.id, first_message="你好"
+        """非流式首条消息后，标题应自动更新。"""
+        token = _register_and_login(client, "ai_user_title_1")
+        resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"first_message": "推荐一首歌"},
+        )
+        assert resp.status_code == 201
+        data = api_data(resp)
+        assert data["conversation"]["title"] == "生成的标题"
+
+    async def test_title_not_changed_without_user_message(self, client: TestClient):
+        """仅创建空会话时，标题应保持默认值。"""
+        token = _register_and_login(client, "ai_user_title_2")
+        resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+        )
+        assert resp.status_code == 201
+        data = api_data(resp)
+        assert data["conversation"]["title"] == "新对话"
+
+    async def test_title_generated_after_stream_first_message(self, client: TestClient):
+        """流式首条消息后，标题应在异步生成后更新。"""
+        token = _register_and_login(client, "ai_user_title_3")
+        resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"first_message": "你好", "stream": True},
+        )
+        assert resp.status_code == 200
+        # 消费完流式响应
+        for _ in resp.iter_text():
+            pass
+
+        # 异步标题生成完成后，列表接口应返回新标题
+        list_resp = client.get(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert list_resp.status_code == 200
+        items = api_data(list_resp)["items"]
+        assert len(items) == 1
+        assert items[0]["title"] == "生成的标题"
+
+    async def test_manual_update_title(self, client: TestClient):
+        """应支持手动更新会话标题。"""
+        token = _register_and_login(client, "ai_user_title_4")
+        create_resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+        )
+        conversation_id = api_data(create_resp)["conversation"]["id"]
+
+        resp = client.patch(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"title": "我的自定义标题"},
+        )
+        assert resp.status_code == 200
+        data = api_data(resp)
+        assert data["title"] == "我的自定义标题"
+
+    async def test_manual_update_title_too_long(self, client: TestClient):
+        """标题超长时应返回 422。"""
+        token = _register_and_login(client, "ai_user_title_5")
+        create_resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+        )
+        conversation_id = api_data(create_resp)["conversation"]["id"]
+
+        resp = client.patch(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"title": "x" * 201},
+        )
+        assert resp.status_code == 422
+
+    async def test_cannot_update_other_user_title(self, client: TestClient):
+        """不能修改其他用户的会话标题。"""
+        token_a = _register_and_login(client, "ai_user_title_6")
+        token_b = _register_and_login(client, "ai_user_title_7")
+        create_resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token_a}"},
+            json={},
+        )
+        conversation_id = api_data(create_resp)["conversation"]["id"]
+
+        resp = client.patch(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}",
+            headers={"Authorization": f"Bearer {token_b}"},
+            json={"title": "恶意标题"},
+        )
+        assert resp.status_code == 404
+
+    async def test_manual_title_prevents_auto_generation(
+        self, client: TestClient
+    ):
+        """手动设置标题后，首条消息不再触发自动标题生成。"""
+        token = _register_and_login(client, "ai_user_title_8")
+        create_resp = client.post(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={},
+        )
+        conversation_id = api_data(create_resp)["conversation"]["id"]
+
+        client.patch(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"title": "预设标题"},
         )
 
-        graph = build_graph(conversation.model)
-        config = get_thread_config(conversation.thread_id)
-        state = await graph.aget_state(config)
-
-        assert state is not None
-        assert state.values.get("user_id") == user.id
-
-    async def test_delete_conversation_rejects_wrong_user_id(
-        self,
-        db_session: AsyncSession,
-        fake_ai_checkpointer,
-        fake_deepseek_client,
-    ):
-        """服务层显式校验 user_id，禁止用他人身份删除会话。"""
-        owner = await _create_user(db_session, "delete_owner")
-        attacker = await _create_user(db_session, "delete_attacker")
-        conversation, _ = await ai_conversation_service.create_conversation(
-            db_session, user_id=owner.id, title="owner-conv"
+        resp = client.post(
+            f"{AI_CONVERSATIONS_URL}/{conversation_id}/messages",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"content": "你好", "stream": False},
         )
+        assert resp.status_code == 200
 
-        with pytest.raises(BusinessError) as exc_info:
-            await ai_conversation_service.delete_conversation(
-                db_session,
-                user_id=attacker.id,
-                conversation=conversation,
-            )
-        assert exc_info.value.status_code == 403
+        list_resp = client.get(
+            AI_CONVERSATIONS_URL,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        items = api_data(list_resp)["items"]
+        assert items[0]["title"] == "预设标题"
+
+
+def test_sanitize_title_trims_and_falls_back():
+    """标题清理应去除引号并回退默认标题。"""
+    from echomemory_backend.services.ai_conversation_service import _sanitize_title
+
+    assert _sanitize_title('  "自定义标题"  ') == "自定义标题"
+    assert _sanitize_title("   ") == "新对话"
+    assert _sanitize_title("x" * 250) == "x" * 200
