@@ -559,27 +559,27 @@ class TestGetMusic:
 
 
 class TestGetMusicLyrics:
-    """测试公开获取歌词签名 URL 功能。"""
+    """测试公开获取歌词文本功能。"""
 
     async def test_get_lyrics_success(
         self, client: TestClient, db_session: AsyncSession, monkeypatch
     ):
-        """测试已上架且有歌词 URL 时返回签名 URL。"""
+        """测试已上架且有歌词 URL 时返回歌词文本。"""
         music = await _create_music_directly(db_session, title="LyricsSong")
         music.lyrics_url = "https://fake-oss.example.com/lyrics/test.lrc"
         db_session.add(music)
         await db_session.commit()
 
-        async def fake_sign(_url: str) -> str:
-            return "https://fake-oss.example.com/lyrics/test.lrc?signature=abc"
+        async def fake_get_content(_url: str) -> bytes:
+            return _make_lyrics_bytes()
 
         from echomemory_backend.core.clients import oss_client
 
-        monkeypatch.setattr(oss_client, "sign_url_by_url", fake_sign)
+        monkeypatch.setattr(oss_client, "get_lyrics_content_by_url", fake_get_content)
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert api_data(resp)["url"].endswith("signature=abc")
+        assert api_data(resp)["content"] == _make_lyrics_bytes().decode("utf-8")
 
     async def test_get_lyrics_no_url_returns_404(
         self, client: TestClient, db_session: AsyncSession
@@ -602,10 +602,10 @@ class TestGetMusicLyrics:
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 404
 
-    async def test_get_lyrics_url_reflects_update(
+    async def test_get_lyrics_content_reflects_update(
         self, client: TestClient, db_session: AsyncSession, monkeypatch, fake_redis
     ):
-        """管理员更新歌词文件后签名 URL 使用新的歌词地址。"""
+        """管理员更新歌词文件后返回的歌词文本使用新的歌词内容。"""
         from echomemory_backend.core.clients import oss_client
 
         admin = await _create_user(
@@ -616,14 +616,11 @@ class TestGetMusicLyrics:
         db_session.add(music)
         await db_session.commit()
 
-        signed_urls: list[str] = []
+        async def fake_get_content(url: str) -> bytes:
+            return url.encode("utf-8")
 
-        async def fake_sign(url: str) -> str:
-            signed = f"{url}?signature=abc"
-            signed_urls.append(signed)
-            return signed
+        monkeypatch.setattr(oss_client, "get_lyrics_content_by_url", fake_get_content)
 
-        monkeypatch.setattr(oss_client, "sign_url_by_url", fake_sign)
         async def fake_upload_lyrics(*args, **kwargs) -> str:
             return "https://fake-oss.example.com/lyrics/new.lrc"
 
@@ -631,7 +628,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert api_data(resp)["url"] == "https://fake-oss.example.com/lyrics/old.lrc?signature=abc"
+        assert api_data(resp)["content"] == music.lyrics_url
 
         resp = client.patch(
             f"{BASE_URL}/admin/{music.id}",
@@ -644,11 +641,7 @@ class TestGetMusicLyrics:
 
         resp = client.get(f"{BASE_URL}/{music.id}/lyrics")
         assert resp.status_code == 200
-        assert api_data(resp)["url"] == "https://fake-oss.example.com/lyrics/new.lrc?signature=abc"
-        assert signed_urls == [
-            "https://fake-oss.example.com/lyrics/old.lrc?signature=abc",
-            "https://fake-oss.example.com/lyrics/new.lrc?signature=abc",
-        ]
+        assert api_data(resp)["content"] == "https://fake-oss.example.com/lyrics/new.lrc"
 
 
 class TestListMusics:

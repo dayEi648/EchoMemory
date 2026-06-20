@@ -152,12 +152,7 @@ export const PlayerScreenLyrics = ({ musicId, hasLyrics }: PlayerScreenLyricsPro
     setLoading(true);
     setLoadError(false);
     try {
-      const { url } = await musicApi.getMusicLyrics(musicId);
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to load lyrics");
-      }
-      const content = await response.text();
+      const { content } = await musicApi.getMusicLyrics(musicId);
       const parsed = parseLrc(content);
       setLines(parsed.lines);
       setSynced(parsed.synced);

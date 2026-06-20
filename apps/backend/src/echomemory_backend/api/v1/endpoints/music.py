@@ -488,7 +488,7 @@ async def get_music_lyrics(
     db: SessionDep,
     music_id: PositiveIntPath,
 ):
-    """获取已上架音乐的歌词签名 URL，由前端直接下载并解析。"""
+    """获取已上架音乐的歌词文本，由后端从 OSS 拉取后返回给前端。"""
     music = await require_entity(
         music_service.get_music_by_id,
         db,
@@ -501,13 +501,13 @@ async def get_music_lyrics(
             status_code=HttpStatus.NOT_FOUND, detail="Lyrics not found"
         )
     try:
-        url = await oss_client.sign_url_by_url(music.lyrics_url)
+        content_bytes = await oss_client.get_lyrics_content_by_url(music.lyrics_url)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(
             status_code=HttpStatus.BAD_GATEWAY,
             detail="Failed to load lyrics",
         ) from exc
-    return LyricsOut(url=url)
+    return LyricsOut(content=content_bytes.decode("utf-8"))
 
 
 @router.get("/{music_id}", response_model=MusicOut)

@@ -263,6 +263,30 @@ def _sign_url_by_url_sync(url: str, expires_seconds: int = 600) -> str:
         raise RuntimeError(f"OSS sign url failed: {exc}") from exc
 
 
+def _get_lyrics_content_by_url_sync(url: str) -> bytes:
+    """根据 OSS URL 直接拉取歌词文件内容（使用后端 Bucket 权限，无需签名）。
+
+    Args:
+        url: 本项目 OSS 对象 URL。
+
+    Returns:
+        文件原始字节内容。
+
+    Raises:
+        ValueError: URL 非法时抛出。
+        RuntimeError: OSS 读取失败时抛出。
+    """
+    object_key = _object_key_from_url(url)
+    if not object_key:
+        raise ValueError(f"Invalid OSS URL: {url}")
+
+    try:
+        bucket = _get_bucket()
+        return bucket.get_object(object_key).read()
+    except oss2.exceptions.OssError as exc:
+        raise RuntimeError(f"OSS get object failed: {exc}") from exc
+
+
 def _delete_object_by_url_sync(url: str) -> None:
     """根据 URL 删除 OSS 对象（同步实现）。删除失败时记录日志但不抛异常。
 
@@ -375,3 +399,8 @@ async def delete_object_by_url(url: str) -> None:
 async def sign_url_by_url(url: str, expires_seconds: int = 600) -> str:
     """根据 OSS URL 异步生成临时签名访问 URL。"""
     return await to_thread.run_sync(_sign_url_by_url_sync, url, expires_seconds)
+
+
+async def get_lyrics_content_by_url(url: str) -> bytes:
+    """根据 OSS URL 异步拉取歌词文件内容。"""
+    return await to_thread.run_sync(_get_lyrics_content_by_url_sync, url)

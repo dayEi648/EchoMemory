@@ -21,6 +21,8 @@ import { getApiErrorMessage } from "../shared/apiError";
 import { ErrorCode } from "../shared/constants/errorCode";
 import { ApiError } from "../shared/api/base";
 
+type PlaylistTab = "songs" | "comments";
+
 export const PlaylistDetailPage = () => {
   const { playlistId } = useParams<{ playlistId: string }>();
   const navigate = useNavigate();
@@ -33,6 +35,7 @@ export const PlaylistDetailPage = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState<PlaylistTab>("songs");
 
   useEffect(() => {
     const load = async () => {
@@ -49,6 +52,10 @@ export const PlaylistDetailPage = () => {
       }
     };
     load();
+  }, [playlistId]);
+
+  useEffect(() => {
+    setTab("songs");
   }, [playlistId]);
 
   const handleToggleCollect = async () => {
@@ -326,42 +333,62 @@ export const PlaylistDetailPage = () => {
         </div>
       </FadeIn>
 
-      {/* Songs */}
+      {/* 歌曲列表 / 评论 切换 */}
       <FadeIn delay={0.15}>
-        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>歌曲列表</h3>
-        {sortedMusics.length === 0 ? (
-          <EmptyState icon={Music} title="该歌单暂无歌曲" description="歌单创建者可以通过搜索将歌曲添加到歌单。" />
-        ) : (
-          <StaggerContainer staggerDelay={0.04}>
-            {sortedMusics.map((pm) => (
-              <StaggerItem key={`${pm.music.id}-${pm.ordinal}`}>
-                <SongRow
-                  name={pm.music.title}
-                  artist={formatAuthors(pm.music.authors)}
-                  album={formatAlbumTitle(pm.music.albums)}
-                  playCount={pm.music.play_count}
-                  musicId={pm.music.id}
-                  coverUrl={pm.music.cover_icon_url ?? undefined}
-                  onPlay={() => handlePlayMusic(pm)}
-                />
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
-        )}
-      </FadeIn>
+        <section>
+          <nav className="detail-tabs" role="tablist" aria-label="歌单内容">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "songs"}
+              className={`detail-tabs__item${tab === "songs" ? " detail-tabs__item--active" : ""}`}
+              onClick={() => setTab("songs")}
+            >
+              歌曲列表
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "comments"}
+              className={`detail-tabs__item${tab === "comments" ? " detail-tabs__item--active" : ""}`}
+              onClick={() => setTab("comments")}
+            >
+              评论
+              {playlist.comment_count > 0 && (
+                <span className="detail-tabs__count">{playlist.comment_count}</span>
+              )}
+            </button>
+          </nav>
 
-      {/* Comments */}
-      {playlist && (
-        <FadeIn delay={0.2}>
-          <section style={{ marginTop: 32 }}>
+          {tab === "songs" ? (
+            sortedMusics.length === 0 ? (
+              <EmptyState icon={Music} title="该歌单暂无歌曲" description="歌单创建者可以通过搜索将歌曲添加到歌单。" />
+            ) : (
+              <StaggerContainer staggerDelay={0.04}>
+                {sortedMusics.map((pm) => (
+                  <StaggerItem key={`${pm.music.id}-${pm.ordinal}`}>
+                    <SongRow
+                      name={pm.music.title}
+                      artist={formatAuthors(pm.music.authors)}
+                      album={formatAlbumTitle(pm.music.albums)}
+                      playCount={pm.music.play_count}
+                      musicId={pm.music.id}
+                      coverUrl={pm.music.cover_icon_url ?? undefined}
+                      onPlay={() => handlePlayMusic(pm)}
+                    />
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            )
+          ) : (
             <CommentSection
               targetType="playlist"
               targetId={playlist.id}
               commentCount={playlist.comment_count}
             />
-          </section>
-        </FadeIn>
-      )}
+          )}
+        </section>
+      </FadeIn>
 
       {/* 编辑弹窗 */}
       <CreatePlaylistModal

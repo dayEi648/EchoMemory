@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Send, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -16,27 +16,22 @@ const PAGE_SIZE = 10;
 interface CommentSectionProps {
   targetType: CommentTargetType;
   targetId: number;
-  /** 已知评论总数，用于收起态展示；不传则轻量请求 */
+  /** 已知评论总数，用于初始化分页 */
   commentCount?: number;
-  /** 嵌入模式：不显示收起栏，直接展示内容（如空间说说已有点击展开） */
-  embedded?: boolean;
 }
 
 export const CommentSection = ({
   targetType,
   targetId,
   commentCount: commentCountProp,
-  embedded = false,
 }: CommentSectionProps) => {
   const { user } = useAuthStore();
   const currentUserId = user?.id ?? 0;
 
-  const [expanded, setExpanded] = useState(embedded);
   const [comments, setComments] = useState<CommentItemType[]>([]);
   const [total, setTotal] = useState(commentCountProp ?? 0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [countLoading, setCountLoading] = useState(false);
   const [sortBy, setSortBy] = useState<string>("recommended");
 
   const [input, setInput] = useState("");
@@ -51,31 +46,7 @@ export const CommentSection = ({
     }
   }, [commentCountProp]);
 
-  /** 收起态：仅拉取评论总数 */
-  useEffect(() => {
-    if (embedded || expanded || commentCountProp !== undefined) return;
-
-    let cancelled = false;
-    setCountLoading(true);
-    commentApi
-      .listRootComments(targetType, targetId, { limit: 1, offset: 0 })
-      .then((res) => {
-        if (!cancelled) setTotal(res.total);
-      })
-      .catch(() => {
-        /* 收起态静默失败 */
-      })
-      .finally(() => {
-        if (!cancelled) setCountLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [embedded, expanded, commentCountProp, targetType, targetId]);
-
   const loadComments = useCallback(async () => {
-    if (!expanded) return;
     setLoading(true);
     try {
       const res = await commentApi.listRootComments(targetType, targetId, {
@@ -90,7 +61,7 @@ export const CommentSection = ({
     } finally {
       setLoading(false);
     }
-  }, [targetType, targetId, page, expanded, sortBy]);
+  }, [targetType, targetId, page, sortBy]);
 
   useEffect(() => {
     loadComments();
@@ -276,42 +247,5 @@ export const CommentSection = ({
     </>
   );
 
-  if (embedded) {
-    return <div>{renderBody()}</div>;
-  }
-
-  return (
-    <div className="comment-section">
-      <button
-        type="button"
-        className="comment-section-toggle"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-      >
-        <MessageCircle size={18} />
-        <span>评论</span>
-        <span className="comment-section-count">
-          ({countLoading && commentCountProp === undefined ? "…" : total})
-        </span>
-        <span className="comment-section-toggle-icon">
-          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            className="comment-section-body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-            style={{ overflow: "hidden" }}
-          >
-            {renderBody()}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  return <>{renderBody()}</>;
 };

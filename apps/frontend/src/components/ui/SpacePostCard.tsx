@@ -228,7 +228,6 @@ export const SpacePostCard = ({
             targetType="space_post"
             targetId={post.id}
             commentCount={post.comment_count}
-            embedded
           />
         </div>
       )}
