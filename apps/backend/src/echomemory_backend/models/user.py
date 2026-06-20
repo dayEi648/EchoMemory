@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from echomemory_backend.models.play_history import PlayHistory
     from echomemory_backend.models.playlist import Playlist
     from echomemory_backend.models.space_post import SpacePost
+    from echomemory_backend.models.user_profile import UserProfile
 
 
 class User(Base):
@@ -128,6 +129,9 @@ class User(Base):
     )
     followers: Mapped[list["UserFollow"]] = relationship(
         "UserFollow", foreign_keys="UserFollow.followee_id", back_populates="followee"
+    )
+    profile: Mapped["UserProfile"] = relationship(
+        "UserProfile", back_populates="user", uselist=False
     )
 
 

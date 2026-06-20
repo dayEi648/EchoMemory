@@ -63,6 +63,7 @@ from echomemory_backend.models.user import (
     User,
     UserFollow,
 )
+from echomemory_backend.models.user_profile import UserProfile
 from echomemory_backend.models.user_tag import (
     UserEmotionTag,
     UserInterestTag,
@@ -117,6 +118,7 @@ __all__ = [
     "UserLanguage",
     "UserMusicLike",
     "UserPlaylistCollection",
+    "UserProfile",
     "UserRadarRecommendation",
     "UserRole",
     "UserStatus",

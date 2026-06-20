@@ -34,6 +34,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from echomemory_backend.ai import langchain as ai_langchain
+from echomemory_backend.ai.clients import deepseek as deepseek_module
 from echomemory_backend.ai.clients.deepseek import ChatResponse
 from echomemory_backend.ai.graphs import checkpointer as ai_checkpointer
 from echomemory_backend.api.deps import get_db
@@ -41,6 +42,9 @@ from echomemory_backend.core.clients import redis_client as rc
 from echomemory_backend.core.utils.seed_data import get_dictionary_seed_sql
 from echomemory_backend.db.base import Base
 from echomemory_backend.main import app
+from echomemory_backend.services import user_profile_service as user_profile_module
+
+import echomemory_backend.models  # noqa: F401  # 确保 setup_db 创建全部 ORM 表
 
 TEST_SYNC_DATABASE_URL = os.environ["DATABASE_URL"]
 TEST_ASYNC_DATABASE_URL = (
@@ -103,6 +107,7 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_update_user_level();
 """
 
+
 @pytest.fixture(autouse=True)
 def clean_tables():
     """每次测试前清理业务数据表并重新灌入字典种子数据。"""
@@ -120,7 +125,7 @@ def clean_tables():
             user_languages, user_styles,
             user_daily_recommendations, user_radar_recommendations,
             notifications, conversations, direct_messages, user_blocks,
-            vector_documents, ai_conversations, system_logs
+            vector_documents, ai_conversations, system_logs, user_profiles
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(get_dictionary_seed_sql()))
@@ -148,7 +153,7 @@ def fake_redis(monkeypatch):
     yield fake
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def fake_ai_checkpointer(monkeypatch):
     """使用 MemorySaver 替代 Postgres Checkpointer，避免测试依赖真实数据库。"""
     from langgraph.checkpoint.memory import MemorySaver
@@ -159,7 +164,7 @@ def fake_ai_checkpointer(monkeypatch):
     yield saver
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def fake_deepseek_client(monkeypatch):
     """使用固定回复模拟 DeepSeekClient，避免测试调用真实 LLM API。"""
 
@@ -196,7 +201,9 @@ def fake_deepseek_client(monkeypatch):
             for text in ["你好", "，", "我是", " AI 助手。"]:
                 yield ChatResponse(content=text, model=self.model)
 
+    monkeypatch.setattr(deepseek_module, "DeepSeekClient", _FakeDeepSeekClient)
     monkeypatch.setattr(ai_langchain.deepseek_chat, "DeepSeekClient", _FakeDeepSeekClient)
+    monkeypatch.setattr(user_profile_module, "DeepSeekClient", _FakeDeepSeekClient)
     yield _FakeDeepSeekClient
 
 
@@ -213,7 +220,7 @@ def fake_title_generator(monkeypatch):
 
 
 @pytest_asyncio.fixture
-async def client(fake_redis, fake_ai_checkpointer, fake_deepseek_client, fake_title_generator):
+async def client(fake_redis, fake_title_generator):
     """TestClient 使用独立的异步 Session，避免与 pytest fixture 事件循环冲突。"""
     engine = create_async_engine(TEST_ASYNC_DATABASE_URL)
     AsyncTestingSessionLocal = _make_testing_sessionmaker(engine)

@@ -119,6 +119,7 @@
 │   │   │       │   ├── space_post.py
 │   │   │       │   ├── system_log.py       # 系统日志模型
 │   │   │       │   ├── user.py
+│   │   │       │   ├── user_profile.py     # 用户画像模型
 │   │   │       │   ├── user_tag.py
 │   │   │       │   └── vector_document.py  # RAG 向量文档模型
 │   │   │       ├── schemas/        # Pydantic Schema（请求/响应模型）
@@ -158,6 +159,7 @@
 │   │   │       │   ├── recommendation_service.py
 │   │   │       │   ├── space_post_service.py
 │   │   │       │   ├── stats_service.py
+│   │   │       │   ├── user_profile_service.py  # 用户画像维护服务
 │   │   │       │   ├── user_service.py
 │   │   │       │   ├── user_tag_service.py
 │   │   │       │   └── association_helpers.py
@@ -176,6 +178,7 @@
 │   │       ├── test_deepseek_tool_calling.py # DeepSeek 工具调用协议测试
 │   │       ├── test_tool_node.py         # 工具执行节点测试
 │   │       ├── test_tool_registry.py     # 工具注册与解析测试
+│   │       ├── test_user_profile.py      # 用户画像维护测试
 │   │       ├── test_web_search_tool.py   # IQS MCP 联网搜索测试
 │   │       ├── test_streaming_parser.py  # 旧标签回复兼容解析测试
 │   │       ├── test_album.py

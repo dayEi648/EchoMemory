@@ -43,6 +43,7 @@ from echomemory_backend.schemas.ai_conversation import (
     AIConversationOut,
     AIStreamChunkOut,
 )
+from echomemory_backend.services import user_profile_service
 
 logger = logging.getLogger(__name__)
 
@@ -569,6 +570,15 @@ async def send_message(
                 "Failed to auto-generate title for conversation %s", conversation.id
             )
 
+    try:
+        await user_profile_service.maybe_update_user_profile(
+            db, user_id=user_id, conversation=conversation
+        )
+    except Exception:
+        logger.exception(
+            "Failed to update user profile for conversation %s", conversation.id
+        )
+
     return ai_reply
 
 
@@ -663,6 +673,15 @@ async def stream_message(
     finally:
         if not emitted_error:
             yield AIStreamChunkOut(type="done", data="", model=model_name)
+            try:
+                await user_profile_service.maybe_update_user_profile(
+                    db, user_id=user_id, conversation=conversation
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to update user profile for conversation %s",
+                    conversation.id,
+                )
 
 
 async def delete_conversation(
