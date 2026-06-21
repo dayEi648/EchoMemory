@@ -141,9 +141,6 @@ export function computeLyricScrollTop(
   return Math.max(0, centerY - viewportHeight / 2);
 }
 
-/** 歌词自动跟随时使用的平滑系数（越大越快贴近目标） */
-export const LYRIC_SCROLL_LERP = 0.14;
-
 /** 相邻歌词行切换时，滚动动画的标准时长（毫秒）。与播放进度无关。 */
 export const LYRIC_LINE_TRANSITION_MS = 520;
 

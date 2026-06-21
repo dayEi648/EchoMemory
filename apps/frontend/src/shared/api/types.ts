@@ -319,10 +319,6 @@ export type PlayHistoryItem = {
   music: PlayHistoryMusicItem;
 };
 
-export type PlayHistoryCreateInput = {
-  music_id: number;
-};
-
 export type PaginatedPlayHistoryList = {
   items: PlayHistoryItem[];
   total: number;
@@ -819,10 +815,6 @@ export type AIConversationMessageCreateInput = {
   content: string;
   stream?: boolean;
   confirmation_token?: string;
-};
-
-export type AIConversationTitleUpdateInput = {
-  title: string;
 };
 
 export type AIStreamChunk = {

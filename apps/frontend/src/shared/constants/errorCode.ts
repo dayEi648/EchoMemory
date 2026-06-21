@@ -137,28 +137,6 @@ export enum ErrorCode {
   RESOURCE_NOT_FOUND = 90002,
 }
 
-/** 错误码分层标签。 */
-export type ErrorCodeLayer =
-  | "success"
-  | "business"
-  | "auth"
-  | "external"
-  | "client"
-  | "system"
-  | "unknown";
-
-/** 获取错误码所属分层。 */
-export function getErrorCodeLayer(code: ErrorCode | number): ErrorCodeLayer {
-  const value = Number(code);
-  if (value === 0) return "success";
-  if (value >= 10000 && value < 20000) return "business";
-  if (value >= 20000 && value < 30000) return "auth";
-  if (value >= 30000 && value < 40000) return "external";
-  if (value >= 40000 && value < 50000) return "client";
-  if (value >= 50000 && value < 60000) return "system";
-  return "unknown";
-}
-
 /** 错误码 → 中文说明映射（与后端 ErrorCode.description 同步）。 */
 const ERROR_CODE_DESCRIPTIONS: Record<number, string> = {
   [ErrorCode.SUCCESS]: "请求成功",
