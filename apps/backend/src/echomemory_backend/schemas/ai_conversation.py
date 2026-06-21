@@ -23,6 +23,8 @@ class AIConversationMessageOut(BaseModel):
     tool_call_id: str | None = None
     name: str | None = None
     tool_calls: list[dict[str, Any]] | None = None
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
+    artifact: dict[str, Any] | None = None
     additional_kwargs: dict[str, Any] | None = None
     created_at: datetime | None = None
 
@@ -76,6 +78,7 @@ class AIConversationMessageCreate(BaseModel):
 
     content: str = Field(..., min_length=1, max_length=4000)
     stream: bool = False
+    confirmation_token: str | None = Field(default=None, max_length=2048)
 
 
 class AIConversationTitleUpdate(BaseModel):
@@ -87,7 +90,7 @@ class AIConversationTitleUpdate(BaseModel):
 class AIStreamChunkOut(BaseModel):
     """流式响应 SSE 数据包 Schema。"""
 
-    type: Literal["content", "reasoning", "done", "error"]
+    type: Literal["content", "reasoning", "attachment", "done", "error"]
     data: str = ""
     model: str | None = None
     meta: dict[str, Any] | None = None

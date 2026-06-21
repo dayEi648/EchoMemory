@@ -18,15 +18,18 @@ import { toast } from "sonner";
 import { aiConversationApi } from "../shared/api/instances";
 import { getApiErrorMessage } from "../shared/apiError";
 import type {
+  AIConfirmationCardAttachment,
   AIConversation,
   AIConversationMessage,
   AIConversationRole,
   AIStreamChunk,
 } from "../shared/api/types";
+import { usePlayMusic } from "../shared/usePlayMusic";
 import { useAuthStore } from "../shared/stores/authStore";
 import { formatRelativeTime } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
+import { AIMessageAttachments } from "../components/ai/AIMessageAttachments";
 
 type UIChatMessage = AIConversationMessage & {
   id: string;
@@ -91,6 +94,7 @@ export const AIAssistantPage = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
   const isAdmin = currentUser?.role === 2 || currentUser?.role === 3;
+  const { playMusicById } = usePlayMusic();
 
   const [conversations, setConversations] = useState<AIConversation[]>([]);
   const [currentId, setCurrentId] = useState<number | null>(null);
@@ -109,6 +113,9 @@ export const AIAssistantPage = () => {
   const [selectedMessageTypes, setSelectedMessageTypes] =
     useState<AIConversationRole[]>(DEFAULT_MESSAGE_TYPES);
   const [messageFilterExpanded, setMessageFilterExpanded] = useState(true);
+  const [resolvedConfirmationTokens, setResolvedConfirmationTokens] = useState<
+    Set<string>
+  >(() => new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -277,6 +284,18 @@ export const AIAssistantPage = () => {
     } else if (chunk.type === "reasoning") {
       reasoningRef.current += chunk.data;
       setReasoningMap((prev) => ({ ...prev, [aiMessageId]: reasoningRef.current }));
+    } else if (chunk.type === "attachment" && chunk.meta?.attachment) {
+      const attachment = chunk.meta.attachment;
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === aiMessageId
+            ? {
+                ...message,
+                attachments: [...(message.attachments ?? []), attachment],
+              }
+            : message,
+        ),
+      );
     } else if (chunk.type === "error") {
       throw new Error(chunk.data || "AI 响应失败");
     }
@@ -319,6 +338,7 @@ export const AIAssistantPage = () => {
   const sendToExistingConversation = async (
     content: string,
     appendUserMessage = true,
+    confirmationToken?: string,
   ) => {
     if (currentId == null) return;
 
@@ -345,7 +365,9 @@ export const AIAssistantPage = () => {
 
     const reasoningRef = { current: "" };
     try {
-      const stream = aiConversationApi.streamMessage(currentId, content);
+      const stream = aiConversationApi.streamMessage(currentId, content, {
+        confirmationToken,
+      });
       for await (const chunk of stream) {
         if (chunk.type === "done") break;
         processStreamChunk(chunk, aiMessageId, reasoningRef);
@@ -370,6 +392,39 @@ export const AIAssistantPage = () => {
       finalizeAIResponse(aiMessageId);
       refreshConversationList();
     }
+  };
+
+  const handleOpenAttachment = (
+    type: "music" | "playlist" | "album",
+    id: number,
+  ) => {
+    navigate(`/${type}/${id}`);
+  };
+
+  const handleConfirmCollection = async (
+    attachment: AIConfirmationCardAttachment,
+  ) => {
+    if (isStreaming || currentId == null) return;
+    setResolvedConfirmationTokens((current) => {
+      const next = new Set(current);
+      next.add(attachment.confirmation_token);
+      return next;
+    });
+    const actionLabel =
+      attachment.action === "collect" ? "收藏" : "取消收藏";
+    await sendToExistingConversation(
+      `我确认${actionLabel}《${attachment.resource.title}》。`,
+      true,
+      attachment.confirmation_token,
+    );
+  };
+
+  const handleCancelConfirmation = (confirmationToken: string) => {
+    setResolvedConfirmationTokens((current) => {
+      const next = new Set(current);
+      next.add(confirmationToken);
+      return next;
+    });
   };
 
   const sendFirstMessage = async (content: string) => {
@@ -821,6 +876,25 @@ export const AIAssistantPage = () => {
                               )}
                             </div>
                           )}
+                          {msg.role === "ai" &&
+                            Boolean(msg.attachments?.length) && (
+                              <AIMessageAttachments
+                                attachments={msg.attachments ?? []}
+                                onOpen={handleOpenAttachment}
+                                onPlayMusic={(musicId) =>
+                                  void playMusicById(musicId)
+                                }
+                                onConfirm={(attachment) =>
+                                  void handleConfirmCollection(attachment)
+                                }
+                                onCancelConfirmation={
+                                  handleCancelConfirmation
+                                }
+                                disabledConfirmationTokens={
+                                  resolvedConfirmationTokens
+                                }
+                              />
+                            )}
 
                           <div className="ai-message-footer">
                             <span className="ai-message-time">

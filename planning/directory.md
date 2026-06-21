@@ -63,7 +63,8 @@
 │   │   │       │   │   ├── __init__.py
 │   │   │       │   │   ├── registry.py     # 工具元数据、动态解析与并发限制
 │   │   │       │   │   ├── web_search.py   # 阿里云 IQS Search MCP 联网搜索
-│   │   │       │   │   └── ...             # 未来：music.py, playlist.py 等
+│   │   │       │   │   ├── music_catalog.py # 音乐平台查询、推送、收藏确认与个性化上下文工具
+│   │   │       │   │   └── confirmation.py  # AI 写操作短期签名确认凭证
 │   │   │       │   └── graphs/             # LangGraph 工作流与共享设施
 │   │   │       │       ├── __init__.py
 │   │   │       │       ├── checkpointer.py # Postgres Checkpointer 生命周期
@@ -215,6 +216,8 @@
 │       │   ├── App.tsx             # 根组件
 │       │   ├── App.test.tsx        # 根组件测试
 │       │   ├── index.css           # 全局样式（Tailwind v4）
+│       │   ├── components/
+│       │   │   └── ai/              # AI 对话结构化卡片组件
 │       │   ├── shared/             # 共享模块
 │       │   │   ├── api/            # API client 与类型定义
 │       │   │   │   ├── types.ts

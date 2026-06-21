@@ -15,6 +15,14 @@ def _set_read_only(existing: bool | None, new: bool | None) -> bool | None:
     return new if new is not None else existing
 
 
+def _replace_confirmation_token(
+    existing: str | None,
+    new: str | None,
+) -> str | None:
+    """确认凭证是单次调用上下文；每个用户消息都显式覆盖旧值。"""
+    return new
+
+
 def _merge_metadata(
     existing: dict[str, Any] | None,
     new: dict[str, Any] | None,
@@ -37,3 +45,4 @@ class AIConversationState(MessagesState):
     user_id: Annotated[int | None, _set_user_id]
     read_only: Annotated[bool | None, _set_read_only]
     metadata: NotRequired[Annotated[dict[str, Any], _merge_metadata]]
+    confirmation_token: Annotated[str | None, _replace_confirmation_token]

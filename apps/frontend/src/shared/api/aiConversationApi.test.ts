@@ -37,6 +37,14 @@ describe("parseSSELine", () => {
     });
   });
 
+  it("parses attachment chunks", () => {
+    const chunk = parseSSELine(
+      'data: {"type":"attachment","data":"","model":"deepseek-v4-flash","meta":{"attachment":{"version":1,"type":"music_card","items":[]}}}',
+    );
+    expect(chunk?.type).toBe("attachment");
+    expect(chunk?.meta?.attachment?.type).toBe("music_card");
+  });
+
   it("parses error chunks", () => {
     const chunk = parseSSELine('data: {"type":"error","data":"失败","model":null}');
     expect(chunk).toEqual({
@@ -136,6 +144,34 @@ describe("createAIConversationApi streamMessage", () => {
         // noop
       }
     }).rejects.toThrow("server error");
+  });
+
+  it("sends a confirmation token outside the visible message content", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      createStreamResponse(["data: [DONE]\n\n"]),
+    );
+    const api = createAIConversationApi({
+      baseUrl,
+      fetcher: fetchMock,
+      tokenStore: createMemoryTokenStore(),
+    });
+
+    for await (const _ of api.streamMessage(1, "我确认收藏", {
+      confirmationToken: "signed-token",
+    })) {
+      // consume stream
+    }
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${baseUrl}/ai/conversations/1/messages`,
+      expect.objectContaining({
+        body: JSON.stringify({
+          content: "我确认收藏",
+          stream: true,
+          confirmation_token: "signed-token",
+        }),
+      }),
+    );
   });
 });
 

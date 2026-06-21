@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.graphs.conversation.builder import (
+    _confirmation_node,
+    _route_after_start,
     build_graph,
     get_thread_config,
 )
@@ -33,6 +35,21 @@ from langchain_core.messages import (
 from tests.api_helpers import api_data
 
 AI_CONVERSATIONS_URL = "/api/v1/ai/conversations"
+
+
+def test_confirmation_context_routes_to_deterministic_tool_call():
+    state = {
+        "messages": [HumanMessage(content="我确认收藏。")],
+        "user_id": 7,
+        "read_only": False,
+        "confirmation_token": "signed-token",
+    }
+
+    assert _route_after_start(state) == "confirmation"
+    result = _confirmation_node(state)
+    tool_call = result["messages"][0].tool_calls[0]
+    assert tool_call["name"] == "confirm_collection_change"
+    assert tool_call["args"] == {}
 
 
 def _register_and_login(client: TestClient, username: str) -> str:

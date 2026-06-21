@@ -313,6 +313,7 @@ def test_deepseek_request_serializes_assistant_tool_calls():
                 role="assistant",
                 content="",
                 tool_calls=tool_calls,
+                reasoning_content="先判断需要调用搜索工具。",
             ),
             ChatMessage(
                 role="tool",
@@ -327,4 +328,41 @@ def test_deepseek_request_serializes_assistant_tool_calls():
     )
 
     assert body["messages"][1]["tool_calls"] == tool_calls
+    assert (
+        body["messages"][1]["reasoning_content"]
+        == "先判断需要调用搜索工具。"
+    )
     assert body["messages"][2]["tool_call_id"] == "call_1"
+
+
+def test_deepseek_request_adds_empty_reasoning_for_deterministic_tool_call():
+    """确定性工具调用也必须满足 DeepSeek 思考模式的回传协议。"""
+    client = DeepSeekClient(model="deepseek-v4-flash", api_key="test")
+    tool_calls = [
+        {
+            "id": "confirm-1",
+            "type": "function",
+            "function": {
+                "name": "confirm_collection_change",
+                "arguments": "{}",
+            },
+        }
+    ]
+
+    body = client._build_request(
+        [
+            ChatMessage(role="user", content="我确认收藏。"),
+            ChatMessage(role="assistant", content="", tool_calls=tool_calls),
+            ChatMessage(
+                role="tool",
+                content="已完成收藏。",
+                tool_call_id="confirm-1",
+                name="confirm_collection_change",
+            ),
+        ],
+        temperature=0.6,
+        max_tokens=None,
+        stream=False,
+    )
+
+    assert body["messages"][1]["reasoning_content"] == ""

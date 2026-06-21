@@ -3,8 +3,8 @@
 import asyncio
 
 import pytest
+from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import AIMessage
-from langchain_core.tools import tool
 
 from echomemory_backend.ai.graphs.conversation.nodes.tool_node import build_tool_node
 from echomemory_backend.ai.tools.registry import ToolRegistry
@@ -134,3 +134,39 @@ async def test_tool_node_runs_batch_serially_when_parallel_is_disallowed():
     )
 
     assert maximum_active == 1
+
+
+@pytest.mark.asyncio
+async def test_tool_node_injects_authenticated_runtime_without_model_argument():
+    @tool
+    async def runtime_tool(runtime: ToolRuntime) -> str:
+        """读取受信任运行时中的用户。"""
+        return f"user:{runtime.state['user_id']}"
+
+    registry = ToolRegistry()
+    registry.register(runtime_tool)
+    node = build_tool_node(registry)
+
+    result = await node(
+        {
+            "messages": [
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "runtime_tool",
+                            "args": {},
+                            "id": "call-runtime",
+                            "type": "tool_call",
+                        }
+                    ],
+                )
+            ],
+            "user_id": 42,
+            "read_only": False,
+        },
+        {},
+    )
+
+    assert result["messages"][0].content == "user:42"
+    assert "runtime" not in runtime_tool.tool_call_schema.model_json_schema()["properties"]

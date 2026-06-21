@@ -5263,6 +5263,209 @@ textarea {
   vertical-align: middle;
 }
 
+.ai-message-attachments {
+  display: grid;
+  gap: 10px;
+  width: min(520px, 100%);
+}
+
+.ai-resource-group {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-resource-card {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  color: var(--color-ink);
+  text-align: left;
+}
+
+.ai-resource-card--music {
+  grid-template-columns: 48px minmax(0, 1fr) 34px 34px;
+  background: var(--color-surface-card);
+}
+
+.ai-resource-card--playlist {
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  background: color-mix(in srgb, var(--color-brand-peach) 30%, var(--color-canvas));
+}
+
+.ai-resource-card--album {
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  background: color-mix(in srgb, var(--color-brand-lavender) 32%, var(--color-canvas));
+}
+
+button.ai-resource-card:hover {
+  border-color: var(--color-surface-strong);
+  transform: translateY(-1px);
+}
+
+.ai-resource-card__cover {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: cover;
+  color: var(--color-ink);
+}
+
+.ai-resource-card--playlist .ai-resource-card__cover,
+.ai-resource-card--album .ai-resource-card__cover {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+}
+
+.ai-resource-card__cover--music {
+  background: color-mix(in srgb, var(--color-brand-coral) 20%, var(--color-canvas));
+}
+
+.ai-resource-card__cover--playlist {
+  background: var(--color-brand-peach);
+}
+
+.ai-resource-card__cover--album {
+  border-radius: 50%;
+  background: var(--color-brand-lavender);
+}
+
+.ai-resource-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-resource-card__body strong,
+.ai-resource-card__body span,
+.ai-resource-card__body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-resource-card__body strong {
+  font-size: 14px;
+}
+
+.ai-resource-card__body span,
+.ai-resource-card__body small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.ai-resource-card__play,
+.ai-resource-card__open {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+}
+
+.ai-resource-card__play {
+  background: var(--color-ink);
+  color: var(--color-on-primary);
+}
+
+.ai-resource-card__open {
+  background: var(--color-surface-strong);
+  color: var(--color-ink);
+}
+
+.ai-resource-card__album-mark {
+  color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+}
+
+.ai-confirmation-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px 12px;
+  padding: 12px;
+  border: 1px solid var(--color-brand-ochre);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-brand-ochre) 18%, var(--color-canvas));
+}
+
+.ai-confirmation-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ai-confirmation-card__body strong {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ai-confirmation-card__body span {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.ai-confirmation-card__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ai-confirmation-card__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-confirmation-card__cancel {
+  border: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+  color: var(--color-muted);
+}
+
+.ai-confirmation-card__confirm {
+  border: 0;
+  background: var(--color-ink);
+  color: var(--color-on-primary);
+}
+
+.ai-confirmation-card__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .ai-message-content {
+    max-width: calc(100% - 42px);
+  }
+
+  .ai-resource-card--music {
+    grid-template-columns: 44px minmax(0, 1fr) 32px 32px;
+    gap: 8px;
+  }
+
+  .ai-resource-card__cover {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 @keyframes ai-cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }

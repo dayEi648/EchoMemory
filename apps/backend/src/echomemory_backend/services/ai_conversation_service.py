@@ -81,6 +81,9 @@ def _message_to_dict(message: BaseMessage) -> dict[str, Any]:
     elif isinstance(message, ToolMessage):
         data["tool_call_id"] = message.tool_call_id
         data["name"] = message.name
+        artifact = getattr(message, "artifact", None)
+        if isinstance(artifact, dict):
+            data["artifact"] = artifact
     return data
 
 
@@ -124,6 +127,66 @@ def _filter_messages_for_view(
             continue
         filtered.append(message)
     return filtered
+
+
+_PUBLIC_ATTACHMENT_TYPES = {
+    "music_card",
+    "playlist_card",
+    "album_card",
+    "confirmation_card",
+}
+
+
+def _public_tool_artifact(message: BaseMessage) -> dict[str, Any] | None:
+    """读取允许投影给当前会话用户的结构化工具附件。"""
+    if not isinstance(message, ToolMessage):
+        return None
+    artifact = getattr(message, "artifact", None)
+    if not isinstance(artifact, dict):
+        return None
+    if artifact.get("type") not in _PUBLIC_ATTACHMENT_TYPES:
+        return None
+    if artifact.get("version") != 1:
+        return None
+    return artifact
+
+
+def _project_messages_for_view(
+    messages: list[BaseMessage],
+    *,
+    message_types: set[AIConversationMessageRole],
+    include_intermediate_ai: bool,
+) -> list[dict[str, Any]]:
+    """把 checkpoint 消息投影为 API 视图，并将工具附件绑定到最终 AI 回复。
+
+    ToolMessage 在普通用户视图中仍保持隐藏，但其中允许公开的 artifact 会附加到
+    紧随其后的最终 AI 消息，从而支持历史会话恢复卡片。
+    """
+    projected: list[dict[str, Any]] = []
+    pending_attachments: list[dict[str, Any]] = []
+
+    for message in messages:
+        artifact = _public_tool_artifact(message)
+        if artifact is not None:
+            pending_attachments.append(artifact)
+
+        if message.type not in message_types:
+            continue
+        if (
+            message.type == "ai"
+            and getattr(message, "tool_calls", None)
+            and not include_intermediate_ai
+        ):
+            continue
+
+        item = _message_to_dict(message)
+        if message.type == "ai" and not getattr(message, "tool_calls", None):
+            if pending_attachments:
+                item["attachments"] = list(pending_attachments)
+                pending_attachments.clear()
+        projected.append(item)
+
+    return projected
 
 
 def _remove_orphan_assistant_messages(
@@ -186,11 +249,13 @@ def _build_graph_state(
     user_id: int,
     *,
     read_only: bool = False,
+    confirmation_token: str | None = None,
 ) -> dict[str, Any]:
     """构造传入 LangGraph 的 state 基础字段。"""
     return {
         "user_id": user_id,
         "read_only": read_only,
+        "confirmation_token": confirmation_token,
     }
 
 
@@ -499,12 +564,12 @@ async def get_messages(
     state = await graph.aget_state(config)
     messages = state.values.get("messages", []) if state else []
     messages = _remove_orphan_assistant_messages(messages)
-    messages = _filter_messages_for_view(
+    projected = _project_messages_for_view(
         messages,
         message_types=message_types,
         include_intermediate_ai=include_intermediate_ai,
     )
-    return [AIConversationMessageOut(**msg) for msg in _messages_to_dicts(messages)]
+    return [AIConversationMessageOut(**item) for item in projected]
 
 
 async def send_message(
@@ -514,6 +579,7 @@ async def send_message(
     conversation: AIConversation,
     content: str,
     read_only: bool = False,
+    confirmation_token: str | None = None,
 ) -> AIConversationMessageOut:
     """发送非流式消息并返回 AI 回复。
 
@@ -538,7 +604,11 @@ async def send_message(
     final_state = await graph.ainvoke(
         {
             "messages": [HumanMessage(content=content)],
-            **_build_graph_state(user_id, read_only=read_only),
+            **_build_graph_state(
+                user_id,
+                read_only=read_only,
+                confirmation_token=confirmation_token,
+            ),
         },
         config,
     )
@@ -554,7 +624,12 @@ async def send_message(
             "Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED
         )
 
-    ai_reply = AIConversationMessageOut(**_message_to_dict(ai_message))
+    projected_ai_messages = _project_messages_for_view(
+        messages,
+        message_types={"ai"},
+        include_intermediate_ai=False,
+    )
+    ai_reply = AIConversationMessageOut(**projected_ai_messages[-1])
 
     if _is_default_title(conversation.title):
         try:
@@ -589,6 +664,7 @@ async def stream_message(
     conversation: AIConversation,
     content: str,
     read_only: bool = False,
+    confirmation_token: str | None = None,
 ) -> AsyncIterator[AIStreamChunkOut]:
     """发送消息并以 SSE 流式返回 AI 回复内容。
 
@@ -622,13 +698,27 @@ async def stream_message(
         async for message_chunk, metadata in graph.astream(
             {
                 "messages": [HumanMessage(content=content)],
-                **_build_graph_state(user_id, read_only=read_only),
+                **_build_graph_state(
+                    user_id,
+                    read_only=read_only,
+                    confirmation_token=confirmation_token,
+                ),
             },
             config,
             stream_mode="messages",
         ):
             if model_name is None and isinstance(metadata, dict):
                 model_name = metadata.get("model")
+            if isinstance(message_chunk, ToolMessage):
+                artifact = _public_tool_artifact(message_chunk)
+                if artifact is not None:
+                    yield AIStreamChunkOut(
+                        type="attachment",
+                        data="",
+                        model=model_name,
+                        meta={"attachment": artifact},
+                    )
+                continue
             if not isinstance(message_chunk, AIMessageChunk):
                 continue
 

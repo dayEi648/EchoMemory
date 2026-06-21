@@ -177,6 +177,7 @@ async def send_ai_message(
             conversation=conversation,
             content=data.content,
             read_only=read_only,
+            confirmation_token=data.confirmation_token,
         )
         return StreamingResponse(
             _stream_response(stream),
@@ -189,6 +190,7 @@ async def send_ai_message(
         conversation=conversation,
         content=data.content,
         read_only=read_only,
+        confirmation_token=data.confirmation_token,
     )
     return ai_message
 

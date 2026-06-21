@@ -130,6 +130,7 @@ export const createAIConversationApi = ({
     streamMessage: async function* (
       conversationId: number,
       content: string,
+      options: { confirmationToken?: string } = {},
     ): AsyncGenerator<AIStreamChunk> {
       const response = await (fetcher ?? globalThis.fetch)(
         buildPath(`/${conversationId}/messages`),
@@ -140,7 +141,13 @@ export const createAIConversationApi = ({
             Accept: "text/event-stream",
             ...getAuthHeader(),
           },
-          body: JSON.stringify({ content, stream: true }),
+          body: JSON.stringify({
+            content,
+            stream: true,
+            ...(options.confirmationToken
+              ? { confirmation_token: options.confirmationToken }
+              : {}),
+          }),
         },
       );
 
@@ -220,7 +227,7 @@ export function parseSSELine(line: string): AIStreamChunk | null {
     if (
       parsed &&
       typeof parsed === "object" &&
-      ["content", "reasoning", "done", "error"].includes(parsed.type)
+      ["content", "reasoning", "attachment", "done", "error"].includes(parsed.type)
     ) {
       return parsed;
     }

@@ -175,6 +175,7 @@ class ChatMessage:
         tool_call_id: tool 消息对应的 tool_call_id。
         name: tool 消息对应的工具名。
         tool_calls: assistant 消息发起的 OpenAI 格式工具调用。
+        reasoning_content: 思考模式 assistant 消息的原始推理内容。
     """
 
     role: Literal["system", "user", "assistant", "tool"]
@@ -182,6 +183,7 @@ class ChatMessage:
     tool_call_id: str | None = None
     name: str | None = None
     tool_calls: list[dict] | None = None
+    reasoning_content: str | None = None
 
 
 @dataclass
@@ -296,6 +298,11 @@ class DeepSeekClient:
             msg: dict = {"role": m.role, "content": m.content}
             if m.role == "assistant" and m.tool_calls:
                 msg["tool_calls"] = m.tool_calls
+                # DeepSeek 思考模式要求带 tool_calls 的 assistant 消息回传
+                # reasoning_content。确定性工具调用没有模型推理，仍需空字符串。
+                msg["reasoning_content"] = m.reasoning_content or ""
+            elif m.role == "assistant" and m.reasoning_content is not None:
+                msg["reasoning_content"] = m.reasoning_content
             if m.role == "tool":
                 if m.tool_call_id:
                     msg["tool_call_id"] = m.tool_call_id

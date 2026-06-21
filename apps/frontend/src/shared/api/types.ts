@@ -650,6 +650,65 @@ export type PaginatedSystemLogs = {
 
 export type AIConversationRole = "system" | "human" | "ai" | "tool";
 
+export type AIMusicCardAttachment = {
+  version: 1;
+  type: "music_card";
+  items: Array<{
+    id: number;
+    title: string;
+    authors: string[];
+    album: string | null;
+    cover_url: string | null;
+    is_vip: boolean;
+  }>;
+};
+
+export type AIPlaylistCardAttachment = {
+  version: 1;
+  type: "playlist_card";
+  items: Array<{
+    id: number;
+    title: string;
+    creator: string;
+    description: string | null;
+    cover_url: string | null;
+    music_count: number;
+  }>;
+};
+
+export type AIAlbumCardAttachment = {
+  version: 1;
+  type: "album_card";
+  items: Array<{
+    id: number;
+    title: string;
+    authors: string[];
+    description: string | null;
+    cover_url: string | null;
+    music_count: number;
+  }>;
+};
+
+export type AIConfirmationCardAttachment = {
+  version: 1;
+  type: "confirmation_card";
+  resource_type: "music" | "playlist" | "album";
+  action: "collect" | "uncollect";
+  resource: {
+    id: number;
+    title: string;
+    cover_url: string | null;
+  };
+  confirmation_token: string;
+  prompt: string;
+};
+
+export type AIConversationAttachment =
+  | AIMusicCardAttachment
+  | AIPlaylistCardAttachment
+  | AIAlbumCardAttachment
+  | AIConfirmationCardAttachment;
+
 export type AIConversationMessage = {
   role: AIConversationRole;
   content: string | Record<string, unknown>[];
@@ -657,6 +716,8 @@ export type AIConversationMessage = {
   tool_call_id?: string | null;
   name?: string | null;
   tool_calls?: Record<string, unknown>[] | null;
+  attachments?: AIConversationAttachment[];
+  artifact?: AIConversationAttachment | Record<string, unknown> | null;
   additional_kwargs?: Record<string, unknown> | null;
   created_at?: string | null;
 };
@@ -696,6 +757,7 @@ export type AIConversationWithFirstMessage = {
 export type AIConversationMessageCreateInput = {
   content: string;
   stream?: boolean;
+  confirmation_token?: string;
 };
 
 export type AIConversationTitleUpdateInput = {
@@ -703,8 +765,12 @@ export type AIConversationTitleUpdateInput = {
 };
 
 export type AIStreamChunk = {
-  type: "content" | "reasoning" | "done" | "error";
+  type: "content" | "reasoning" | "attachment" | "done" | "error";
   data: string;
   model: string | null;
-  meta?: Record<string, unknown> | null;
+  meta?: {
+    conversation?: AIConversation;
+    attachment?: AIConversationAttachment;
+    [key: string]: unknown;
+  } | null;
 };

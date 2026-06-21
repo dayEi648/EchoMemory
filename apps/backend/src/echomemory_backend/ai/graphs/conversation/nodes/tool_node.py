@@ -13,6 +13,8 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
+from langchain.tools import ToolRuntime
+from langgraph.runtime import Runtime
 
 from echomemory_backend.ai.graphs.conversation.state import AIConversationState
 from echomemory_backend.ai.tools.registry import (
@@ -45,8 +47,10 @@ def build_tool_node(registry: ToolRegistry):
 
     async def _execute_tool_call(
         tool_call: dict,
+        state: AIConversationState,
         context: ToolResolutionContext,
         config: RunnableConfig | None,
+        graph_runtime: Runtime,
     ) -> ToolMessage:
         """执行单个工具调用并返回 ToolMessage。"""
         name = tool_call.get("name", "")
@@ -70,7 +74,28 @@ def build_tool_node(registry: ToolRegistry):
             )
 
         try:
-            result = await registry.ainvoke(name, args, config=config)
+            tool_runtime = ToolRuntime(
+                state=state,
+                context=graph_runtime.context,
+                config=config or {},
+                stream_writer=graph_runtime.stream_writer,
+                tool_call_id=tool_call_id,
+                store=graph_runtime.store,
+                tools=registry.list_tools(),
+                execution_info=graph_runtime.execution_info,
+                server_info=graph_runtime.server_info,
+            )
+            invocation = {
+                "name": name,
+                "args": {**args, "runtime": tool_runtime},
+                "id": tool_call_id,
+                "type": "tool_call",
+            }
+            result = await registry.ainvoke(name, invocation, config=config)
+            if isinstance(result, ToolMessage):
+                if result.name is None:
+                    result.name = name
+                return result
             return ToolMessage(
                 content=_serialize_tool_result(result),
                 tool_call_id=tool_call_id,
@@ -87,6 +112,7 @@ def build_tool_node(registry: ToolRegistry):
     async def tool_node(
         state: AIConversationState,
         config: RunnableConfig,
+        runtime: Runtime | None = None,
     ) -> AIConversationState:
         """读取最后一条 AI 消息的 tool_calls 并执行对应工具。"""
         messages = state.get("messages", [])
@@ -105,6 +131,7 @@ def build_tool_node(registry: ToolRegistry):
             user_id=state.get("user_id"),
             read_only=bool(state.get("read_only", False)),
         )
+        graph_runtime = runtime or Runtime()
 
         # 只要有任意一个工具不允许并发，就整体串行执行，保证状态安全。
         allow_parallel = all(
@@ -115,12 +142,29 @@ def build_tool_node(registry: ToolRegistry):
 
         if allow_parallel:
             results = await asyncio.gather(
-                *(_execute_tool_call(tc, context, config) for tc in tool_calls)
+                *(
+                    _execute_tool_call(
+                        tc,
+                        state,
+                        context,
+                        config,
+                        graph_runtime,
+                    )
+                    for tc in tool_calls
+                )
             )
         else:
             results = []
             for tc in tool_calls:
-                results.append(await _execute_tool_call(tc, context, config))
+                results.append(
+                    await _execute_tool_call(
+                        tc,
+                        state,
+                        context,
+                        config,
+                        graph_runtime,
+                    )
+                )
 
         return {"messages": results}
 

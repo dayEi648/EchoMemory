@@ -54,6 +54,7 @@ def _convert_message(message: BaseMessage) -> ChatMessage:
             role="assistant",
             content=str(message.content),
             tool_calls=_convert_langchain_tool_calls(message.tool_calls),
+            reasoning_content=message.additional_kwargs.get("reasoning_content"),
         )
     if isinstance(message, ToolMessage):
         return ChatMessage(

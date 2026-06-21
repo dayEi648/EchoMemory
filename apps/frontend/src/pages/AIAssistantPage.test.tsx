@@ -146,6 +146,101 @@ describe("AIAssistantPage", () => {
     });
   });
 
+  it("restores persisted resource cards from conversation history", async () => {
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+    vi.mocked(aiConversationApi.getMessages).mockResolvedValue({
+      messages: [
+        { role: "human", content: "推荐一首歌" },
+        {
+          role: "ai",
+          content: "这首适合你。",
+          attachments: [
+            {
+              version: 1,
+              type: "music_card",
+              items: [
+                {
+                  id: 88,
+                  title: "持久回声",
+                  authors: ["回声歌手"],
+                  album: null,
+                  cover_url: null,
+                  is_vip: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+    expect(await screen.findByText("持久回声")).toBeVisible();
+    expect(screen.getByRole("button", { name: "播放持久回声" })).toBeVisible();
+  });
+
+  it("streams a confirmation card and sends its token only after button confirmation", async () => {
+    vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
+      items: [conversation],
+      total: 1,
+    });
+    vi.mocked(aiConversationApi.streamMessage).mockImplementation(async function* () {
+      yield { type: "content", data: "已完成。", model: conversation.model };
+      yield { type: "done", data: "", model: conversation.model };
+    });
+    vi.mocked(aiConversationApi.getMessages).mockResolvedValue({
+      messages: [
+        {
+          role: "ai",
+          content: "请确认操作。",
+          attachments: [
+            {
+              version: 1,
+              type: "confirmation_card",
+              resource_type: "music",
+              action: "collect",
+              resource: {
+                id: 9,
+                title: "确认之歌",
+                cover_url: null,
+              },
+              confirmation_token: "signed-token",
+              prompt: "确认收藏音乐《确认之歌》吗？",
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <AIAssistantPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText("新对话"));
+    expect(aiConversationApi.streamMessage).not.toHaveBeenCalled();
+
+    await userEvent.click(await screen.findByRole("button", { name: "确认收藏" }));
+
+    await waitFor(() => {
+      expect(aiConversationApi.streamMessage).toHaveBeenCalledWith(
+        1,
+        "我确认收藏《确认之歌》。",
+        { confirmationToken: "signed-token" },
+      );
+    });
+  });
+
   it("does not show internal message filters to normal users", async () => {
     vi.mocked(aiConversationApi.listConversations).mockResolvedValue({
       items: [conversation],

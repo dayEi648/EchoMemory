@@ -1,8 +1,9 @@
 """AI 对话工作流状态图构建器。"""
 
+import secrets
 from typing import Any
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import tools_condition
@@ -26,8 +27,34 @@ def _route_after_start(state: AIConversationState) -> str:
     """
     messages = state.get("messages", [])
     if messages and isinstance(messages[-1], HumanMessage):
+        if state.get("confirmation_token"):
+            return "confirmation"
         return "chatbot"
     return END
+
+
+def _confirmation_node(state: AIConversationState) -> AIConversationState:
+    """把前端签名确认确定性转换为收藏执行工具调用。
+
+    二次确认是权限边界，不能依赖模型是否理解隐藏运行时字段。确认凭证仍由工具
+    自身完成签名、用户绑定、过期和重放校验。
+    """
+    return {
+        "messages": [
+            AIMessage(
+                content="",
+                additional_kwargs={"reasoning_content": ""},
+                tool_calls=[
+                    {
+                        "name": "confirm_collection_change",
+                        "args": {},
+                        "id": f"confirm-{secrets.token_urlsafe(12)}",
+                        "type": "tool_call",
+                    }
+                ],
+            )
+        ]
+    }
 
 
 def build_graph(model: str | None = None) -> CompiledStateGraph:
@@ -49,9 +76,11 @@ def build_graph(model: str | None = None) -> CompiledStateGraph:
 
     graph_builder = StateGraph(AIConversationState)
     graph_builder.add_node("chatbot", chatbot_node)
+    graph_builder.add_node("confirmation", _confirmation_node)
     graph_builder.add_node("tools", tool_node)
 
     graph_builder.add_conditional_edges(START, _route_after_start)
+    graph_builder.add_edge("confirmation", "tools")
     graph_builder.add_conditional_edges(
         "chatbot",
         tools_condition,
