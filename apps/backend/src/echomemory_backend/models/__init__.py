@@ -4,6 +4,7 @@ from echomemory_backend.models.ai_conversation import (
     AIConversation,
     AIConversationStatus,
 )
+from echomemory_backend.models.agent_monitor import AgentEvent, AgentRun
 from echomemory_backend.models.album import (
     Album,
     AlbumAuthor,
@@ -76,6 +77,8 @@ __all__ = [
     "Base",
     "AIConversation",
     "AIConversationStatus",
+    "AgentEvent",
+    "AgentRun",
     "Album",
     "AlbumAuthor",
     "AlbumEmotionTag",

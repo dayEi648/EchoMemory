@@ -1,10 +1,10 @@
 """上传辅助模块，提供文件上传至 OSS 的公共函数。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 import logging
 from typing import TypeVar
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import HTTPException, UploadFile
 
 from echomemory_backend.core.clients import oss_client
 

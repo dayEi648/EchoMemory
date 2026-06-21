@@ -1,9 +1,9 @@
 """认证相关 API 端点，提供用户注册、登录、Token 刷新、登出及当前用户信息查询。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep, TokenDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import (

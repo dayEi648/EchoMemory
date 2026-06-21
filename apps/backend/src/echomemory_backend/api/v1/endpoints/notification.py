@@ -1,7 +1,7 @@
 """通知（Notification）API 路由端点。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.schemas.notification import (

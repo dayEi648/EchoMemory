@@ -2,9 +2,9 @@
 
 提供歌单的创建、查询、更新、删除以及歌单内歌曲的增删操作。
 """
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.helpers import (

@@ -11,7 +11,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from echomemory_backend.api.envelope_middleware import ApiEnvelopeMiddleware
 from echomemory_backend.api.v1.router import router as api_v1_router
-from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.handlers import (
     business_error_handler,
     generic_exception_handler,
@@ -21,6 +20,10 @@ from echomemory_backend.core.exceptions.handlers import (
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.core.logging import LogContextMiddleware, setup_logging, shutdown_logging
 from echomemory_backend.ai.graphs.checkpointer import close_checkpointer, setup_checkpointer
+from echomemory_backend.ai.monitoring import (
+    close_monitor_writer,
+    setup_monitor_writer,
+)
 from echomemory_backend.core.clients.redis_client import redis_client
 from echomemory_backend.core.utils.seed_data import seed_dictionary_tables
 from echomemory_backend.db.session import AsyncSessionLocal, async_engine
@@ -73,6 +76,7 @@ async def lifespan(app: FastAPI):
 
     # 初始化数据库日志持久化（WARNING 及以上级别自动入库）
     setup_logging()
+    setup_monitor_writer()
 
     # 启动热度定时维护任务（每 4 小时全量重算，实现时间衰减）
     async def _hotness_maintenance_loop():
@@ -129,6 +133,10 @@ async def lifespan(app: FastAPI):
 
     hotness_task.cancel()
     recommend_task.cancel()
+    try:
+        await close_monitor_writer()
+    except Exception:
+        logger.exception("Failed to shutdown Agent monitor writer")
     try:
         shutdown_logging()
     except Exception:

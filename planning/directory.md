@@ -65,7 +65,7 @@
 │   │   │       │   │   ├── web_search.py   # 阿里云 IQS Search MCP 联网搜索
 │   │   │       │   │   ├── music_catalog.py # 音乐平台查询、推送、收藏确认与个性化上下文工具
 │   │   │       │   │   └── confirmation.py  # AI 写操作短期签名确认凭证
-│   │   │       │   └── graphs/             # LangGraph 工作流与共享设施
+│   │   │       │   ├── graphs/             # LangGraph 工作流与共享设施
 │   │   │       │       ├── __init__.py
 │   │   │       │       ├── checkpointer.py # Postgres Checkpointer 生命周期
 │   │   │       │       └── conversation/   # AI 对话工作流
@@ -78,6 +78,12 @@
 │   │   │       │           │   └── streaming_parser.py # 旧标签回复兼容解析
 │   │   │       │           ├── builder.py  # 状态图构建器
 │   │   │       │           └── prompts.py  # 对话提示词常量
+│   │   │       │   └── monitoring/         # 通用 Agent 监控采集基础设施
+│   │   │       │       ├── context.py      # 运行会话、事件和 usage 聚合
+│   │   │       │       ├── callbacks.py    # LangChain/LangGraph 生命周期回调
+│   │   │       │       ├── runtime.py      # ContextVar 运行上下文
+│   │   │       │       ├── serialization.py # 脱敏、截断与 JSON 序列化
+│   │   │       │       └── writer.py       # 异步队列、重试和独立数据库写入
 │   │   │       ├── api/            # API 层
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── deps.py     # FastAPI 依赖注入（SessionDep、CurrentUser 等）
@@ -87,6 +93,7 @@
 │   │   │       │       └── endpoints/  # 业务路由端点
 │   │   │       │           ├── __init__.py
 │   │   │       │           ├── admin_logs.py       # 管理员系统日志接口
+│   │   │       │           ├── admin_agent_monitor.py # Agent 监控管理接口
 │   │   │       │           ├── ai_conversation.py  # AI 对话
 │   │   │       │           ├── album.py
 │   │   │       │           ├── auth.py
@@ -106,6 +113,7 @@
 │   │   │       ├── models/         # SQLAlchemy ORM 模型
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── ai_conversation.py    # AI 对话会话元数据
+│   │   │       │   ├── agent_monitor.py      # Agent 运行与事件监控
 │   │   │       │   ├── album.py
 │   │   │       │   ├── collection.py
 │   │   │       │   ├── comment.py
@@ -126,6 +134,7 @@
 │   │   │       ├── schemas/        # Pydantic Schema（请求/响应模型）
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── ai_conversation.py
+│   │   │       │   ├── agent_monitor.py
 │   │   │       │   ├── album.py
 │   │   │       │   ├── carousel.py
 │   │   │       │   ├── collection.py
@@ -143,6 +152,7 @@
 │   │   │       ├── services/       # 业务逻辑服务层
 │   │   │       │   ├── __init__.py
 │   │   │       │   ├── admin_service.py
+│   │   │       │   ├── agent_monitor_service.py
 │   │   │       │   ├── ai_conversation_service.py
 │   │   │       │   ├── album_service.py
 │   │   │       │   ├── auth_service.py
@@ -176,6 +186,7 @@
 │   │       ├── __init__.py
 │   │       ├── conftest.py         # 测试夹具（数据库、FakeRedis、TestClient）
 │   │       ├── test_ai_conversation.py   # AI 对话测试
+│   │       ├── test_agent_monitoring.py  # Agent 监控采集、存储与 API 测试
 │   │       ├── test_deepseek_tool_calling.py # DeepSeek 工具调用协议测试
 │   │       ├── test_tool_node.py         # 工具执行节点测试
 │   │       ├── test_tool_registry.py     # 工具注册与解析测试
@@ -222,6 +233,7 @@
 │       │   │   ├── api/            # API client 与类型定义
 │       │   │   │   ├── types.ts
 │       │   │   │   ├── aiConversationApi.ts
+│       │   │   │   ├── agentMonitorApi.ts
 │       │   │   │   ├── logApi.ts
 │       │   │   │   └── userApi.ts
 │       │   │   └── auth/           # Token 状态管理
@@ -231,6 +243,9 @@
 │       │   │   ├── AIAssistantPage.test.tsx
 │       │   │   └── admin/
 │       │   │       ├── AdminLogPage.tsx      # 系统日志管理页
+│       │   │       ├── AdminAIConversationMonitorPage.tsx # AI 对话监控列表
+│       │   │       ├── AgentMonitorListComponents.tsx # 监控筛选、列表与游标分页
+│       │   │       ├── AgentRunDetailModal.tsx # Agent 运行时间线详情
 │       │   │       └── ...                   # 其他管理后台页面
 │       │   └── test/               # 前端测试 setup
 │       │       └── setup.ts

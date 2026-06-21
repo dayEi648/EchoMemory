@@ -41,9 +41,6 @@ from echomemory_backend.models.user_tag import (
     UserStyle,
 )
 from echomemory_backend.db.pagination import paginate
-from echomemory_backend.services.collection_service import (
-    get_collected_music_ids,
-)
 
 logger = logging.getLogger(__name__)
 

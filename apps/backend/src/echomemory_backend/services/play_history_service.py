@@ -3,7 +3,7 @@
 提供播放历史记录的创建、查询、删除及清空等核心业务逻辑，
 并在创建播放历史时同步递增音乐、专辑和歌单的播放次数。
 """
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert

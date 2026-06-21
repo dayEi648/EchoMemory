@@ -1,7 +1,7 @@
 """字典管理 API 路由端点，提供字典项的创建、查询、更新与删除接口。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query
 
 from echomemory_backend.api.deps import AdminUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.dictionary import (

@@ -8,6 +8,7 @@ from __future__ import annotations
 from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
+import asyncio
 from typing import Any, AsyncIterator
 
 from langchain_core.messages import (
@@ -29,6 +30,14 @@ from echomemory_backend.ai.graphs.conversation.nodes.streaming_parser import (
 from echomemory_backend.ai.graphs.conversation.prompts import (
     get_system_prompt,
     get_title_generation_prompt,
+)
+from echomemory_backend.ai.monitoring.callbacks import (
+    AgentMonitorCallbackHandler,
+)
+from echomemory_backend.ai.monitoring.context import AgentMonitorSession
+from echomemory_backend.ai.monitoring.runtime import (
+    bind_monitor,
+    get_current_monitor,
 )
 from echomemory_backend.core.config import settings
 from echomemory_backend.core.exceptions.business import BusinessError
@@ -259,11 +268,84 @@ def _build_graph_state(
     }
 
 
-def _build_thread_config(thread_id: str) -> dict[str, Any]:
+def _build_thread_config(
+    thread_id: str,
+    monitor: AgentMonitorSession | None = None,
+) -> dict[str, Any]:
     """构造 LangGraph 线程配置，包含 recursion_limit 等运行时限制。"""
-    return {
+    config: dict[str, Any] = {
         "configurable": {"thread_id": thread_id},
         "recursion_limit": settings.ai_tool_recursion_limit,
+    }
+    if monitor is not None:
+        config["callbacks"] = [AgentMonitorCallbackHandler(monitor)]
+        config["metadata"] = {
+            "agent_monitor_run_id": str(monitor.run_id),
+            "agent_scenario": monitor.scenario,
+        }
+    return config
+
+
+def _create_conversation_monitor(
+    *,
+    user_id: int,
+    actor_username: str | None,
+    conversation: AIConversation,
+    operation: str,
+    content: str | None,
+    confirmation_token: str | None = None,
+) -> AgentMonitorSession:
+    """创建并启动一条 AI 对话监控运行。"""
+    monitor = AgentMonitorSession(
+        scenario="ai_conversation",
+        workflow_type="graph",
+        workflow_name="conversation",
+        workflow_version="1",
+        actor_user_id=user_id,
+        actor_username=actor_username,
+        subject_type="ai_conversation",
+        subject_id=str(conversation.id),
+        thread_id=conversation.thread_id,
+        model=conversation.model,
+        metadata={"operation": operation},
+    )
+    monitor.start(
+        input_value={
+            "operation": operation,
+            "conversation_id": conversation.id,
+            "content": content,
+            "confirmation_token": confirmation_token,
+        }
+    )
+    return monitor
+
+
+async def _get_checkpoint_summary(
+    graph: Any,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """读取适合监控展示的短期记忆摘要。"""
+    try:
+        state = await graph.aget_state(config)
+    except Exception as exc:
+        logger.warning(
+            "Failed to read checkpoint summary for Agent monitoring: %s",
+            exc,
+        )
+        return {
+            "available": False,
+            "error_type": type(exc).__name__,
+        }
+    values = state.values if state is not None else {}
+    messages = list(values.get("messages", []))
+    role_counts: dict[str, int] = {}
+    for message in messages:
+        role_counts[message.type] = role_counts.get(message.type, 0) + 1
+    return {
+        "message_count": len(messages),
+        "role_counts": role_counts,
+        "state_keys": sorted(values.keys()),
+        "next_nodes": list(state.next) if state is not None else [],
     }
 
 
@@ -284,15 +366,53 @@ async def generate_conversation_title(
     返回:
         清理后的标题文本；生成失败时返回默认标题。
     """
+    monitor = get_current_monitor()
+    prompt = get_title_generation_prompt(user_message, ai_response)
+    if monitor is not None:
+        monitor.record_event(
+            event_type="prompt.rendered",
+            component_type="prompt",
+            component_name="conversation_title",
+            status="SUCCEEDED",
+            payload={"prompt": prompt},
+        )
     try:
         client = DeepSeekClient(model=model, enable_thinking=False)
-        prompt = get_title_generation_prompt(user_message, ai_response)
+        if monitor is not None:
+            monitor.record_event(
+                event_type="llm.started",
+                component_type="llm",
+                component_name="conversation_title",
+                status="RUNNING",
+                payload={"model": model},
+            )
         response = await client.chat(
             [ChatMessage(role="system", content=prompt)],
             temperature=0.5,
         )
+        if monitor is not None:
+            monitor.add_usage(response.usage)
+            monitor.record_event(
+                event_type="llm.completed",
+                component_type="llm",
+                component_name="conversation_title",
+                status="SUCCEEDED",
+                payload={
+                    "model": response.model or model,
+                    "content": response.content,
+                    "usage": response.usage,
+                },
+            )
         return _sanitize_title(response.content or "")
-    except Exception:
+    except Exception as exc:
+        if monitor is not None:
+            monitor.record_event(
+                event_type="llm.failed",
+                component_type="llm",
+                component_name="conversation_title",
+                status="FAILED",
+                error={"type": type(exc).__name__, "message": str(exc)},
+            )
         logger.exception("Failed to generate conversation title")
         return settings.ai_default_title
 
@@ -333,6 +453,7 @@ async def create_conversation(
     db: AsyncSession,
     *,
     user_id: int,
+    actor_username: str | None = None,
     title: str | None = None,
     model: str | None = None,
     first_message: str | None = None,
@@ -364,18 +485,42 @@ async def create_conversation(
     db.add(conversation)
     await db.flush()
     conversation.thread_id = str(conversation.id)
+    monitor = _create_conversation_monitor(
+        user_id=user_id,
+        actor_username=actor_username,
+        conversation=conversation,
+        operation="create",
+        content=first_message,
+    )
 
     graph = build_graph(conversation.model)
-    config = _build_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id, monitor)
+    system_prompt = get_system_prompt()
+    monitor.record_event(
+        event_type="prompt.initialized",
+        component_type="prompt",
+        component_name="conversation_system",
+        status="SUCCEEDED",
+        payload={"prompt": system_prompt},
+    )
     try:
-        await graph.ainvoke(
-            {
-                "messages": [SystemMessage(content=get_system_prompt())],
-                **_build_graph_state(user_id, read_only=read_only),
-            },
-            config,
+        with bind_monitor(monitor):
+            await graph.ainvoke(
+                {
+                    "messages": [SystemMessage(content=system_prompt)],
+                    **_build_graph_state(user_id, read_only=read_only),
+                },
+                config,
+            )
+        monitor.record_event(
+            event_type="memory.short_term.initialized",
+            component_type="memory",
+            component_name="langgraph_checkpoint",
+            status="SUCCEEDED",
+            payload=await _get_checkpoint_summary(graph, config),
         )
-    except Exception:
+    except Exception as exc:
+        monitor.fail(exc)
         await db.rollback()
         raise
 
@@ -387,9 +532,18 @@ async def create_conversation(
         ai_reply = await send_message(
             db,
             user_id=user_id,
+            actor_username=actor_username,
             conversation=conversation,
             content=first_message,
             read_only=read_only,
+            monitor=monitor,
+        )
+    else:
+        monitor.complete(
+            output_value={
+                "conversation_id": conversation.id,
+                "initialized": True,
+            }
         )
 
     return conversation, ai_reply
@@ -399,6 +553,7 @@ async def stream_first_message(
     db: AsyncSession,
     *,
     user_id: int,
+    actor_username: str | None = None,
     title: str | None = None,
     model: str | None = None,
     content: str,
@@ -430,18 +585,42 @@ async def stream_first_message(
     db.add(conversation)
     await db.flush()
     conversation.thread_id = str(conversation.id)
+    monitor = _create_conversation_monitor(
+        user_id=user_id,
+        actor_username=actor_username,
+        conversation=conversation,
+        operation="create_stream",
+        content=content,
+    )
 
     graph = build_graph(conversation.model)
-    config = _build_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id, monitor)
+    system_prompt = get_system_prompt()
+    monitor.record_event(
+        event_type="prompt.initialized",
+        component_type="prompt",
+        component_name="conversation_system",
+        status="SUCCEEDED",
+        payload={"prompt": system_prompt},
+    )
     try:
-        await graph.ainvoke(
-            {
-                "messages": [SystemMessage(content=get_system_prompt())],
-                **_build_graph_state(user_id, read_only=read_only),
-            },
-            config,
+        with bind_monitor(monitor):
+            await graph.ainvoke(
+                {
+                    "messages": [SystemMessage(content=system_prompt)],
+                    **_build_graph_state(user_id, read_only=read_only),
+                },
+                config,
+            )
+        monitor.record_event(
+            event_type="memory.short_term.initialized",
+            component_type="memory",
+            component_name="langgraph_checkpoint",
+            status="SUCCEEDED",
+            payload=await _get_checkpoint_summary(graph, config),
         )
-    except Exception:
+    except Exception as exc:
+        monitor.fail(exc)
         await db.rollback()
         raise
 
@@ -460,9 +639,11 @@ async def stream_first_message(
     async for chunk in stream_message(
         db,
         user_id=user_id,
+        actor_username=actor_username,
         conversation=conversation,
         content=content,
         read_only=read_only,
+        monitor=monitor,
     ):
         yield chunk
 
@@ -576,10 +757,12 @@ async def send_message(
     db: AsyncSession,
     *,
     user_id: int,
+    actor_username: str | None = None,
     conversation: AIConversation,
     content: str,
     read_only: bool = False,
     confirmation_token: str | None = None,
+    monitor: AgentMonitorSession | None = None,
 ) -> AIConversationMessageOut:
     """发送非流式消息并返回 AI 回复。
 
@@ -599,30 +782,56 @@ async def send_message(
     if user_id != conversation.user_id:
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
-    graph = build_graph(conversation.model)
-    config = _build_thread_config(conversation.thread_id)
-    final_state = await graph.ainvoke(
-        {
-            "messages": [HumanMessage(content=content)],
-            **_build_graph_state(
-                user_id,
-                read_only=read_only,
-                confirmation_token=confirmation_token,
-            ),
-        },
-        config,
+    monitor = monitor or _create_conversation_monitor(
+        user_id=user_id,
+        actor_username=actor_username,
+        conversation=conversation,
+        operation="send_message",
+        content=content,
+        confirmation_token=confirmation_token,
     )
+    monitor.record_event(
+        event_type="message.received",
+        component_type="message",
+        component_name="human",
+        status="SUCCEEDED",
+        payload={"content": content},
+    )
+    graph = build_graph(conversation.model)
+    config = _build_thread_config(conversation.thread_id, monitor)
+    before_summary = await _get_checkpoint_summary(graph, config)
+    try:
+        with bind_monitor(monitor):
+            final_state = await graph.ainvoke(
+                {
+                    "messages": [HumanMessage(content=content)],
+                    **_build_graph_state(
+                        user_id,
+                        read_only=read_only,
+                        confirmation_token=confirmation_token,
+                    ),
+                },
+                config,
+            )
+    except Exception as exc:
+        monitor.fail(exc)
+        raise
+
     messages: list[BaseMessage] = final_state.get("messages", [])
     if not messages:
-        raise BusinessError(
+        error = BusinessError(
             "Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED
         )
+        monitor.fail(error)
+        raise error
 
     ai_message = messages[-1]
     if not isinstance(ai_message, AIMessage):
-        raise BusinessError(
+        error = BusinessError(
             "Failed to get AI response", code=ErrorCode.EXTERNAL_AI_RESPONSE_FAILED
         )
+        monitor.fail(error)
+        raise error
 
     projected_ai_messages = _project_messages_for_view(
         messages,
@@ -630,30 +839,44 @@ async def send_message(
         include_intermediate_ai=False,
     )
     ai_reply = AIConversationMessageOut(**projected_ai_messages[-1])
+    monitor.record_event(
+        event_type="memory.short_term.updated",
+        component_type="memory",
+        component_name="langgraph_checkpoint",
+        status="SUCCEEDED",
+        payload={
+            "before": before_summary,
+            "after": await _get_checkpoint_summary(graph, config),
+        },
+    )
 
-    if _is_default_title(conversation.title):
+    with bind_monitor(monitor):
+        if _is_default_title(conversation.title):
+            try:
+                title = await generate_conversation_title(
+                    content, str(ai_reply.content or "")
+                )
+                if not _is_default_title(title):
+                    conversation.title = title
+                    await db.commit()
+                    await db.refresh(conversation)
+            except Exception:
+                logger.exception(
+                    "Failed to auto-generate title for conversation %s",
+                    conversation.id,
+                )
+
         try:
-            title = await generate_conversation_title(
-                content, str(ai_reply.content or "")
+            await user_profile_service.maybe_update_user_profile(
+                db, user_id=user_id, conversation=conversation
             )
-            if not _is_default_title(title):
-                conversation.title = title
-                await db.commit()
-                await db.refresh(conversation)
         except Exception:
             logger.exception(
-                "Failed to auto-generate title for conversation %s", conversation.id
+                "Failed to update user profile for conversation %s",
+                conversation.id,
             )
 
-    try:
-        await user_profile_service.maybe_update_user_profile(
-            db, user_id=user_id, conversation=conversation
-        )
-    except Exception:
-        logger.exception(
-            "Failed to update user profile for conversation %s", conversation.id
-        )
-
+    monitor.complete(output_value=ai_reply.model_dump(mode="json"))
     return ai_reply
 
 
@@ -661,10 +884,12 @@ async def stream_message(
     db: AsyncSession,
     *,
     user_id: int,
+    actor_username: str | None = None,
     conversation: AIConversation,
     content: str,
     read_only: bool = False,
     confirmation_token: str | None = None,
+    monitor: AgentMonitorSession | None = None,
 ) -> AsyncIterator[AIStreamChunkOut]:
     """发送消息并以 SSE 流式返回 AI 回复内容。
 
@@ -688,70 +913,107 @@ async def stream_message(
     if user_id != conversation.user_id:
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
+    monitor = monitor or _create_conversation_monitor(
+        user_id=user_id,
+        actor_username=actor_username,
+        conversation=conversation,
+        operation="stream_message",
+        content=content,
+        confirmation_token=confirmation_token,
+    )
+    monitor.record_event(
+        event_type="message.received",
+        component_type="message",
+        component_name="human",
+        status="SUCCEEDED",
+        payload={"content": content},
+    )
     graph = build_graph(conversation.model)
-    config = _build_thread_config(conversation.thread_id)
+    config = _build_thread_config(conversation.thread_id, monitor)
+    before_summary = await _get_checkpoint_summary(graph, config)
 
     model_name: str | None = conversation.model
     accumulated_content = ""
 
     try:
-        async for message_chunk, metadata in graph.astream(
-            {
-                "messages": [HumanMessage(content=content)],
-                **_build_graph_state(
-                    user_id,
-                    read_only=read_only,
-                    confirmation_token=confirmation_token,
-                ),
-            },
-            config,
-            stream_mode="messages",
-        ):
-            if model_name is None and isinstance(metadata, dict):
-                model_name = metadata.get("model")
-            if isinstance(message_chunk, ToolMessage):
-                artifact = _public_tool_artifact(message_chunk)
-                if artifact is not None:
+        with bind_monitor(monitor):
+            async for message_chunk, metadata in graph.astream(
+                {
+                    "messages": [HumanMessage(content=content)],
+                    **_build_graph_state(
+                        user_id,
+                        read_only=read_only,
+                        confirmation_token=confirmation_token,
+                    ),
+                },
+                config,
+                stream_mode="messages",
+            ):
+                if model_name is None and isinstance(metadata, dict):
+                    model_name = metadata.get("model")
+                if isinstance(message_chunk, ToolMessage):
+                    artifact = _public_tool_artifact(message_chunk)
+                    if artifact is not None:
+                        yield AIStreamChunkOut(
+                            type="attachment",
+                            data="",
+                            model=model_name,
+                            meta={"attachment": artifact},
+                        )
+                    continue
+                if not isinstance(message_chunk, AIMessageChunk):
+                    continue
+
+                reasoning = message_chunk.additional_kwargs.get(
+                    "reasoning_content"
+                )
+                if isinstance(reasoning, str) and reasoning:
                     yield AIStreamChunkOut(
-                        type="attachment",
-                        data="",
-                        model=model_name,
-                        meta={"attachment": artifact},
+                        type="reasoning", data=reasoning, model=model_name
                     )
-                continue
-            if not isinstance(message_chunk, AIMessageChunk):
-                continue
 
-            reasoning = message_chunk.additional_kwargs.get("reasoning_content")
-            if isinstance(reasoning, str) and reasoning:
-                yield AIStreamChunkOut(
-                    type="reasoning", data=reasoning, model=model_name
-                )
+                if (
+                    isinstance(message_chunk.content, str)
+                    and message_chunk.content
+                ):
+                    accumulated_content += message_chunk.content
+                    yield AIStreamChunkOut(
+                        type="content",
+                        data=message_chunk.content,
+                        model=model_name,
+                    )
 
-            if isinstance(message_chunk.content, str) and message_chunk.content:
-                accumulated_content += message_chunk.content
-                yield AIStreamChunkOut(
-                    type="content",
-                    data=message_chunk.content,
-                    model=model_name,
-                )
+            # 标题生成在 done 前完成，确保前端刷新列表时标题已生效。
+            if _is_default_title(conversation.title) and accumulated_content:
+                try:
+                    title = await generate_conversation_title(
+                        content, accumulated_content
+                    )
+                    if not _is_default_title(title):
+                        conversation.title = title
+                        await db.commit()
+                        await db.refresh(conversation)
+                except Exception:
+                    logger.exception(
+                        "Failed to auto-generate title for conversation %s",
+                        conversation.id,
+                    )
 
-        # 流式内容输出完成后，若标题仍为默认值，则同步生成并更新。
-        # 标题生成在 yield done 之前完成，确保前端刷新列表时标题已生效。
-        if _is_default_title(conversation.title) and accumulated_content:
-            try:
-                title = await generate_conversation_title(content, accumulated_content)
-                if not _is_default_title(title):
-                    conversation.title = title
-                    await db.commit()
-                    await db.refresh(conversation)
-            except Exception:
-                logger.exception(
-                    "Failed to auto-generate title for conversation %s",
-                    conversation.id,
-                )
-
-    except Exception:
+        monitor.record_event(
+            event_type="memory.short_term.updated",
+            component_type="memory",
+            component_name="langgraph_checkpoint",
+            status="SUCCEEDED",
+            payload={
+                "before": before_summary,
+                "after": await _get_checkpoint_summary(graph, config),
+            },
+        )
+    except (asyncio.CancelledError, GeneratorExit):
+        monitor.cancel("stream consumer disconnected")
+        raise
+    except Exception as exc:
+        monitor.fail(exc)
         logger.exception("AI stream failed for conversation %s", conversation.id)
         yield AIStreamChunkOut(
             type="error",
@@ -760,17 +1022,21 @@ async def stream_message(
         )
         return
 
-    try:
-        await user_profile_service.maybe_update_user_profile(
-            db, user_id=user_id, conversation=conversation
-        )
-    except Exception:
-        logger.exception(
-            "Failed to update user profile for conversation %s",
-            conversation.id,
-        )
+    with bind_monitor(monitor):
+        try:
+            await user_profile_service.maybe_update_user_profile(
+                db, user_id=user_id, conversation=conversation
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update user profile for conversation %s",
+                conversation.id,
+            )
 
     # done 是客户端停止读取的协议边界，必须在画像维护完成后发送。
+    monitor.complete(
+        output_value={"content": accumulated_content, "model": model_name}
+    )
     yield AIStreamChunkOut(type="done", data="", model=model_name)
 
 

@@ -1,6 +1,5 @@
 """轮播推图 Schema 定义。"""
 
-from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 

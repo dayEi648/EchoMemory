@@ -1,7 +1,7 @@
 """轮播推图 API 端点。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.schemas.carousel import (

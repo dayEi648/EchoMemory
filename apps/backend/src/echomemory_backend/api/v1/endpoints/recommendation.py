@@ -3,9 +3,8 @@
 提供每日推荐、私人雷达、推荐歌单、推荐专辑以及推荐榜查询接口。
 """
 
-from datetime import date
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import ActiveUser, SessionDep
 from echomemory_backend.schemas.album import PaginatedAlbumListOut

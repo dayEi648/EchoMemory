@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from echomemory_backend.schemas.mixins import (
     EmotionTagValidatorMixin,
@@ -213,21 +213,6 @@ class PaginatedAdminMusicListOut(BaseModel):
 
     items: list[AdminMusicListOut]
     total: int
-
-
-class MusicUpdate(BaseModel):
-    """管理员修改音乐信息的请求体（不含文件）。"""
-
-    title: str | None = Field(None, min_length=1, max_length=128)
-    is_vip: bool | None = None
-    source: str | None = Field(None, max_length=50)
-    style_id: int | None = None
-    language_id: int | None = None
-    release_date: date | None = None
-    author_ids: list[int] | None = None
-    instrument_ids: list[int] | None = None
-    emotion_tag_ids: list[int] | None = None
-    interest_tag_ids: list[int] | None = None
 
 
 class RecommendChartItemOut(MusicListOut):

@@ -16,7 +16,6 @@ from tests.conftest import TEST_ASYNC_DATABASE_URL
 from echomemory_backend.ai import langchain as ai_langchain
 from echomemory_backend.ai.clients import deepseek as deepseek_module
 from echomemory_backend.ai.clients.deepseek import ChatResponse
-from echomemory_backend.ai.graphs import checkpointer as ai_checkpointer
 from echomemory_backend.ai.graphs.conversation.builder import build_graph
 from echomemory_backend.models.ai_conversation import AIConversation
 from echomemory_backend.models.user import User

@@ -1,30 +1,12 @@
 """统一 API 响应信封 Schema 与辅助函数。"""
 
-from typing import Any, Generic, TypeVar
-
-from pydantic import BaseModel
+from typing import Any
 
 from echomemory_backend.core.exceptions.codes import ErrorCode
 
 # 成功响应固定业务码
 API_SUCCESS_CODE = 0
 API_SUCCESS_MSG = "success"
-
-T = TypeVar("T")
-
-
-class ApiResponse(BaseModel, Generic[T]):
-    """统一 API 响应信封。
-
-    Attributes:
-        code: 业务状态码，0 表示成功，非 0 表示失败。
-        msg: 人类可读提示信息。
-        data: 业务数据；失败时为 null。
-    """
-
-    code: int
-    msg: str
-    data: T | None = None
 
 
 def default_error_code(status_code: int) -> int:

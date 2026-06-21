@@ -1,5 +1,5 @@
 """提供音乐记录的创建、查询、更新及关联关系管理服务。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
 from datetime import date, timedelta

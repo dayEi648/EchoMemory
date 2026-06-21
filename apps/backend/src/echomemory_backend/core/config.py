@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     ai_max_context_messages: int = 50
     ai_tool_recursion_limit: int = 15
 
+    # Agent 监控
+    agent_monitor_queue_size: int = 10_000
+    agent_monitor_batch_size: int = 100
+    agent_monitor_max_retries: int = 3
+    agent_monitor_retry_base_seconds: float = 0.25
+    agent_monitor_shutdown_timeout_seconds: float = 10.0
+
     # IQS 联网搜索
     iqs_api_key: str | None = None
     iqs_mcp_url: str = (

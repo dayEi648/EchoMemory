@@ -1,9 +1,9 @@
 """评论相关 API 端点，提供评论的增删查及互动（点赞/点踩）功能。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import ActiveUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.schemas.comment import CommentCreate, CommentOut, PaginatedCommentOut

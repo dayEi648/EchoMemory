@@ -1,5 +1,5 @@
 """私信业务服务模块，提供会话查询/创建、消息发送/分页、用户屏蔽等核心操作。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
 

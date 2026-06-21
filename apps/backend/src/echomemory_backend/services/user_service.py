@@ -2,7 +2,7 @@
 
 提供用户查询、创建、资料更新、关注/取关以及用户搜索等操作。
 """
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError

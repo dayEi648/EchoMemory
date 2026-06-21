@@ -2,7 +2,7 @@
 
 提供专辑的创建、查询、更新、删除及歌曲关联管理等服务功能。
 """
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
 
@@ -30,10 +30,7 @@ from echomemory_backend.models.album import (
 )
 from echomemory_backend.models.music import (
     Music,
-    MusicEmotionTag,
-    MusicInterestTag,
 )
-from echomemory_backend.models.user import User
 from echomemory_backend.core.exceptions.business import BusinessError
 from echomemory_backend.core.utils.common import escape_like
 from echomemory_backend.db.pagination import paginate

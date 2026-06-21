@@ -1,7 +1,7 @@
 """私信会话与消息相关的 API 路由端点。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import ActiveUser, PositiveIntPath, SessionDep
 from echomemory_backend.core.exceptions.business import BusinessError

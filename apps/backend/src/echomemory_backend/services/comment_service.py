@@ -1,5 +1,5 @@
 """评论业务服务模块，提供评论的创建、查询、删除、点赞/点踩等核心操作。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from sqlalchemy import desc, func, select, update
 from sqlalchemy.exc import IntegrityError

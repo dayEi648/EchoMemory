@@ -1,10 +1,10 @@
 """API 层通用辅助函数。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 T = TypeVar("T")

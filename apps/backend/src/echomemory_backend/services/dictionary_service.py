@@ -21,7 +21,6 @@ from echomemory_backend.models.music import (
     MusicInterestTag,
 )
 from echomemory_backend.models.playlist import PlaylistEmotionTag, PlaylistInterestTag
-from echomemory_backend.models.user import User
 from echomemory_backend.models.user_tag import UserEmotionTag, UserInterestTag
 
 # 字典类型到 ORM 模型的映射

@@ -37,6 +37,7 @@ from echomemory_backend.ai import langchain as ai_langchain
 from echomemory_backend.ai.clients import deepseek as deepseek_module
 from echomemory_backend.ai.clients.deepseek import ChatResponse
 from echomemory_backend.ai.graphs import checkpointer as ai_checkpointer
+from echomemory_backend.ai.monitoring import writer as agent_monitor_writer_module
 from echomemory_backend.api.deps import get_db
 from echomemory_backend.core.clients import redis_client as rc
 from echomemory_backend.core.utils.seed_data import get_dictionary_seed_sql
@@ -125,7 +126,8 @@ def clean_tables():
             user_languages, user_styles,
             user_daily_recommendations, user_radar_recommendations,
             notifications, conversations, direct_messages, user_blocks,
-            vector_documents, ai_conversations, system_logs, user_profiles
+            vector_documents, ai_conversations, system_logs, user_profiles,
+            agent_events, agent_runs
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(get_dictionary_seed_sql()))
@@ -162,6 +164,23 @@ def fake_ai_checkpointer(monkeypatch):
     monkeypatch.setattr(ai_checkpointer, "_checkpointer", saver)
     monkeypatch.setattr(ai_checkpointer, "_pool", None)
     yield saver
+
+
+@pytest.fixture(autouse=True)
+def fake_agent_monitor_writer(monkeypatch):
+    """测试中使用内存记录器，避免后台监控任务跨测试写库。"""
+
+    class _FakeAgentMonitorWriter:
+        def __init__(self):
+            self.operations = []
+
+        def enqueue(self, operation):
+            self.operations.append(operation)
+            return True
+
+    writer = _FakeAgentMonitorWriter()
+    monkeypatch.setattr(agent_monitor_writer_module, "_writer", writer)
+    yield writer
 
 
 @pytest.fixture(autouse=True)

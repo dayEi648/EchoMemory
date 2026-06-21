@@ -1,5 +1,5 @@
 """用户认证相关服务，涵盖注册、登录、token 签发与刷新、登出等核心流程。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from datetime import datetime, timezone
 

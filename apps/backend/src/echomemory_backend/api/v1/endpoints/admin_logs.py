@@ -1,6 +1,6 @@
 """系统日志管理 API 端点，仅供管理员查看后端日志。"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
 from echomemory_backend.api.deps import AdminUser, SessionDep
 from echomemory_backend.schemas.system_log import (

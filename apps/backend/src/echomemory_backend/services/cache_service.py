@@ -23,7 +23,7 @@ from echomemory_backend.core.cache.general import (
     cache_set,
 )
 from echomemory_backend.schemas.album import AlbumOut
-from echomemory_backend.schemas.music import MusicOut, RecommendChartListOut
+from echomemory_backend.schemas.music import MusicOut
 from echomemory_backend.schemas.playlist import PlaylistOut
 from echomemory_backend.schemas.user import UserPublicOut
 

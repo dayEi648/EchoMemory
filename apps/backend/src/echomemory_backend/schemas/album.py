@@ -142,15 +142,6 @@ class PaginatedAdminAlbumListOut(BaseModel):
     total: int
 
 
-class AlbumCreate(BaseModel):
-    """管理员创建专辑的请求体（不含文件）。"""
-
-    title: str = Field(..., min_length=1, max_length=128)
-    description: str | None = Field(None, max_length=500)
-    source: str | None = Field(None, max_length=50)
-    author_ids: list[int] | None = None
-
-
 class AlbumUpdate(BaseModel):
     """管理员修改专辑信息的请求体（不含文件和标签编辑）。"""
 

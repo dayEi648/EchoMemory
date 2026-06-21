@@ -1,5 +1,5 @@
 """管理员用户管理服务模块，提供用户列表查询、信息修改、封禁与解封等功能。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
@@ -20,7 +20,6 @@ from echomemory_backend.services.cache_service import (
 )
 from echomemory_backend.services.playlist_service import create_default_like_playlist
 from echomemory_backend.services.user_service import (
-    create_user,
     get_user_by_email,
     get_user_by_id,
     get_user_by_phone,

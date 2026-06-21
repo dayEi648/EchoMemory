@@ -120,7 +120,6 @@ class ErrorCode(IntEnum):
 
     # 10700-10799: 通知
     NOTIFICATION_NOT_FOUND = 10700, HttpStatus.NOT_FOUND, "通知不存在或不属于当前用户"
-    NOTIFICATION_TARGET_TYPE_INVALID = 10701, HttpStatus.BAD_REQUEST, "通知目标类型无效"
 
     # 10800-10899: 私信
     MESSAGE_CANNOT_WITH_SELF = 10800, HttpStatus.BAD_REQUEST, "不能与自己建立会话"
@@ -156,7 +155,6 @@ class ErrorCode(IntEnum):
     AUTH_USER_NOT_FOUND = 20012, HttpStatus.UNAUTHORIZED, "认证用户不存在"
     AUTH_ACCOUNT_INACTIVE = 20020, HttpStatus.FORBIDDEN, "用户账号未激活"
     PERMISSION_DENIED = 20100, HttpStatus.FORBIDDEN, "权限不足"
-    ADMIN_PRIVILEGE_REQUIRED = 20101, HttpStatus.FORBIDDEN, "需要管理员权限"
 
     # -------------------------------------------------------------------------
     # 3xxxx: 外部 / 第三方服务错误（External）

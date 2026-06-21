@@ -645,6 +645,67 @@ export type PaginatedSystemLogs = {
   total: number;
 };
 
+export type AgentMonitorRunStatus =
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type AgentMonitorRun = {
+  id: string;
+  trace_id: string;
+  parent_run_id: string | null;
+  scenario: string;
+  workflow_type: string;
+  workflow_name: string;
+  workflow_version: string | null;
+  actor_user_id: number | null;
+  actor_username: string | null;
+  subject_type: string | null;
+  subject_id: string | null;
+  thread_id: string | null;
+  status: AgentMonitorRunStatus;
+  model: string | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  event_count: number;
+  tool_call_count: number;
+  started_at: string;
+  ended_at: string | null;
+  duration_ms: number | null;
+};
+
+export type AgentMonitorRunDetail = AgentMonitorRun & {
+  input: unknown;
+  output: unknown;
+  error: unknown;
+  metadata: Record<string, unknown> | null;
+};
+
+export type AgentMonitorEvent = {
+  id: number;
+  run_id: string;
+  sequence: number;
+  event_type: string;
+  component_type: string;
+  component_name: string | null;
+  status: AgentMonitorRunStatus | null;
+  payload: unknown;
+  error: unknown;
+  framework_run_id: string | null;
+  framework_parent_run_id: string | null;
+  occurred_at: string;
+  ended_at: string | null;
+  duration_ms: number | null;
+};
+
+export type AgentMonitorRunPage = {
+  items: AgentMonitorRun[];
+  total: number;
+  next_cursor: string | null;
+};
+
 
 /* ==================== AI Assistant ==================== */
 

@@ -29,6 +29,7 @@ from pydantic import Field
 
 from echomemory_backend.ai.clients.deepseek import ChatMessage, DeepSeekClient
 from echomemory_backend.core.config import settings
+from echomemory_backend.ai.monitoring.runtime import get_current_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -265,6 +266,7 @@ class DeepSeekChatModel(BaseChatModel):
         content: str,
         reasoning_content: str | None = None,
         tool_calls: list[dict] | None = None,
+        usage: dict[str, Any] | None = None,
     ) -> AIMessage:
         """根据模型返回构造 AIMessage。
 
@@ -279,10 +281,42 @@ class DeepSeekChatModel(BaseChatModel):
         additional_kwargs: dict[str, Any] = {}
         if reasoning_content:
             additional_kwargs["reasoning_content"] = reasoning_content
-        return AIMessage(
+        message = AIMessage(
             content=content,
             tool_calls=_convert_client_tool_calls(tool_calls),
             additional_kwargs=additional_kwargs,
+        )
+        if usage:
+            message.response_metadata["usage"] = usage
+        return message
+
+    def _record_prepared_request(
+        self,
+        chat_messages: list[ChatMessage],
+        *,
+        tools: Any,
+        tool_choice: str | None,
+    ) -> None:
+        """记录过滤后真正发送给模型的请求。"""
+        monitor = get_current_monitor()
+        if monitor is None:
+            return
+        monitor.record_event(
+            event_type="llm.request.prepared",
+            component_type="llm",
+            component_name=self.model,
+            status="RUNNING",
+            payload={
+                "model": self.model,
+                "messages": chat_messages,
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "enable_thinking": self.enable_thinking,
+                "temperature": (
+                    None if self.enable_thinking else self.temperature
+                ),
+                "max_tokens": self.max_tokens,
+            },
         )
 
     def _generate(
@@ -300,6 +334,9 @@ class DeepSeekChatModel(BaseChatModel):
         chat_messages = self._build_chat_messages(messages)
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
+        self._record_prepared_request(
+            chat_messages, tools=tools, tool_choice=tool_choice
+        )
         response = self.client.chat_sync(
             chat_messages,
             temperature=self.temperature,
@@ -312,6 +349,7 @@ class DeepSeekChatModel(BaseChatModel):
                 response.content,
                 response.reasoning_content,
                 response.tool_calls,
+                response.usage,
             )
         )
         return ChatResult(generations=[generation])
@@ -327,6 +365,9 @@ class DeepSeekChatModel(BaseChatModel):
         chat_messages = self._build_chat_messages(messages)
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
+        self._record_prepared_request(
+            chat_messages, tools=tools, tool_choice=tool_choice
+        )
         response = await self.client.chat(
             chat_messages,
             temperature=self.temperature,
@@ -339,8 +380,12 @@ class DeepSeekChatModel(BaseChatModel):
                 response.content,
                 response.reasoning_content,
                 response.tool_calls,
+                response.usage,
             )
         )
+        monitor = get_current_monitor()
+        if monitor is not None:
+            monitor.add_usage(response.usage)
         return ChatResult(generations=[generation])
 
     async def _astream(
@@ -354,6 +399,9 @@ class DeepSeekChatModel(BaseChatModel):
         chat_messages = self._build_chat_messages(messages)
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
+        self._record_prepared_request(
+            chat_messages, tools=tools, tool_choice=tool_choice
+        )
         async for chunk in self.client.chat_stream(
             chat_messages,
             temperature=self.temperature,
@@ -361,6 +409,10 @@ class DeepSeekChatModel(BaseChatModel):
             tools=tools,
             tool_choice=tool_choice,
         ):
+            if chunk.usage:
+                monitor = get_current_monitor()
+                if monitor is not None:
+                    monitor.add_usage(chunk.usage)
             additional_kwargs: dict[str, Any] = {}
             if chunk.reasoning_content:
                 additional_kwargs["reasoning_content"] = chunk.reasoning_content
@@ -401,6 +453,9 @@ class DeepSeekChatModel(BaseChatModel):
         chat_messages = self._build_chat_messages(messages)
         tools = kwargs.get("tools")
         tool_choice = kwargs.get("tool_choice")
+        self._record_prepared_request(
+            chat_messages, tools=tools, tool_choice=tool_choice
+        )
         for chunk in self.client.chat_stream_sync(
             chat_messages,
             temperature=self.temperature,
@@ -408,6 +463,10 @@ class DeepSeekChatModel(BaseChatModel):
             tools=tools,
             tool_choice=tool_choice,
         ):
+            if chunk.usage:
+                monitor = get_current_monitor()
+                if monitor is not None:
+                    monitor.add_usage(chunk.usage)
             additional_kwargs: dict[str, Any] = {}
             if chunk.reasoning_content:
                 additional_kwargs["reasoning_content"] = chunk.reasoning_content

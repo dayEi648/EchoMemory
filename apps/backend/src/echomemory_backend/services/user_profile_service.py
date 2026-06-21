@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from echomemory_backend.ai.clients.deepseek import ChatMessage, DeepSeekClient
 from echomemory_backend.ai.graphs.conversation.builder import build_graph
+from echomemory_backend.ai.monitoring.runtime import get_current_monitor
 from echomemory_backend.core.config import settings
 from echomemory_backend.models.ai_conversation import AIConversation
 from echomemory_backend.models.user_profile import UserProfile
@@ -165,6 +166,18 @@ async def _judge_worth_recording(
         enable_thinking=False,
     )
     input_text = _format_messages_for_judge(human_messages)
+    monitor = get_current_monitor()
+    if monitor is not None:
+        monitor.record_event(
+            event_type="prompt.rendered",
+            component_type="prompt",
+            component_name="user_profile_judge",
+            status="SUCCEEDED",
+            payload={
+                "system_prompt": _JUDGE_SYSTEM_PROMPT,
+                "input": input_text,
+            },
+        )
 
     for attempt in range(1, _MAX_JUDGE_RETRIES + 1):
         try:
@@ -175,6 +188,8 @@ async def _judge_worth_recording(
                 ],
                 temperature=0.3,
             )
+            if monitor is not None:
+                monitor.add_usage(response.usage)
             answer = (response.content or "").strip().lower()
             if answer == "true":
                 return True
@@ -209,6 +224,18 @@ async def _update_profile_content(
         current_profile=current_profile or "（暂无画像）",
         conversation_history=_format_messages_for_update(conversation_messages),
     )
+    monitor = get_current_monitor()
+    if monitor is not None:
+        monitor.record_event(
+            event_type="prompt.rendered",
+            component_type="prompt",
+            component_name="user_profile_update",
+            status="SUCCEEDED",
+            payload={
+                "system_prompt": _UPDATE_SYSTEM_PROMPT,
+                "input": input_text,
+            },
+        )
 
     response = await client.chat(
         [
@@ -217,6 +244,8 @@ async def _update_profile_content(
         ],
         temperature=0.5,
     )
+    if monitor is not None:
+        monitor.add_usage(response.usage)
     return _sanitize_profile_content(response.content or "")
 
 
@@ -251,11 +280,25 @@ async def maybe_update_user_profile(
         user_id: 当前用户 ID。
         conversation: 当前 AI 会话。
     """
+    monitor = get_current_monitor()
     messages = await _load_conversation_messages(conversation)
     human_count = _count_human_messages(messages)
     processed_count = conversation.profile_evaluated_human_count
 
     if human_count - processed_count < _PROFILE_EVAL_INTERVAL:
+        if monitor is not None:
+            monitor.record_event(
+                event_type="memory.long_term.checked",
+                component_type="memory",
+                component_name="user_profile",
+                status="SUCCEEDED",
+                payload={
+                    "result": "threshold_not_reached",
+                    "human_count": human_count,
+                    "processed_human_count": processed_count,
+                    "threshold": _PROFILE_EVAL_INTERVAL,
+                },
+            )
         return
 
     try:
@@ -290,6 +333,17 @@ async def maybe_update_user_profile(
             if isinstance(message, HumanMessage)
         ]
         worth_recording = await _judge_worth_recording(human_messages)
+        if monitor is not None:
+            monitor.record_event(
+                event_type="memory.long_term.evaluated",
+                component_type="memory",
+                component_name="user_profile",
+                status="SUCCEEDED",
+                payload={
+                    "worth_recording": worth_recording,
+                    "human_message_count": len(human_messages),
+                },
+            )
         if worth_recording is None:
             await db.commit()
             return
@@ -304,6 +358,7 @@ async def maybe_update_user_profile(
             return
 
         profile = await _get_or_create_profile(db, user_id)
+        previous_content = profile.content
         new_content = await _update_profile_content(
             profile.content, conversation_messages
         )
@@ -319,6 +374,18 @@ async def maybe_update_user_profile(
         profile.content = new_content
         locked_conversation.profile_evaluated_human_count = human_count
         await db.commit()
+        if monitor is not None:
+            monitor.record_event(
+                event_type="memory.long_term.updated",
+                component_type="memory",
+                component_name="user_profile",
+                status="SUCCEEDED",
+                payload={
+                    "before": previous_content,
+                    "after": new_content,
+                    "processed_human_count": human_count,
+                },
+            )
         logger.info(
             "Updated user profile for user %s (conversation %s)",
             user_id,

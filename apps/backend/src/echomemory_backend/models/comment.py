@@ -21,9 +21,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from echomemory_backend.db.base import Base
 
 if TYPE_CHECKING:
-    from echomemory_backend.models.music import Music
-    from echomemory_backend.models.playlist import Playlist
-    from echomemory_backend.models.space_post import SpacePost
     from echomemory_backend.models.user import User
 
 

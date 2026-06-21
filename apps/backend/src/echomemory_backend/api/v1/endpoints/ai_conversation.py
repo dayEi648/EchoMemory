@@ -101,6 +101,7 @@ async def create_ai_conversation(
         stream = ai_conversation_service.stream_first_message(
             db,
             user_id=current_user.id,
+            actor_username=current_user.username,
             title=data.title,
             model=data.model,
             content=data.first_message,
@@ -114,6 +115,7 @@ async def create_ai_conversation(
     conversation, ai_message = await ai_conversation_service.create_conversation(
         db,
         user_id=current_user.id,
+        actor_username=current_user.username,
         title=data.title,
         model=data.model,
         first_message=data.first_message,
@@ -174,6 +176,7 @@ async def send_ai_message(
         stream = ai_conversation_service.stream_message(
             db,
             user_id=current_user.id,
+            actor_username=current_user.username,
             conversation=conversation,
             content=data.content,
             read_only=read_only,
@@ -187,6 +190,7 @@ async def send_ai_message(
     ai_message = await ai_conversation_service.send_message(
         db,
         user_id=current_user.id,
+        actor_username=current_user.username,
         conversation=conversation,
         content=data.content,
         read_only=read_only,

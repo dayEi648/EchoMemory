@@ -7,8 +7,6 @@ import hashlib
 
 import pytest
 
-from echomemory_backend.models.vector_document import VectorDocument
-from echomemory_backend.rag.embeddings import EmbeddingClient
 from echomemory_backend.rag.vector_store import VectorStore
 
 

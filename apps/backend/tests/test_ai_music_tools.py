@@ -26,7 +26,7 @@ from echomemory_backend.ai.tools.music_catalog import (
 from echomemory_backend.ai.tools import music_catalog as music_catalog_module
 from echomemory_backend.ai.tools import get_tool_registry
 from echomemory_backend.models.album import Album, AlbumAuthor, AlbumMusic
-from echomemory_backend.models.dictionary import EmotionTag, InterestTag, Language, Style
+from echomemory_backend.models.dictionary import EmotionTag, Language, Style
 from echomemory_backend.models.music import Music, MusicAuthor, MusicEmotionTag
 from echomemory_backend.models.collection import UserMusicLike
 from echomemory_backend.models.playlist import Playlist, PlaylistMusic

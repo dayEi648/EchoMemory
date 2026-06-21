@@ -4,7 +4,7 @@
 """
 from echomemory_backend.core.exceptions.codes import ErrorCode
 
-from sqlalchemy import case, delete, desc, exists, func, inspect as sa_inspect, select, update
+from sqlalchemy import case, desc, exists, func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,8 +12,6 @@ from echomemory_backend.models.album import AlbumMusic
 from echomemory_backend.models.music import (
     Music,
     MusicAuthor,
-    MusicEmotionTag,
-    MusicInterestTag,
 )
 from echomemory_backend.models.collection import UserMusicLike
 from echomemory_backend.models.playlist import (

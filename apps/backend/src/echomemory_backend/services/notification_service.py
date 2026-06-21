@@ -1,5 +1,5 @@
 """通知业务服务模块，提供通知的创建（幂等）、查询、未读统计与已读标记等核心操作。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import ErrorCode
 
 import logging
 

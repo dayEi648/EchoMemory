@@ -176,6 +176,63 @@ describe("App", () => {
     expect(screen.getByText("用户管理")).toBeInTheDocument();
   });
 
+  it("renders the AI conversation monitor page for administrators", async () => {
+    const tokenStore = createMemoryTokenStore();
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh" });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes("/auth/me")) {
+        return jsonResponse(envelope(adminUser));
+      }
+      if (url.includes("/admin/agent-monitor/runs")) {
+        return jsonResponse(
+          envelope({
+            items: [
+              {
+                id: "run-1",
+                trace_id: "run-1",
+                parent_run_id: null,
+                scenario: "ai_conversation",
+                workflow_type: "graph",
+                workflow_name: "conversation",
+                workflow_version: "1",
+                actor_user_id: 42,
+                actor_username: "alice",
+                subject_type: "ai_conversation",
+                subject_id: "7",
+                thread_id: "7",
+                status: "SUCCEEDED",
+                model: "deepseek-v4-flash",
+                prompt_tokens: 100,
+                completion_tokens: 20,
+                total_tokens: 120,
+                event_count: 8,
+                tool_call_count: 1,
+                started_at: "2026-06-21T12:00:00Z",
+                ended_at: "2026-06-21T12:00:01Z",
+                duration_ms: 1000,
+              },
+            ],
+            total: 1,
+            next_cursor: null,
+          }),
+        );
+      }
+      return jsonResponse(envelope({}));
+    });
+
+    renderApp({
+      tokenStore,
+      initialEntries: ["/admin/agent-monitor/ai-conversation"],
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "AI 对话监控" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("alice")).toBeInTheDocument();
+    expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
+  });
+
   it("redirects admin to home when refresh returns a regular user", async () => {
     const tokenStore = createMemoryTokenStore();
     tokenStore.set({ accessToken: "access", refreshToken: "refresh" });

@@ -1,9 +1,9 @@
 """用户相关 API 端点，提供用户资料管理、关注关系及管理员操作接口。"""
-from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
+from echomemory_backend.core.exceptions.codes import HttpStatus
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from echomemory_backend.api.deps import ActiveUser, AdminUser, OptionalUser, PositiveIntPath, SessionDep
 from echomemory_backend.api.v1.endpoints._upload_helpers import (
@@ -16,8 +16,6 @@ from echomemory_backend.models.user import User
 from echomemory_backend.schemas.user import (
     DashboardStatsOut,
     FollowCreate,
-    FolloweeOut,
-    FollowerOut,
     PaginatedFolloweeOut,
     PaginatedFollowerOut,
     PaginatedUserAdminOut,
