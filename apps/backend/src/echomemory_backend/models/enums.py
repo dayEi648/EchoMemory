@@ -29,3 +29,4 @@ class NotificationType(IntEnum):
     COMMENT_LIKE = 2
     SPACE_POST_LIKE = 3
     SPACE_POST_COMMENT = 4
+    CONTENT_MODERATION = 5

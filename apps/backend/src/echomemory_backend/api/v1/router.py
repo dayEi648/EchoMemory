@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from echomemory_backend.api.v1.endpoints import (
     admin_agent_monitor,
+    admin_content_moderation,
     admin_logs,
     ai_conversation,
     album,
@@ -40,5 +41,6 @@ router.include_router(notification.router)
 router.include_router(message.router)
 router.include_router(ai_conversation.router)
 router.include_router(admin_agent_monitor.router)
+router.include_router(admin_content_moderation.router)
 router.include_router(admin_logs.router)
 router.include_router(ws_inbox.router)

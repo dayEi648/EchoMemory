@@ -28,6 +28,10 @@ from echomemory_backend.core.clients.redis_client import redis_client
 from echomemory_backend.core.utils.seed_data import seed_dictionary_tables
 from echomemory_backend.db.session import AsyncSessionLocal, async_engine
 from echomemory_backend.models import Base  # noqa: F401
+from echomemory_backend.services.content_moderation_worker import (
+    close_content_moderation_worker,
+    setup_content_moderation_worker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +81,7 @@ async def lifespan(app: FastAPI):
     # 初始化数据库日志持久化（WARNING 及以上级别自动入库）
     setup_logging()
     setup_monitor_writer()
+    setup_content_moderation_worker()
 
     # 启动热度定时维护任务（每 4 小时全量重算，实现时间衰减）
     async def _hotness_maintenance_loop():
@@ -133,6 +138,10 @@ async def lifespan(app: FastAPI):
 
     hotness_task.cancel()
     recommend_task.cancel()
+    try:
+        await close_content_moderation_worker()
+    except Exception:
+        logger.exception("Failed to shutdown content moderation worker")
     try:
         await close_monitor_writer()
     except Exception:

@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     agent_monitor_retry_base_seconds: float = 0.25
     agent_monitor_shutdown_timeout_seconds: float = 10.0
 
+    # Agent 内容审核
+    content_moderation_model: str = "deepseek-v4-flash"
+    content_moderation_timeout_seconds: float = 30.0
+    content_moderation_poll_seconds: float = 1.0
+    content_moderation_batch_size: int = 10
+    content_moderation_lease_seconds: int = 300
+
     # IQS 联网搜索
     iqs_api_key: str | None = None
     iqs_mcp_url: str = (

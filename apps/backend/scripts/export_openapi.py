@@ -2,7 +2,7 @@
 """OpenAPI 文档导出脚本。
 
 从 FastAPI 应用导出完整的 OpenAPI JSON，并按模块（tags）拆分为独立文档。
-输出目录：planning/api-documentations/
+输出目录：.agent/api-documentations/
 已存在的文件会被直接替换。
 
 用法：
@@ -111,7 +111,7 @@ def main() -> int:
         print(f"[错误] 无法生成 OpenAPI schema: {exc}", file=sys.stderr)
         return 1
 
-    output_dir = project_root / "planning" / "api-documentations"
+    output_dir = project_root / ".agent" / "api-documentations"
     _ensure_output_dir(output_dir)
 
     # 1. 导出完整文档
@@ -134,7 +134,7 @@ def main() -> int:
         path_count = len(filtered.get("paths", {}))
         print(f"[已导出] {tag_path.relative_to(project_root)}  ({path_count} 个 path)")
 
-    print(f"\n完成：共导出 {len(tags) + 1} 个文档到 planning/api-documentations/")
+    print(f"\n完成：共导出 {len(tags) + 1} 个文档到 .agent/api-documentations/")
     return 0
 
 

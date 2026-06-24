@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     SmallInteger,
+    String,
     Text,
     desc,
     func,
@@ -52,8 +53,20 @@ class Comment(Base):
     )
     is_nested_reply: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     safety: Mapped[int] = mapped_column(SmallInteger, default=10, nullable=False)
+    recommendation_score: Mapped[int] = mapped_column(
+        SmallInteger, default=0, nullable=False
+    )
+    safety_level: Mapped[str | None] = mapped_column(String(16))
+    recommendation_level: Mapped[str | None] = mapped_column(String(16))
+    moderation_status: Mapped[str] = mapped_column(
+        String(16), default="PENDING", nullable=False
+    )
+    moderation_reason: Mapped[str | None] = mapped_column(Text)
+    moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    moderation_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_recommended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deletion_reason: Mapped[str | None] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -65,6 +78,25 @@ class Comment(Base):
 
     __table_args__ = (
         CheckConstraint("safety >= 0 AND safety <= 10", name="chk_comments_safety"),
+        CheckConstraint(
+            "recommendation_score >= 0 AND recommendation_score <= 10",
+            name="chk_comments_recommendation_score",
+        ),
+        CheckConstraint(
+            "safety_level IS NULL OR safety_level IN ('SAFE', 'RISKY', 'DANGEROUS')",
+            name="chk_comments_safety_level",
+        ),
+        CheckConstraint(
+            "recommendation_level IS NULL OR recommendation_level IN ('NORMAL', 'RECOMMENDED')",
+            name="chk_comments_recommendation_level",
+        ),
+        CheckConstraint(
+            "moderation_status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'MANUAL')",
+            name="chk_comments_moderation_status",
+        ),
+        CheckConstraint(
+            "moderation_version > 0", name="chk_comments_moderation_version"
+        ),
         CheckConstraint(
             "(music_id IS NOT NULL)::int + (playlist_id IS NOT NULL)::int + (space_post_id IS NOT NULL)::int = 1",
             name="chk_comment_target_unique",
@@ -89,6 +121,12 @@ class Comment(Base):
         ),
         Index("idx_comments_root_time", "root_id", desc("created_at")),
         Index("idx_comments_user_id", "user_id"),
+        Index(
+            "idx_comments_moderation_admin",
+            "moderation_status",
+            "is_deleted",
+            desc("created_at"),
+        ),
     )
 
     user: Mapped["User"] = relationship("User", back_populates="comments")

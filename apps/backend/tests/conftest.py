@@ -127,7 +127,8 @@ def clean_tables():
             user_daily_recommendations, user_radar_recommendations,
             notifications, conversations, direct_messages, user_blocks,
             vector_documents, ai_conversations, system_logs, user_profiles,
-            agent_events, agent_runs
+            content_moderation_history, content_moderation_tasks,
+            user_content_moderation_stats, agent_events, agent_runs
             RESTART IDENTITY CASCADE
         """))
         conn.execute(text(get_dictionary_seed_sql()))

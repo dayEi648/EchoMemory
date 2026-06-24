@@ -46,6 +46,15 @@ async def create_space_post(
     await db.flush()
     for idx, url in enumerate(image_urls):
         db.add(SpacePostImage(post_id=post.id, image_url=url, ordinal=idx))
+    from echomemory_backend.services.content_moderation_service import (
+        enqueue_moderation,
+    )
+
+    await enqueue_moderation(
+        db,
+        content_type="space_post",
+        content_id=post.id,
+    )
     await db.commit()
     await db.refresh(post)
     return post
@@ -145,6 +154,7 @@ async def soft_delete_space_post(
     if post.user_id != user_id:
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
     post.is_deleted = True
+    post.deletion_reason = "USER"
     await db.commit()
 
 
@@ -277,6 +287,16 @@ async def forward_to_space(
         extra={"source_title": source_title[:100]} if source_title else {},
     )
     db.add(post)
+    await db.flush()
+    from echomemory_backend.services.content_moderation_service import (
+        enqueue_moderation,
+    )
+
+    await enqueue_moderation(
+        db,
+        content_type="space_post",
+        content_id=post.id,
+    )
     await db.commit()
     await db.refresh(post)
     return post

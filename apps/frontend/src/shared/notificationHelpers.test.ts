@@ -20,20 +20,21 @@ describe("notificationHelpers", () => {
   });
 
   describe("NOTIFICATION_ICON_MAP", () => {
-    it("has entries for all 5 notification types", () => {
-      for (let t = 0; t <= 4; t++) {
+    it("has entries for all 6 notification types", () => {
+      for (let t = 0; t <= 5; t++) {
         expect(NOTIFICATION_ICON_MAP[t]).toBeDefined();
       }
     });
   });
 
   describe("NOTIFICATION_LABEL_MAP", () => {
-    it("has Chinese labels for all 5 notification types", () => {
+    it("has Chinese labels for all 6 notification types", () => {
       expect(NOTIFICATION_LABEL_MAP[0]).toBe("关注了你");
       expect(NOTIFICATION_LABEL_MAP[1]).toBe("回复了你的评论");
       expect(NOTIFICATION_LABEL_MAP[2]).toBe("赞了你的评论");
       expect(NOTIFICATION_LABEL_MAP[3]).toBe("赞了你的动态");
       expect(NOTIFICATION_LABEL_MAP[4]).toBe("评论了你的动态");
+      expect(NOTIFICATION_LABEL_MAP[5]).toBe("审核处理了你发布的内容");
     });
   });
 });

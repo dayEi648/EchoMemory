@@ -34,6 +34,8 @@ import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
 import { SpacePage } from "./pages/SpacePage";
 import { BrowsePage } from "./pages/BrowsePage";
+import { AdminCommentModerationPage } from "./pages/admin/AdminCommentModerationPage";
+import { AdminSpacePostModerationPage } from "./pages/admin/AdminSpacePostModerationPage";
 
 /** 未登录时重定向到登录页 */
 const RequireAuth = () => {
@@ -227,6 +229,8 @@ export default function App() {
             <Route path="/admin/carousel" element={<AdminCarouselPage />} />
             <Route path="/admin/hotness" element={<AdminHotnessPage />} />
             <Route path="/admin/logs" element={<AdminLogPage />} />
+            <Route path="/admin/comments" element={<AdminCommentModerationPage />} />
+            <Route path="/admin/space-posts" element={<AdminSpacePostModerationPage />} />
             <Route
               path="/admin/agent-monitor/ai-conversation"
               element={<AdminAIConversationMonitorPage />}

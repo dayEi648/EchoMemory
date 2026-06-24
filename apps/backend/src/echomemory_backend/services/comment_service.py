@@ -204,6 +204,15 @@ async def create_comment(
     )
     db.add(comment)
     await db.flush()
+    from echomemory_backend.services.content_moderation_service import (
+        enqueue_moderation,
+    )
+
+    await enqueue_moderation(
+        db,
+        content_type="comment",
+        content_id=comment.id,
+    )
 
     # 维护目标实体的评论计数：所有评论（根评论、回复、嵌套回复）均计入
     target_cls = {"music": Music, "playlist": Playlist, "space_post": SpacePost}[
@@ -401,6 +410,7 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
         raise BusinessError("Permission denied", code=ErrorCode.PERMISSION_DENIED)
 
     comment.is_deleted = True
+    comment.deletion_reason = "USER"
 
     # 确定评论所属目标类型与主键
     if comment.music_id is not None:

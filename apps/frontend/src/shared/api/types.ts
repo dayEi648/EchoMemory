@@ -524,7 +524,7 @@ export type PaginatedDictionaryItems = {
 
 /* ==================== Notification & Message ==================== */
 
-export type NotificationType = 0 | 1 | 2 | 3 | 4;
+export type NotificationType = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type NotificationActor = {
   id: number;
@@ -700,6 +700,49 @@ export type AgentMonitorRunPage = {
   items: AgentMonitorRun[];
   total: number;
   next_cursor: string | null;
+};
+
+/* ==================== Content Moderation ==================== */
+
+export type ModerationSafetyLevel = "SAFE" | "RISKY" | "DANGEROUS";
+export type ModerationRecommendationLevel = "NORMAL" | "RECOMMENDED";
+export type ContentModerationStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "MANUAL";
+
+export type AdminModeratedContent = {
+  id: number;
+  content_type: "comment" | "space_post";
+  user_id: number;
+  username: string;
+  content: string | null;
+  target_type: string | null;
+  target_id: number | null;
+  safety_score: number;
+  recommendation_score: number;
+  safety_level: ModerationSafetyLevel | null;
+  recommendation_level: ModerationRecommendationLevel | null;
+  moderation_status: ContentModerationStatus;
+  moderation_reason: string | null;
+  is_recommended: boolean;
+  is_deleted: boolean;
+  deletion_reason: string | null;
+  moderated_at: string | null;
+  created_at: string;
+};
+
+export type PaginatedModeratedContent = {
+  items: AdminModeratedContent[];
+  total: number;
+};
+
+export type ManualModerationInput = {
+  safety_score: number;
+  recommendation_score: number;
+  reason: string;
 };
 
 

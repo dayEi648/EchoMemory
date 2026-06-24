@@ -22,6 +22,11 @@ from echomemory_backend.models.comment import (
     CommentDislike,
     CommentLike,
 )
+from echomemory_backend.models.content_moderation import (
+    ContentModerationHistory,
+    ContentModerationTask,
+    UserContentModerationStats,
+)
 from echomemory_backend.models.dictionary import (
     EmotionTag,
     Instrument,
@@ -87,6 +92,8 @@ __all__ = [
     "Comment",
     "CommentDislike",
     "CommentLike",
+    "ContentModerationHistory",
+    "ContentModerationTask",
     "Conversation",
     "DirectMessage",
     "EmotionTag",
@@ -114,6 +121,7 @@ __all__ = [
     "User",
     "UserAlbumCollection",
     "UserBlock",
+    "UserContentModerationStats",
     "UserDailyRecommendation",
     "UserEmotionTag",
     "UserFollow",

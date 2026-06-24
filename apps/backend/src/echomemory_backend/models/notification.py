@@ -54,7 +54,7 @@ class Notification(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "type >= 0 AND type <= 4", name="chk_notifications_type"
+            "type >= 0 AND type <= 5", name="chk_notifications_type"
         ),
         CheckConstraint(
             "target_type IN ('user', 'comment', 'space_post')",

@@ -4,7 +4,7 @@
     python scripts/generate_error_code_doc.py
 
 输出:
-    planning/api-documentations/error-codes.md
+    .agent/api-documentations/error-codes.md
 """
 
 import sys
@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from echomemory_backend.core.exceptions.codes import ErrorCode, HttpStatus
 
 
-_OUTPUT = ROOT.parent.parent / "planning" / "api-documentations" / "error-codes.md"
+_OUTPUT = ROOT.parent.parent / ".agent" / "api-documentations" / "error-codes.md"
 
 
 def _layer_name(code: ErrorCode) -> str:

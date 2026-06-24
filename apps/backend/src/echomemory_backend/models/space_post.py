@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     JSON,
     SmallInteger,
     String,
@@ -42,6 +43,20 @@ class SpacePost(Base):
     is_private: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     comment_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     forward_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    safety: Mapped[int] = mapped_column(SmallInteger, default=10, nullable=False)
+    recommendation_score: Mapped[int] = mapped_column(
+        SmallInteger, default=0, nullable=False
+    )
+    safety_level: Mapped[str | None] = mapped_column(String(16))
+    recommendation_level: Mapped[str | None] = mapped_column(String(16))
+    moderation_status: Mapped[str] = mapped_column(
+        String(16), default="PENDING", nullable=False
+    )
+    moderation_reason: Mapped[str | None] = mapped_column(Text)
+    moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    moderation_version: Mapped[int] = mapped_column(
+        Integer, default=1, nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -49,10 +64,36 @@ class SpacePost(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_recommended: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    deletion_reason: Mapped[str | None] = mapped_column(String(32))
 
     __table_args__ = (
         CheckConstraint(
             "post_type IN ('original', 'forward')", name="chk_space_posts_post_type"
+        ),
+        CheckConstraint(
+            "safety BETWEEN 0 AND 10", name="chk_space_posts_safety"
+        ),
+        CheckConstraint(
+            "recommendation_score BETWEEN 0 AND 10",
+            name="chk_space_posts_recommendation_score",
+        ),
+        CheckConstraint(
+            "safety_level IS NULL OR safety_level IN ('SAFE', 'RISKY', 'DANGEROUS')",
+            name="chk_space_posts_safety_level",
+        ),
+        CheckConstraint(
+            "recommendation_level IS NULL OR recommendation_level IN ('NORMAL', 'RECOMMENDED')",
+            name="chk_space_posts_recommendation_level",
+        ),
+        CheckConstraint(
+            "moderation_status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'MANUAL')",
+            name="chk_space_posts_moderation_status",
+        ),
+        CheckConstraint(
+            "moderation_version > 0", name="chk_space_posts_moderation_version"
         ),
         CheckConstraint(
             "(post_type = 'original' AND source_id IS NULL AND source_type IS NULL) OR "
@@ -69,6 +110,12 @@ class SpacePost(Base):
             "idx_space_posts_created_at",
             desc("created_at"),
             postgresql_where=is_deleted.is_(False) & is_private.is_(False),
+        ),
+        Index(
+            "idx_space_posts_moderation_admin",
+            "moderation_status",
+            "is_deleted",
+            desc("created_at"),
         ),
     )
 

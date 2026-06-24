@@ -5853,3 +5853,139 @@ button.ai-resource-card:hover {
   color: var(--color-muted);
   font-size: 14px;
 }
+
+/* Content moderation admin */
+.moderation-page-subtitle {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.moderation-total {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.moderation-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.moderation-table-grid {
+  grid-template-columns: minmax(220px, 2fr) minmax(110px, 1fr) 110px 110px 110px 100px 150px 150px;
+  min-width: 1120px;
+  align-items: center;
+}
+
+.moderation-content-cell {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.moderation-content-cell strong,
+.moderation-table small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.moderation-content-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moderation-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.moderation-actions .ghost-button {
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+.moderation-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  background: var(--color-surface-card);
+  color: var(--color-body);
+}
+
+.moderation-badge--safe,
+.moderation-badge--visible,
+.moderation-badge--succeeded {
+  background: color-mix(in srgb, var(--color-accent-2) 14%, transparent);
+  color: var(--color-accent-2);
+}
+
+.moderation-badge--risky,
+.moderation-badge--pending,
+.moderation-badge--processing {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  color: #9a6700;
+}
+
+.moderation-badge--dangerous,
+.moderation-badge--failed,
+.moderation-badge--deleted {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.moderation-badge--recommended,
+.moderation-badge--manual {
+  background: color-mix(in srgb, var(--color-brand-lavender) 28%, transparent);
+  color: var(--color-ink);
+}
+
+.moderation-detail {
+  display: grid;
+}
+
+.moderation-detail-content {
+  margin: 0 0 16px;
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--color-surface-soft);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.moderation-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid var(--color-hairline);
+  padding: 9px 0;
+  font-size: 13px;
+}
+
+.moderation-detail-row span {
+  color: var(--color-muted);
+}
+
+.moderation-detail-row strong {
+  max-width: 70%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.moderation-score-help {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .moderation-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
