@@ -30,6 +30,7 @@ import { formatRelativeTime } from "../shared/utils";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ConfirmDeleteModal } from "../components/ui/ConfirmDeleteModal";
 import { AIMessageAttachments } from "../components/ai/AIMessageAttachments";
+import { MarkdownContent } from "../components/ai/MarkdownContent";
 
 type UIChatMessage = AIConversationMessage & {
   id: string;
@@ -870,7 +871,7 @@ export const AIAssistantPage = () => {
 
                           {displayContent !== "" && (
                             <div className="ai-message-bubble">
-                              {displayContent}
+                              <MarkdownContent content={displayContent} />
                               {msg.streaming && (
                                 <span className="ai-message-cursor" />
                               )}

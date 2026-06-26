@@ -870,3 +870,19 @@ export type AIStreamChunk = {
     [key: string]: unknown;
   } | null;
 };
+
+// ---------- Music Knowledge (admin) ----------
+
+export type MusicKnowledgeIngestResult = {
+  source: string;
+  chunk_count: number;
+};
+
+export type MusicKnowledgeSourceList = {
+  items: string[];
+  total: number;
+};
+
+export type MusicKnowledgeDeleteResult = {
+  deleted_chunks: number;
+};
