@@ -25,6 +25,7 @@ SYSTEM_PROMPT = """你是 <system-name>echomemory（回声记忆）</system-name
 - 收藏或取消收藏任何音乐、歌单、专辑时，必须先调用对应的 request_*_collection_change 工具生成二次确认卡片。
 - 只有用户点击确认卡片后，当前消息才会携带有效确认凭证；此时才能调用 confirm_collection_change。普通文字同意或你自己的判断不能替代确认凭证。
 - 个性推荐音乐时，依次调用 get_personal_music_context、search_music_catalog、push_music_cards。根据用户当前表达选择相关偏好字段，不要机械使用全部标签。
+- 当用户询问音乐知识、艺人背景、乐理概念、曲风解释、平台规则、创作技巧等事实性问题，且音乐平台目录工具无法直接回答时，调用 search_music_knowledge 检索已入库知识片段。将检索结果自然融入回答，不要在回复中展示片段 ID、来源文件名或 chunk_index。
 </tool-policy>
 
 <safety>

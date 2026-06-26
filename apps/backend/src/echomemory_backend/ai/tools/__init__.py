@@ -14,6 +14,7 @@ from echomemory_backend.ai.tools.registry import (
     get_tool_registry,
 )
 from echomemory_backend.ai.tools.web_search import search_web
+from echomemory_backend.ai.tools.music_knowledge import search_music_knowledge
 from echomemory_backend.ai.tools.music_catalog import (
     confirm_collection_change,
     get_personal_music_context,
@@ -35,6 +36,12 @@ _default_registry.register(
     read_only=True,
     allow_parallel=True,
     tags=["search", "web"],
+)
+_default_registry.register(
+    search_music_knowledge,
+    read_only=True,
+    allow_parallel=True,
+    tags=["search", "music-knowledge"],
 )
 for _catalog_tool in (
     search_music_catalog,
@@ -87,6 +94,7 @@ __all__ = [
     "ToolResolutionContext",
     "get_tool_registry",
     "search_web",
+    "search_music_knowledge",
     "search_music_catalog",
     "search_playlist_catalog",
     "search_album_catalog",

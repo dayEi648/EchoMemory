@@ -6,6 +6,7 @@ from echomemory_backend.api.v1.endpoints import (
     admin_agent_monitor,
     admin_content_moderation,
     admin_logs,
+    admin_music_knowledge,
     ai_conversation,
     album,
     auth,
@@ -43,4 +44,5 @@ router.include_router(ai_conversation.router)
 router.include_router(admin_agent_monitor.router)
 router.include_router(admin_content_moderation.router)
 router.include_router(admin_logs.router)
+router.include_router(admin_music_knowledge.router)
 router.include_router(ws_inbox.router)

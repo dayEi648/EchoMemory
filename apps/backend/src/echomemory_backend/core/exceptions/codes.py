@@ -144,6 +144,9 @@ class ErrorCode(IntEnum):
     # 11100-11199: 轮播图
     CAROUSEL_ITEM_NOT_FOUND = 11100, HttpStatus.NOT_FOUND, "轮播图不存在"
 
+    # 11200-11299: 音乐知识库
+    MUSIC_KNOWLEDGE_SOURCE_NOT_FOUND = 11200, HttpStatus.NOT_FOUND, "音乐知识库文档不存在"
+
     # -------------------------------------------------------------------------
     # 2xxxx: 认证 / 授权错误（Auth）
     # -------------------------------------------------------------------------
@@ -184,6 +187,7 @@ class ErrorCode(IntEnum):
     CLIENT_FILE_MUST_BE_IMAGE = 40032, HttpStatus.UNPROCESSABLE_ENTITY, "上传文件必须是图片"
     CLIENT_INVALID_IMAGE_FILE = 40033, HttpStatus.UNPROCESSABLE_ENTITY, "图片文件无效"
     CLIENT_CAROUSEL_REORDER_MISMATCH = 40041, HttpStatus.UNPROCESSABLE_ENTITY, "轮播图 ID 列表与实际数量不匹配"
+    CLIENT_MUSIC_KNOWLEDGE_UNSUPPORTED_FILE_TYPE = 40042, HttpStatus.UNPROCESSABLE_ENTITY, "音乐知识库不支持该文件类型"
     CLIENT_INVALID_REQUEST_PARAMETERS = 40050, HttpStatus.UNPROCESSABLE_ENTITY, "请求参数校验失败"
     CLIENT_RATE_LIMIT_UPLOAD = 42901, HttpStatus.TOO_MANY_REQUESTS, "上传请求过于频繁，请稍后再试"
     CLIENT_RATE_LIMIT_LOGIN = 42902, HttpStatus.TOO_MANY_REQUESTS, "登录尝试过于频繁，请稍后再试"
@@ -193,6 +197,7 @@ class ErrorCode(IntEnum):
     # -------------------------------------------------------------------------
     SYSTEM_INTERNAL_ERROR = 50001, HttpStatus.INTERNAL_SERVER_ERROR, "系统内部错误"
     SYSTEM_CONVERSATION_CREATE_FAILED = 50002, HttpStatus.INTERNAL_SERVER_ERROR, "系统创建会话失败"
+    SYSTEM_MUSIC_KNOWLEDGE_INGEST_FAILED = 50003, HttpStatus.INTERNAL_SERVER_ERROR, "音乐知识库文档入库失败"
 
     # -------------------------------------------------------------------------
     # 9xxxx: 未知 / 兜底错误（Unknown）
