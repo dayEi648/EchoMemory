@@ -57,7 +57,7 @@ class ContentModerationTask(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "content_type IN ('comment', 'space_post')",
+            "content_type IN ('comment', 'space_post', 'playlist', 'user_profile')",
             name="chk_content_moderation_tasks_type",
         ),
         CheckConstraint(
@@ -118,7 +118,7 @@ class ContentModerationHistory(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "content_type IN ('comment', 'space_post')",
+            "content_type IN ('comment', 'space_post', 'playlist', 'user_profile')",
             name="chk_content_moderation_history_type",
         ),
         CheckConstraint(

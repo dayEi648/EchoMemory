@@ -186,6 +186,18 @@ async def create_playlist(
         cover_icon_url=cover_icon_url,
     )
     db.add(playlist)
+    await db.flush()
+
+    from echomemory_backend.services.content_moderation_service import (
+        enqueue_moderation,
+    )
+
+    await enqueue_moderation(
+        db,
+        content_type="playlist",
+        content_id=playlist.id,
+    )
+
     await db.commit()
     await db.refresh(playlist)
     await invalidate_dashboard_stats()
@@ -414,14 +426,31 @@ async def update_playlist(
     Raises:
         BusinessError: 数据库约束冲突时由上层异常处理。
     """
+    text_changed = False
     if title is not None:
         playlist.title = title
+        text_changed = True
     if description is not None:
         playlist.description = description
+        text_changed = True
     if is_private is not None:
         playlist.is_private = is_private
     if cover_icon_url is not None:
         playlist.cover_icon_url = cover_icon_url
+
+    await db.flush()
+
+    if text_changed:
+        from echomemory_backend.services.content_moderation_service import (
+            enqueue_moderation,
+        )
+
+        await enqueue_moderation(
+            db,
+            content_type="playlist",
+            content_id=playlist.id,
+            force=True,
+        )
 
     await db.commit()
     await db.refresh(playlist)

@@ -18,7 +18,7 @@ router = APIRouter(
     prefix="/admin/content-moderation",
     tags=["admin-content-moderation"],
 )
-ContentResource = Literal["comments", "space-posts"]
+ContentResource = Literal["comments", "space-posts", "playlists", "user-profiles"]
 
 
 @router.get(
@@ -34,8 +34,16 @@ async def admin_get_user_moderation_stats(
     return await admin_content_moderation_service.get_user_stats(db, user_id)
 
 
-def _content_type(resource: ContentResource) -> Literal["comment", "space_post"]:
-    return "comment" if resource == "comments" else "space_post"
+_RESOURCE_TO_TYPE: dict[str, str] = {
+    "comments": "comment",
+    "space-posts": "space_post",
+    "playlists": "playlist",
+    "user-profiles": "user_profile",
+}
+
+
+def _content_type(resource: ContentResource) -> str:
+    return _RESOURCE_TO_TYPE[resource]
 
 
 @router.get(

@@ -29,6 +29,7 @@ import { AdminCarouselPage } from "./pages/admin/AdminCarouselPage";
 import { AdminHotnessPage } from "./pages/admin/AdminHotnessPage";
 import { AdminLogPage } from "./pages/admin/AdminLogPage";
 import { AdminAIConversationMonitorPage } from "./pages/admin/AdminAIConversationMonitorPage";
+import { AdminContentModerationMonitorPage } from "./pages/admin/AdminContentModerationMonitorPage";
 import { MusicRouteOpener } from "./pages/MusicRouteOpener";
 import { AlbumDetailPage } from "./pages/AlbumDetailPage";
 import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
@@ -239,6 +240,10 @@ export default function App() {
             <Route
               path="/admin/agent-monitor/ai-conversation"
               element={<AdminAIConversationMonitorPage />}
+            />
+            <Route
+              path="/admin/agent-monitor/content-moderation"
+              element={<AdminContentModerationMonitorPage />}
             />
           </Route>
         </Route>

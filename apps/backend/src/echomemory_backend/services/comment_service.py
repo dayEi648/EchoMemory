@@ -1,7 +1,7 @@
 """评论业务服务模块，提供评论的创建、查询、删除、点赞/点踩等核心操作。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode
 
-from sqlalchemy import desc, func, select, update
+from sqlalchemy import desc, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
@@ -321,10 +321,14 @@ async def list_comments(
         "space_post": Comment.space_post_id == target_id,
     }[target_type]
 
+    # 仅过滤用户主动删除的评论；审核删除的评论保留（前端渲染占位提示）
     where_clause = [
         target_filter,
         Comment.parent_id.is_(None),
-        Comment.is_deleted.is_(False),
+        or_(
+            Comment.is_deleted.is_(False),
+            Comment.deletion_reason != "USER",
+        ),
     ]
 
     _COMMENT_SORT = {
@@ -366,8 +370,8 @@ async def list_replies(
     root = aliased(Comment)
     where_clause = [
         Comment.root_id == root_id,
-        Comment.is_deleted.is_(False),
-        root.is_deleted.is_(False),
+        or_(Comment.is_deleted.is_(False), Comment.deletion_reason != "USER"),
+        or_(root.is_deleted.is_(False), root.deletion_reason != "USER"),
     ]
     stmt = (
         select(Comment)
@@ -460,7 +464,7 @@ async def delete_comment(db: AsyncSession, user_id: int, comment_id: int) -> Non
                 .select_from(Comment)
                 .where(
                     Comment.root_id == comment.id,
-                    Comment.is_deleted.is_(False),
+                    or_(Comment.is_deleted.is_(False), Comment.deletion_reason != "USER"),
                 )
             )
         ).scalar_one()

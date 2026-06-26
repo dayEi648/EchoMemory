@@ -5,7 +5,7 @@ import type {
 } from "./types";
 import { createBaseApi, type ApiOptions } from "./base";
 
-export type ModerationResource = "comments" | "space-posts";
+export type ModerationResource = "comments" | "space-posts" | "playlists" | "user-profiles";
 
 export type ContentModerationFilters = {
   q?: string;

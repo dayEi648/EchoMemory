@@ -30,6 +30,8 @@ class SpacePostOut(BaseModel):
     images: list[SpacePostImageOut] = []
     created_at: datetime
     updated_at: datetime
+    is_deleted: bool = False
+    deletion_reason: str | None = None
 
     @field_validator("images", mode="before")
     @classmethod
@@ -56,6 +58,8 @@ class SpacePostListOut(BaseModel):
     liked_by_me: bool = False
     images: list[SpacePostImageOut] = []
     created_at: datetime
+    is_deleted: bool = False
+    deletion_reason: str | None = None
 
     @field_validator("images", mode="before")
     @classmethod

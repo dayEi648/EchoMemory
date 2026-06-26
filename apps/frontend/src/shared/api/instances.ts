@@ -21,6 +21,7 @@ import { createAIConversationApi } from "./aiConversationApi";
 import { createAgentMonitorApi } from "./agentMonitorApi";
 import { createContentModerationApi } from "./contentModerationApi";
 import { createMusicKnowledgeApi } from "./musicKnowledgeApi";
+import { createAppealApi } from "./appealApi";
 
 const isDev = import.meta.env.DEV;
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -54,6 +55,7 @@ export type ApiRegistry = {
   agentMonitorApi: ReturnType<typeof createAgentMonitorApi>;
   contentModerationApi: ReturnType<typeof createContentModerationApi>;
   musicKnowledgeApi: ReturnType<typeof createMusicKnowledgeApi>;
+  appealApi: ReturnType<typeof createAppealApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -77,6 +79,7 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     agentMonitorApi: createAgentMonitorApi(options),
     contentModerationApi: createContentModerationApi(options),
     musicKnowledgeApi: createMusicKnowledgeApi(options),
+    appealApi: createAppealApi(options),
   };
 }
 
@@ -110,6 +113,7 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   agentMonitorApi = apis.agentMonitorApi;
   contentModerationApi = apis.contentModerationApi;
   musicKnowledgeApi = apis.musicKnowledgeApi;
+  appealApi = apis.appealApi;
 }
 
 export let userApi = apis.userApi;
@@ -130,3 +134,4 @@ export let logApi = apis.logApi;
 export let agentMonitorApi = apis.agentMonitorApi;
 export let contentModerationApi = apis.contentModerationApi;
 export let musicKnowledgeApi = apis.musicKnowledgeApi;
+export let appealApi = apis.appealApi;

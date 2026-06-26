@@ -420,6 +420,8 @@ export type CommentItem = {
   created_at: string;
   liked_by_me?: boolean;
   disliked_by_me?: boolean;
+  is_deleted?: boolean;
+  deletion_reason?: string | null;
 };
 
 export type PaginatedCommentList = {
@@ -484,6 +486,8 @@ export type SpacePostDetail = {
   images: SpacePostImage[];
   created_at: string;
   updated_at: string;
+  is_deleted?: boolean;
+  deletion_reason?: string | null;
 };
 
 export type SpacePostListItem = {
@@ -496,6 +500,8 @@ export type SpacePostListItem = {
   liked_by_me?: boolean;
   images: SpacePostImage[];
   created_at: string;
+  is_deleted?: boolean;
+  deletion_reason?: string | null;
 };
 
 export type PaginatedSpacePostList = {
@@ -885,4 +891,26 @@ export type MusicKnowledgeSourceList = {
 
 export type MusicKnowledgeDeleteResult = {
   deleted_chunks: number;
+};
+
+// ---------- Content Appeal ----------
+
+export type ContentAppeal = {
+  id: number;
+  content_type: string;
+  content_id: number;
+  user_id: number;
+  moderation_version: number;
+  status: "PENDING" | "APPROVED" | "DENIED";
+  appeal_reason: string | null;
+  admin_note: string | null;
+  reviewer_user_id: number | null;
+  resolved_at: string | null;
+  created_at: string;
+};
+
+export type AppealCreateInput = {
+  content_type: string;
+  content_id: number;
+  appeal_reason?: string | null;
 };

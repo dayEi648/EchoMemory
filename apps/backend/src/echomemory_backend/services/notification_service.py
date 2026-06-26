@@ -37,7 +37,7 @@ async def create_notification(
         recipient_id: 通知接收者主键。
         actor_id: 触发事件的用户主键，系统通知时为 None。
         type: 通知类型枚举。
-        target_type: 目标实体类型（user / comment / space_post）。
+        target_type: 目标实体类型（user / comment / space_post / playlist / user_profile）。
         target_id: 目标实体主键。
         extra: 冗余上下文（如评论内容预览），方便前端展示，默认空 dict。
 
@@ -47,7 +47,7 @@ async def create_notification(
     Raises:
         BusinessError: target_type 非法时抛出 400。
     """
-    if target_type not in ("user", "comment", "space_post"):
+    if target_type not in ("user", "comment", "space_post", "playlist", "user_profile"):
         raise BusinessError("Invalid target_type", code=ErrorCode.CLIENT_INVALID_TARGET_TYPE)
     if actor_id is not None and actor_id == recipient_id:
         return None

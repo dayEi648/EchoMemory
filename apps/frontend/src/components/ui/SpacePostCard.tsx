@@ -8,6 +8,8 @@ import { CommentSection } from "./CommentSection";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import type { SpacePostListItem } from "../../shared/api/types";
 import { formatRelativeTime } from "../../shared/utils";
+import { appealApi } from "../../shared/api/instances";
+import { getApiErrorMessage } from "../../shared/apiError";
 
 export interface PostAuthor {
   id: number;
@@ -41,6 +43,9 @@ export const SpacePostCard = ({
   const [showComments, setShowComments] = useState(false);
 
   const isOwner = currentUserId === author.id;
+  const isModerationDeleted =
+    post.is_deleted === true &&
+    (post.deletion_reason?.startsWith("MODERATION_") ?? false);
   const sortedImages = [...post.images].sort((a, b) => a.ordinal - b.ordinal);
 
   const handleLike = async () => {
@@ -73,6 +78,18 @@ export const SpacePostCard = ({
       toast.error("删除失败");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAppeal = async () => {
+    try {
+      await appealApi.create({
+        content_type: "space_post",
+        content_id: post.id,
+      });
+      toast.success("申诉已提交");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "申诉失败"));
     }
   };
 
@@ -113,44 +130,77 @@ export const SpacePostCard = ({
       </div>
 
       {/* Content */}
-      {post.content && (
-        <p style={{ fontSize: 14, lineHeight: 1.7, margin: "0 0 12px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {post.content}
-        </p>
-      )}
-
-      {/* Images */}
-      {sortedImages.length > 0 && (
-        <div
+      {isModerationDeleted ? (
+        <p
           style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${imageGridCols}, 1fr)`,
-            gap: 6,
-            marginBottom: 12,
+            fontSize: 14,
+            lineHeight: 1.7,
+            margin: "0 0 12px",
+            color: "var(--color-muted-soft)",
+            fontStyle: "italic",
           }}
         >
-          {sortedImages.map((img, i) => (
+          此说说因违反社区准则已被隐藏
+          {" · "}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); void handleAppeal(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation(); }}
+            style={{
+              color: "var(--color-brand-coral)",
+              cursor: "pointer",
+              fontStyle: "normal",
+              fontWeight: 500,
+              textDecoration: "underline",
+              textUnderlineOffset: 2,
+            }}
+          >
+            申诉
+          </span>
+        </p>
+      ) : (
+        <>
+          {post.content && (
+            <p style={{ fontSize: 14, lineHeight: 1.7, margin: "0 0 12px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {post.content}
+            </p>
+          )}
+          {/* Images */}
+          {sortedImages.length > 0 && (
             <div
-              key={i}
               style={{
-                aspectRatio: imageGridCols === 1 ? "16/9" : "1",
-                borderRadius: 8,
-                overflow: "hidden",
-                background: "var(--color-border)",
+                display: "grid",
+                gridTemplateColumns: `repeat(${imageGridCols}, 1fr)`,
+                gap: 6,
+                marginBottom: 12,
               }}
             >
-              <img
-                src={img.image_url}
-                alt={`图片 ${i + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                loading="lazy"
-              />
+              {sortedImages.map((img, i) => (
+                <div
+                  key={i}
+                  style={{
+                    aspectRatio: imageGridCols === 1 ? "16/9" : "1",
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "var(--color-border)",
+                  }}
+                >
+                  <img
+                    src={img.image_url}
+                    alt={`图片 ${i + 1}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    loading="lazy"
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Actions */}
+      {!isModerationDeleted && (
       <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 4 }}>
         <motion.button
           className="ghost-button"
@@ -220,6 +270,7 @@ export const SpacePostCard = ({
           </motion.button>
         )}
       </div>
+      )}
 
       {/* Comment Section */}
       {showComments && (

@@ -27,9 +27,39 @@ logger = logging.getLogger(__name__)
 _worker_task: asyncio.Task[None] | None = None
 
 
+def _extract_moderation_text(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: str,
+) -> str:
+    """从被审核内容中提取待评估文本。"""
+    if content_type == "playlist":
+        parts = [content.title]  # type: ignore[union-attr]
+        if content.description:  # type: ignore[union-attr]
+            parts.append(content.description)  # type: ignore[union-attr]
+        return "\n\n".join(parts)
+    if content_type == "user_profile":
+        parts = [content.nickname]  # type: ignore[union-attr]
+        if content.bio:  # type: ignore[union-attr]
+            parts.append(content.bio)  # type: ignore[union-attr]
+        return "\n\n".join(parts)
+    return content.content or ""  # type: ignore[union-attr]
+
+
 async def _load_subject(task: ContentModerationTask):
     """加载任务对应内容和作者快照。"""
-    model = Comment if task.content_type == "comment" else SpacePost
+    from echomemory_backend.models.playlist import Playlist
+    from echomemory_backend.models.user import User as UserModel
+
+    model_map = {
+        "comment": Comment,
+        "space_post": SpacePost,
+        "playlist": Playlist,
+        "user_profile": UserModel,
+    }
+    model = model_map.get(task.content_type)
+    if model is None:
+        return None
+
     async with AsyncSessionLocal() as db:
         content = (
             await db.execute(
@@ -40,14 +70,33 @@ async def _load_subject(task: ContentModerationTask):
         ).scalar_one_or_none()
         if content is None:
             return None
-        if content.moderation_version != task.moderation_version:
+
+        # 读取审核版本号（处理不同列名）
+        mod_version = (
+            content.profile_moderation_version
+            if task.content_type == "user_profile"
+            else content.moderation_version
+        )
+        if mod_version != task.moderation_version:
             return None
-        content.moderation_status = "PROCESSING"
+
+        # 设置审核状态为处理中
+        if task.content_type == "user_profile":
+            content.profile_moderation_status = "PROCESSING"
+        else:
+            content.moderation_status = "PROCESSING"
+
+        # 读取作者信息
+        owner_id = content.id if task.content_type == "user_profile" else content.user_id
         username = await db.scalar(
-            select(User.username).where(User.id == content.user_id)
+            select(User.username).where(User.id == owner_id)
         )
         await db.commit()
-        return content.user_id, username, content.content or ""
+
+        text = _extract_moderation_text(content, task.content_type)
+        if not text:
+            return None
+        return owner_id, username, text
 
 
 async def process_moderation_task(task: ContentModerationTask) -> None:

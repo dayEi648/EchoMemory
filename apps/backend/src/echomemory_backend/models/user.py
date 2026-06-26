@@ -51,6 +51,17 @@ class User(Base):
     city: Mapped[str | None] = mapped_column(String(50))
     birth: Mapped[date | None] = mapped_column(Date)
     bio: Mapped[str | None] = mapped_column(Text)
+    # ---- 个人资料内容审核字段 ----
+    profile_safety_score: Mapped[int | None] = mapped_column(Integer)
+    profile_recommendation_score: Mapped[int | None] = mapped_column(Integer)
+    profile_safety_level: Mapped[str | None] = mapped_column(String(16))
+    profile_recommendation_level: Mapped[str | None] = mapped_column(String(16))
+    profile_moderation_status: Mapped[str | None] = mapped_column(String(16))
+    profile_moderation_reason: Mapped[str | None] = mapped_column(Text)
+    profile_moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    profile_moderation_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    profile_deletion_reason: Mapped[str | None] = mapped_column(String(32))
+    # ---- 个人资料内容审核字段结束 ----
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_official: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     like_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)

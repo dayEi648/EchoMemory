@@ -3,7 +3,7 @@ import { ThumbsUp, ThumbsDown, MessageCircle, Trash2, ChevronDown, ChevronUp } f
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
-import { commentApi } from "../../shared/api/instances";
+import { commentApi, appealApi } from "../../shared/api/instances";
 import { getApiErrorMessage } from "../../shared/apiError";
 import type { CommentItem as CommentItemType } from "../../shared/api/types";
 import { formatRelativeTime } from "../../shared/utils";
@@ -45,6 +45,9 @@ export const CommentItem = ({
   const isOwner = currentUserId === comment.user.id;
   const isRoot = comment.parent_id === null;
   const isNestedReply = comment.is_nested_reply;
+  const isModerationDeleted =
+    comment.is_deleted === true &&
+    (comment.deletion_reason?.startsWith("MODERATION_") ?? false);
   const lastReplyRefreshKey = useRef(replyRefreshKey);
 
   useEffect(() => {
@@ -140,6 +143,18 @@ export const CommentItem = ({
     setReplies((prev) => prev.filter((r) => r.id !== replyId));
   };
 
+  const handleAppeal = async (c: CommentItemType) => {
+    try {
+      await appealApi.create({
+        content_type: c.parent_id === null ? "comment" : "comment",
+        content_id: c.id,
+      });
+      toast.success("申诉已提交");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "申诉失败"));
+    }
+  };
+
   return (
     <>
       <div
@@ -163,7 +178,42 @@ export const CommentItem = ({
             )}
             <span className="comment-item-time">{formatRelativeTime(comment.created_at)}</span>
           </div>
-          <p className="comment-item-content">{comment.content}</p>
+          {isModerationDeleted ? (
+            <p
+              className="comment-item-content"
+              style={{
+                color: "var(--color-muted-soft)",
+                fontStyle: "italic",
+              }}
+            >
+              此评论因违反社区准则已被隐藏
+              {" · "}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleAppeal(comment);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.stopPropagation();
+                }}
+                style={{
+                  color: "var(--color-brand-coral)",
+                  cursor: "pointer",
+                  fontStyle: "normal",
+                  fontWeight: 500,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 2,
+                }}
+              >
+                申诉
+              </span>
+            </p>
+          ) : (
+            <p className="comment-item-content">{comment.content}</p>
+          )}
+          {!isModerationDeleted && (
           <div className="comment-item-actions">
             <button
               type="button"
@@ -188,6 +238,7 @@ export const CommentItem = ({
               </button>
             )}
           </div>
+          )}
 
           {/* Replies expand */}
           {isRoot && comment.reply_count > 0 && (

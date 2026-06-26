@@ -34,6 +34,8 @@ class CommentOut(BaseModel):
     created_at: datetime
     liked_by_me: bool = False
     disliked_by_me: bool = False
+    is_deleted: bool = False
+    deletion_reason: str | None = None
 
     @field_validator("user", mode="before")
     @classmethod

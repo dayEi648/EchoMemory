@@ -27,7 +27,7 @@ from echomemory_backend.services.content_moderation_service import (
     restore_moderation_deleted_content,
 )
 
-ContentType = Literal["comment", "space_post"]
+ContentType = Literal["comment", "space_post", "playlist", "user_profile"]
 
 
 def _escaped_pattern(query: str) -> str:
@@ -51,32 +51,71 @@ def _comment_target(comment: Comment) -> tuple[str | None, int | None]:
 
 def _to_out(
     content_type: ContentType,
-    content: Comment | SpacePost,
+    content: Comment | SpacePost | Playlist | User,
     username: str,
 ) -> AdminModeratedContentOut:
     """把 ORM 内容转换为统一管理输出。"""
     target_type, target_id = (
         _comment_target(content) if isinstance(content, Comment) else (None, None)
     )
+
+    # 处理不同内容类型的列名差异
+    if content_type == "user_profile":
+        safety = content.profile_safety_score  # type: ignore[union-attr]
+        recommendation = content.profile_recommendation_score  # type: ignore[union-attr]
+        s_level = content.profile_safety_level  # type: ignore[union-attr]
+        r_level = content.profile_recommendation_level  # type: ignore[union-attr]
+        m_status = content.profile_moderation_status  # type: ignore[union-attr]
+        m_reason = content.profile_moderation_reason  # type: ignore[union-attr]
+        m_at = content.profile_moderated_at  # type: ignore[union-attr]
+        del_reason = content.profile_deletion_reason  # type: ignore[union-attr]
+        is_rec = False
+        is_del = False
+        text_content = f"{content.nickname}\n{content.bio or ''}"  # type: ignore[union-attr]
+    elif content_type in ("comment", "space_post"):
+        safety = content.safety  # type: ignore[union-attr]
+        recommendation = content.recommendation_score  # type: ignore[union-attr]
+        s_level = content.safety_level  # type: ignore[union-attr]
+        r_level = content.recommendation_level  # type: ignore[union-attr]
+        m_status = content.moderation_status  # type: ignore[union-attr]
+        m_reason = content.moderation_reason  # type: ignore[union-attr]
+        m_at = content.moderated_at  # type: ignore[union-attr]
+        del_reason = content.deletion_reason  # type: ignore[union-attr]
+        is_rec = content.is_recommended  # type: ignore[union-attr]
+        is_del = content.is_deleted  # type: ignore[union-attr]
+        text_content = content.content  # type: ignore[union-attr]
+    else:  # playlist
+        safety = content.safety_score  # type: ignore[union-attr]
+        recommendation = content.recommendation_score  # type: ignore[union-attr]
+        s_level = content.safety_level  # type: ignore[union-attr]
+        r_level = content.recommendation_level  # type: ignore[union-attr]
+        m_status = content.moderation_status  # type: ignore[union-attr]
+        m_reason = content.moderation_reason  # type: ignore[union-attr]
+        m_at = content.moderated_at  # type: ignore[union-attr]
+        del_reason = content.deletion_reason  # type: ignore[union-attr]
+        is_rec = getattr(content, "is_recommended", False)
+        is_del = getattr(content, "is_deleted", False)
+        text_content = f"{content.title}\n{content.description or ''}"  # type: ignore[union-attr]
+
     return AdminModeratedContentOut(
         id=content.id,
         content_type=content_type,
-        user_id=content.user_id,
+        user_id=content.id if content_type == "user_profile" else content.user_id,  # type: ignore[union-attr]
         username=username,
-        content=content.content,
+        content=text_content,
         target_type=target_type,
         target_id=target_id,
-        safety_score=content.safety,
-        recommendation_score=content.recommendation_score,
-        safety_level=content.safety_level,
-        recommendation_level=content.recommendation_level,
-        moderation_status=content.moderation_status,
-        moderation_reason=content.moderation_reason,
-        is_recommended=content.is_recommended,
-        is_deleted=content.is_deleted,
-        deletion_reason=content.deletion_reason,
-        moderated_at=content.moderated_at,
-        created_at=content.created_at,
+        safety_score=safety,
+        recommendation_score=recommendation,
+        safety_level=s_level,
+        recommendation_level=r_level,
+        moderation_status=m_status,
+        moderation_reason=m_reason,
+        is_recommended=is_rec,
+        is_deleted=is_del,
+        deletion_reason=del_reason,
+        moderated_at=m_at,
+        created_at=content.created_at,  # type: ignore[union-attr]
     )
 
 
@@ -98,30 +137,66 @@ async def list_moderated_content(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[AdminModeratedContentOut], int]:
-    """按管理筛选条件分页查询评论或空间动态。"""
-    model = Comment if content_type == "comment" else SpacePost
+    """按管理筛选条件分页查询。"""
+    from echomemory_backend.models.playlist import Playlist
+    from echomemory_backend.models.user import User as UserModel
+
+    _MODELS = {
+        "comment": Comment,
+        "space_post": SpacePost,
+        "playlist": Playlist,
+        "user_profile": UserModel,
+    }
+    model = _MODELS[content_type]
+
+    # 根据内容类型选择文本搜索列和审核列
+    if content_type == "user_profile":
+        text_col = UserModel.nickname
+        safety_col = UserModel.profile_safety_level
+        rec_col = UserModel.profile_recommendation_level
+        status_col = UserModel.profile_moderation_status
+        is_del_col = None  # user_profile 没有 is_deleted
+        is_rec_col = None
+    elif content_type == "playlist":
+        text_col = Playlist.title
+        safety_col = Playlist.safety_level
+        rec_col = Playlist.recommendation_level
+        status_col = Playlist.moderation_status
+        is_del_col = None
+        is_rec_col = None
+    else:
+        text_col = model.content
+        safety_col = model.safety_level
+        rec_col = model.recommendation_level
+        status_col = model.moderation_status
+        is_del_col = model.is_deleted
+        is_rec_col = model.is_recommended
+
     filters = []
     if q:
         pattern = _escaped_pattern(q)
         filters.append(
             or_(
-                model.content.ilike(pattern, escape="\\"),
+                text_col.ilike(pattern, escape="\\"),
                 User.username.ilike(pattern, escape="\\"),
                 User.nickname.ilike(pattern, escape="\\"),
             )
         )
     if user_id is not None:
-        filters.append(model.user_id == user_id)
+        if content_type == "user_profile":
+            filters.append(UserModel.id == user_id)
+        else:
+            filters.append(model.user_id == user_id)
     if safety_level:
-        filters.append(model.safety_level == safety_level)
+        filters.append(safety_col == safety_level)
     if recommendation_level:
-        filters.append(model.recommendation_level == recommendation_level)
+        filters.append(rec_col == recommendation_level)
     if moderation_status:
-        filters.append(model.moderation_status == moderation_status)
-    if is_deleted is not None:
-        filters.append(model.is_deleted.is_(is_deleted))
-    if is_recommended is not None:
-        filters.append(model.is_recommended.is_(is_recommended))
+        filters.append(status_col == moderation_status)
+    if is_deleted is not None and is_del_col is not None:
+        filters.append(is_del_col.is_(is_deleted))
+    if is_recommended is not None and is_rec_col is not None:
+        filters.append(is_rec_col.is_(is_recommended))
     if start_time:
         filters.append(model.created_at >= start_time)
     if end_time:

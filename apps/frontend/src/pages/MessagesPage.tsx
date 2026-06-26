@@ -7,8 +7,14 @@ import {
   Ban,
   CheckCheck,
   MessageCircle,
+  ShieldAlert,
+  FileText,
+  Bot,
+  UserCheck,
 } from "lucide-react";
+import { Modal } from "../components/ui/Modal";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 import { useInboxStore } from "../shared/stores/inboxStore";
 import { useAuthStore } from "../shared/stores/authStore";
@@ -19,27 +25,45 @@ import {
   formatBadge,
 } from "../shared/notificationHelpers";
 import { formatRelativeTime } from "../shared/utils";
+import { appealApi } from "../shared/api/instances";
+import { getApiErrorMessage } from "../shared/apiError";
 
 /* ================================================================
  * Notification Panel
  * ================================================================ */
+const MODERATION_ACTION_LABELS: Record<string, string> = {
+  deleted: "内容已被移除",
+  sanitized: "内容已被清除",
+  hidden_after_failures: "审核失败，内容已暂时隐藏",
+};
+
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  comment: "评论",
+  space_post: "说说",
+  playlist: "歌单",
+  user_profile: "个人资料",
+};
+
 function NotificationPanel() {
   const navigate = useNavigate();
   const { notifications, markNotificationRead, markAllNotificationsRead } =
     useInboxStore();
+  const [moderationDetail, setModerationDetail] =
+    useState<NotificationItem | null>(null);
 
   const handleClick = async (n: NotificationItem) => {
     if (!n.is_read) {
       await markNotificationRead(n.id);
     }
-    // 根据通知类型跳转
+    if (n.type === 5) {
+      setModerationDetail(n);
+      return;
+    }
     if (n.type === 0 && n.actor) {
       navigate(`/profile/${n.actor.id}`);
     } else if (n.type === 1 || n.type === 2) {
-      // 评论被回复/被点赞 → 暂无直接详情页，跳转目标作者页
       navigate(`/space`);
     } else if (n.type === 3 || n.type === 4) {
-      // 空间动态被点赞/被评论
       navigate(`/space`);
     }
   };
@@ -66,7 +90,15 @@ function NotificationPanel() {
         ) : (
           notifications.map((n) => {
             const Icon = NOTIFICATION_ICON_MAP[n.type] ?? Bell;
-            const label = NOTIFICATION_LABEL_MAP[n.type] ?? "互动通知";
+            const baseLabel = NOTIFICATION_LABEL_MAP[n.type] ?? "互动通知";
+            const extra = (n.extra ?? {}) as Record<string, unknown>;
+            const label =
+              n.type === 5
+                ? MODERATION_ACTION_LABELS[String(extra.action ?? "")] ?? baseLabel
+                : baseLabel;
+            const iconAccent =
+              n.type === 5 ? "pink" : n.type === 0 ? "teal" : n.type === 1 ? "lavender" : "coral";
+
             return (
               <div
                 key={n.id}
@@ -74,7 +106,7 @@ function NotificationPanel() {
                 onClick={() => void handleClick(n)}
               >
                 <span
-                  className={`notification-panel-item__icon icon-accent-bg icon-accent-bg--${n.type === 0 ? "teal" : n.type === 1 ? "lavender" : "coral"}`}
+                  className={`notification-panel-item__icon icon-accent-bg icon-accent-bg--${iconAccent}`}
                 >
                   <Icon size={16} />
                 </span>
@@ -86,15 +118,202 @@ function NotificationPanel() {
                     {" "}
                     {label}
                   </div>
-                  <div className="notification-panel-item__time">
-                    {formatRelativeTime(n.created_at)}
-                  </div>
+                  {n.type === 5 && extra.content_preview ? (
+                    <div
+                      className="notification-panel-item__time"
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: 240,
+                        marginTop: 2,
+                      }}
+                    >
+                      「{String(extra.content_preview)}」
+                    </div>
+                  ) : (
+                    <div className="notification-panel-item__time">
+                      {formatRelativeTime(n.created_at)}
+                    </div>
+                  )}
                 </div>
                 {!n.is_read && <span className="notification-panel-item__dot" />}
               </div>
             );
           })
         )}
+      </div>
+
+      {/* 审核详情弹窗 */}
+      <Modal
+        open={moderationDetail !== null}
+        onClose={() => setModerationDetail(null)}
+        title="审核详情"
+        maxWidth={480}
+      >
+        {moderationDetail && (
+          <ModerationDetailContent notification={moderationDetail} />
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/** 审核通知详情内容 */
+function ModerationDetailContent({
+  notification,
+}: {
+  notification: NotificationItem;
+}) {
+  const extra = (notification.extra ?? {}) as Record<string, unknown>;
+  const action = String(extra.action ?? "unknown");
+  const reason = String(extra.reason ?? "无");
+  const safetyLevel = String(extra.safety_level ?? "");
+  const source = String(extra.source ?? "AGENT");
+  const contentType = String(extra.content_type ?? notification.target_type);
+  const preview = String(extra.content_preview ?? "");
+  const [appealing, setAppealing] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+
+  const handleAppeal = async () => {
+    setAppealing(true);
+    try {
+      await appealApi.create({
+        content_type: contentType,
+        content_id: notification.target_id,
+        appeal_reason: appealReason || null,
+      });
+      toast.success("申诉已提交，管理员将尽快处理");
+      setAppealReason("");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "申诉提交失败"));
+    } finally {
+      setAppealing(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {preview && (
+        <div>
+          <div style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 6, fontWeight: 600 }}>
+            涉及内容（{CONTENT_TYPE_LABELS[contentType] ?? contentType}）
+          </div>
+          <div
+            style={{
+              padding: "10px 12px", borderRadius: 8, background: "var(--color-surface-soft)",
+              fontSize: 13, lineHeight: 1.6, color: "var(--color-body)", wordBreak: "break-word",
+            }}
+          >
+            {preview}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <ShieldAlert size={16} style={{ color: "var(--color-brand-coral)" }} />
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)" }}>
+          {MODERATION_ACTION_LABELS[action] ?? action}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+        <DetailChip label="安全档位" value={safetyLevel || "—"} />
+        <DetailChip
+          label="审核来源"
+          value={source === "MANUAL" ? "人工审核" : "AI 自动审核"}
+          icon={source === "MANUAL" ? UserCheck : Bot}
+        />
+      </div>
+
+      <div>
+        <div style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 6, fontWeight: 600 }}>审核理由</div>
+        <div
+          style={{
+            padding: "10px 12px", borderRadius: 8, background: "var(--color-surface-soft)",
+            fontSize: 13, lineHeight: 1.6, color: "var(--color-body)",
+          }}
+        >
+          {reason}
+        </div>
+      </div>
+
+      {/* 申诉入口 */}
+      {action !== "appeal_approved" && action !== "appeal_denied" && (
+        <div
+          style={{
+            borderTop: "1px solid var(--color-hairline)",
+            paddingTop: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "var(--color-muted)", fontWeight: 600 }}>
+            认为处理有误？
+          </div>
+          <textarea
+            value={appealReason}
+            onChange={(e) => setAppealReason(e.target.value)}
+            placeholder="申诉理由（可选）"
+            rows={2}
+            disabled={appealing}
+            style={{
+              width: "100%",
+              minHeight: 44,
+              padding: "8px 12px",
+              border: "1px solid var(--color-hairline)",
+              borderRadius: 8,
+              fontSize: 13,
+              resize: "vertical",
+              background: "var(--color-canvas)",
+            }}
+          />
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => void handleAppeal()}
+            disabled={appealing}
+            style={{ alignSelf: "flex-end", fontSize: 13, padding: "6px 16px", minHeight: 34 }}
+          >
+            {appealing ? "提交中..." : "提交申诉"}
+          </button>
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, color: "var(--color-muted-soft)" }}>
+        {formatRelativeTime(notification.created_at)}
+      </div>
+    </div>
+  );
+}
+
+function DetailChip({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ComponentType<{ size?: number }>;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 2 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--color-ink)",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        {Icon && <Icon size={14} />}
+        {value}
       </div>
     </div>
   );

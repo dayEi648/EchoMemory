@@ -17,14 +17,21 @@ from echomemory_backend.models.content_moderation import (
     UserContentModerationStats,
 )
 from echomemory_backend.models.enums import NotificationType
+from echomemory_backend.models.playlist import Playlist
 from echomemory_backend.models.space_post import SpacePost
+from echomemory_backend.models.user import User
 from echomemory_backend.schemas.content_moderation import ModerationDecision
 from echomemory_backend.services.notification_service import create_notification
 
 logger = logging.getLogger(__name__)
 
-ContentType = Literal["comment", "space_post"]
-_CONTENT_MODELS = {"comment": Comment, "space_post": SpacePost}
+ContentType = Literal["comment", "space_post", "playlist", "user_profile"]
+_CONTENT_MODELS = {
+    "comment": Comment,
+    "space_post": SpacePost,
+    "playlist": Playlist,
+    "user_profile": User,
+}
 _STATS_ADVISORY_LOCK_NAMESPACE = 73102
 
 
@@ -57,13 +64,154 @@ async def _get_content(
     content_id: int,
     *,
     for_update: bool = False,
-) -> Comment | SpacePost | None:
+) -> Comment | SpacePost | Playlist | User | None:
     """按统一内容类型加载记录。"""
     model = _CONTENT_MODELS[content_type]
     stmt = select(model).where(model.id == content_id)
     if for_update:
         stmt = stmt.with_for_update()
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+def _get_safety_score(content: Comment | SpacePost | Playlist | User, content_type: ContentType) -> int | None:
+    """读取内容的当前安全分（处理不同列名）。"""
+    if content_type == "user_profile":
+        return content.profile_safety_score  # type: ignore[union-attr]
+    if content_type in ("comment", "space_post"):
+        return content.safety  # type: ignore[union-attr]
+    return content.safety_score  # type: ignore[union-attr]
+
+
+def _set_moderation_fields(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+    *,
+    safety_score: int,
+    recommendation_score: int,
+    safety_level: str,
+    recommendation_level: str,
+    moderation_status: str,
+    moderation_reason: str | None,
+) -> None:
+    """在内容对象上设置审核结果字段（处理不同列名）。"""
+    if content_type == "user_profile":
+        content.profile_safety_score = safety_score  # type: ignore[union-attr]
+        content.profile_recommendation_score = recommendation_score  # type: ignore[union-attr]
+        content.profile_safety_level = safety_level  # type: ignore[union-attr]
+        content.profile_recommendation_level = recommendation_level  # type: ignore[union-attr]
+        content.profile_moderation_status = moderation_status  # type: ignore[union-attr]
+        content.profile_moderation_reason = moderation_reason  # type: ignore[union-attr]
+        content.profile_moderated_at = _utcnow()  # type: ignore[union-attr]
+    elif content_type in ("comment", "space_post"):
+        content.safety = safety_score  # type: ignore[union-attr]
+        content.recommendation_score = recommendation_score  # type: ignore[union-attr]
+        content.safety_level = safety_level  # type: ignore[union-attr]
+        content.recommendation_level = recommendation_level  # type: ignore[union-attr]
+        content.moderation_status = moderation_status  # type: ignore[union-attr]
+        content.moderation_reason = moderation_reason  # type: ignore[union-attr]
+        content.moderated_at = _utcnow()  # type: ignore[union-attr]
+    else:
+        content.safety_score = safety_score  # type: ignore[union-attr]
+        content.recommendation_score = recommendation_score  # type: ignore[union-attr]
+        content.safety_level = safety_level  # type: ignore[union-attr]
+        content.recommendation_level = recommendation_level  # type: ignore[union-attr]
+        content.moderation_status = moderation_status  # type: ignore[union-attr]
+        content.moderation_reason = moderation_reason  # type: ignore[union-attr]
+        content.moderated_at = _utcnow()  # type: ignore[union-attr]
+
+
+def _get_moderation_version(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> int:
+    """读取内容的审核版本号（处理不同列名）。"""
+    if content_type == "user_profile":
+        return content.profile_moderation_version  # type: ignore[union-attr]
+    return content.moderation_version  # type: ignore[union-attr]
+
+
+def _get_previous_safety_level(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> str | None:
+    """读取内容的上一次安全档位。"""
+    if content_type == "user_profile":
+        return content.profile_safety_level  # type: ignore[union-attr]
+    return content.safety_level  # type: ignore[union-attr]
+
+
+def _get_previous_recommendation_level(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> str | None:
+    """读取内容的上一次推荐档位。"""
+    if content_type == "user_profile":
+        return content.profile_recommendation_level  # type: ignore[union-attr]
+    return content.recommendation_level  # type: ignore[union-attr]
+
+
+def _get_content_owner_id(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> int:
+    """读取内容的作者用户 ID。"""
+    if content_type == "user_profile":
+        return content.id  # type: ignore[union-attr]
+    return content.user_id  # type: ignore[union-attr]
+
+
+def _extract_content_preview(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+    max_length: int = 100,
+) -> str:
+    """提取被审核内容的文本预览（用于通知展示）。"""
+    if content_type == "playlist":
+        text = content.title  # type: ignore[union-attr]
+    elif content_type == "user_profile":
+        text = content.nickname  # type: ignore[union-attr]
+    else:
+        text = content.content or ""  # type: ignore[union-attr]
+    if len(text) > max_length:
+        text = text[:max_length] + "…"
+    return text
+
+
+def _is_user_deleted(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> bool:
+    """检查该内容是否已被用户主动删除（不应被审核覆盖）。"""
+    if content_type == "user_profile":
+        return content.profile_deletion_reason == "USER"  # type: ignore[union-attr]
+    return content.deletion_reason == "USER"  # type: ignore[union-attr]
+
+
+def _apply_dangerous_action(
+    content: Comment | SpacePost | Playlist | User,
+    content_type: ContentType,
+) -> bool:
+    """对危险内容执行对应的安全动作。
+
+    - comment / space_post: 逻辑删除
+    - playlist: 清空标题和描述
+    - user_profile: 清空昵称和简介
+
+    返回是否需要发送通知。
+    """
+    if content_type == "playlist":
+        content.title = "[审核未通过]"  # type: ignore[union-attr]
+        content.description = ""  # type: ignore[union-attr]
+        content.deletion_reason = "MODERATION_DANGEROUS"  # type: ignore[union-attr]
+        return True
+    if content_type == "user_profile":
+        content.nickname = f"用户{content.id}"  # type: ignore[union-attr]
+        content.bio = ""  # type: ignore[union-attr]
+        content.profile_deletion_reason = "MODERATION_DANGEROUS"  # type: ignore[union-attr]
+        return True
+    content.is_deleted = True  # type: ignore[union-attr]
+    content.deletion_reason = "MODERATION_DANGEROUS"  # type: ignore[union-attr]
+    return True
 
 
 async def enqueue_moderation(
@@ -219,24 +367,25 @@ async def apply_moderation_decision(
         locked_task.content_id,
         for_update=True,
     )
-    if content is None or content.moderation_version != locked_task.moderation_version:
+    ct = locked_task.content_type
+    if content is None or _get_moderation_version(content, ct) != locked_task.moderation_version:
         locked_task.status = "CANCELLED"
         await db.commit()
         return False
 
     safety_level = classify_safety_score(decision.safety_score)
-    recommendation_level = classify_recommendation_score(
-        decision.recommendation_score
-    )
-    stats = await _get_or_create_stats(db, content.user_id)
-    if (
-        content.safety_level is not None
-        and content.recommendation_level is not None
-    ):
+    recommendation_level = classify_recommendation_score(decision.recommendation_score)
+
+    owner_id = _get_content_owner_id(content, ct)
+    stats = await _get_or_create_stats(db, owner_id)
+
+    prev_safety = _get_previous_safety_level(content, ct)
+    prev_recommendation = _get_previous_recommendation_level(content, ct)
+    if prev_safety is not None and prev_recommendation is not None:
         _adjust_stats(
             stats,
-            safety_level=content.safety_level,
-            recommendation_level=content.recommendation_level,
+            safety_level=prev_safety,
+            recommendation_level=prev_recommendation,
             delta=-1,
         )
     _adjust_stats(
@@ -246,39 +395,43 @@ async def apply_moderation_decision(
         delta=1,
     )
 
-    content.safety = decision.safety_score
-    content.recommendation_score = decision.recommendation_score
-    content.safety_level = safety_level
-    content.recommendation_level = recommendation_level
-    content.moderation_status = "MANUAL" if source == "MANUAL" else "SUCCEEDED"
-    content.moderation_reason = decision.reason
-    content.moderated_at = _utcnow()
-    content.is_recommended = recommendation_level == "RECOMMENDED"
+    _set_moderation_fields(
+        content,
+        ct,
+        safety_score=decision.safety_score,
+        recommendation_score=decision.recommendation_score,
+        safety_level=safety_level,
+        recommendation_level=recommendation_level,
+        moderation_status="MANUAL" if source == "MANUAL" else "SUCCEEDED",
+        moderation_reason=decision.reason,
+    )
 
-    if (
-        safety_level == "DANGEROUS"
-        and content.deletion_reason != "USER"
-    ):
-        content.is_deleted = True
-        content.deletion_reason = "MODERATION_DANGEROUS"
+    if ct in ("comment", "space_post"):
+        content.is_recommended = recommendation_level == "RECOMMENDED"  # type: ignore[union-attr]
+
+    if safety_level == "DANGEROUS" and not _is_user_deleted(content, ct):
+        _apply_dangerous_action(content, ct)
         await create_notification(
             db,
-            recipient_id=content.user_id,
+            recipient_id=owner_id,
             actor_id=None,
             type=NotificationType.CONTENT_MODERATION,
-            target_type=locked_task.content_type,
+            target_type=ct,
             target_id=content.id,
             extra={
-                "action": "deleted",
+                "action": "deleted" if ct in ("comment", "space_post") else "sanitized",
                 "reason": decision.reason,
                 "safety_level": safety_level,
+                "source": source,
+                "content_type": ct,
+                "content_preview": _extract_content_preview(content, ct),
             },
         )
 
     history = ContentModerationHistory(
-        content_type=locked_task.content_type,
+        content_type=ct,
         content_id=content.id,
-        user_id=content.user_id,
+        user_id=owner_id,
         moderation_version=locked_task.moderation_version,
         source=source,
         safety_score=decision.safety_score,
@@ -319,45 +472,60 @@ async def mark_moderation_attempt_failed(
     task.last_error = f"{type(error).__name__}: {error}"[:2000]
     task.agent_run_id = agent_run_id
     task.locked_at = None
+    ct = task.content_type
     terminal = task.attempt_count >= task.max_attempts
     if not terminal:
         task.status = "PENDING"
         task.available_at = _utcnow() + timedelta(
             seconds=2 ** (task.attempt_count - 1)
         )
-        content = await _get_content(
-            db, task.content_type, task.content_id, for_update=True
-        )
-        if (
-            content is not None
-            and content.moderation_version == task.moderation_version
-        ):
-            content.moderation_status = "PENDING"
-            content.moderation_reason = task.last_error
+        content = await _get_content(db, ct, task.content_id, for_update=True)
+        if content is not None and _get_moderation_version(content, ct) == task.moderation_version:
+            _set_moderation_fields(
+                content,
+                ct,
+                safety_score=_get_safety_score(content, ct) or 0,
+                recommendation_score=0,
+                safety_level=_get_previous_safety_level(content, ct) or "SAFE",
+                recommendation_level=_get_previous_recommendation_level(content, ct) or "NORMAL",
+                moderation_status="PENDING",
+                moderation_reason=task.last_error,
+            )
         await db.commit()
         return False
 
     task.status = "FAILED"
-    content = await _get_content(
-        db, task.content_type, task.content_id, for_update=True
-    )
-    if content is not None and content.moderation_version == task.moderation_version:
-        content.moderation_status = "FAILED"
-        content.moderation_reason = task.last_error
-        content.moderated_at = _utcnow()
-        if content.deletion_reason != "USER":
-            content.is_deleted = True
-            content.deletion_reason = "MODERATION_FAILED"
+    content = await _get_content(db, ct, task.content_id, for_update=True)
+    if content is not None and _get_moderation_version(content, ct) == task.moderation_version:
+        _set_moderation_fields(
+            content,
+            ct,
+            safety_score=_get_safety_score(content, ct) or 0,
+            recommendation_score=0,
+            safety_level=_get_previous_safety_level(content, ct) or "SAFE",
+            recommendation_level=_get_previous_recommendation_level(content, ct) or "NORMAL",
+            moderation_status="FAILED",
+            moderation_reason=task.last_error,
+        )
+        if not _is_user_deleted(content, ct):
+            if ct in ("playlist", "user_profile"):
+                _apply_dangerous_action(content, ct)
+            else:
+                content.is_deleted = True  # type: ignore[union-attr]
+                content.deletion_reason = "MODERATION_FAILED"  # type: ignore[union-attr]
             await create_notification(
                 db,
-                recipient_id=content.user_id,
+                recipient_id=_get_content_owner_id(content, ct),
                 actor_id=None,
                 type=NotificationType.CONTENT_MODERATION,
-                target_type=task.content_type,
+                target_type=ct,
                 target_id=content.id,
                 extra={
                     "action": "hidden_after_failures",
                     "reason": "自动审核连续失败，内容已暂时隐藏",
+                    "source": "AGENT",
+                    "content_type": ct,
+                    "content_preview": _extract_content_preview(content, ct),
                 },
             )
     await db.commit()
@@ -391,17 +559,37 @@ async def restore_moderation_deleted_content(
     *,
     content_type: ContentType,
     content_id: int,
-) -> Comment | SpacePost:
-    """恢复仅因自动审核而逻辑删除的内容。"""
+) -> Comment | SpacePost | Playlist | User:
+    """恢复仅因自动审核而隐藏/清除的内容。
+
+    对 comment/space_post：恢复 is_deleted 标记。
+    对 playlist/user_profile：仅清除 deletion_reason，内容字段需由用户重新编辑。
+    """
     content = await _get_content(db, content_type, content_id, for_update=True)
     if content is None:
         raise ValueError("content not found")
-    if content.deletion_reason not in {
-        "MODERATION_DANGEROUS",
-        "MODERATION_FAILED",
-    }:
-        raise ValueError("content was not deleted by moderation")
-    content.is_deleted = False
-    content.deletion_reason = None
+
+    if content_type == "user_profile":
+        if content.profile_deletion_reason not in {  # type: ignore[union-attr]
+            "MODERATION_DANGEROUS",
+            "MODERATION_FAILED",
+        }:
+            raise ValueError("content was not deleted by moderation")
+        content.profile_deletion_reason = None  # type: ignore[union-attr]
+    elif content_type == "playlist":
+        if content.deletion_reason not in {  # type: ignore[union-attr]
+            "MODERATION_DANGEROUS",
+            "MODERATION_FAILED",
+        }:
+            raise ValueError("content was not deleted by moderation")
+        content.deletion_reason = None  # type: ignore[union-attr]
+    else:
+        if content.deletion_reason not in {  # type: ignore[union-attr]
+            "MODERATION_DANGEROUS",
+            "MODERATION_FAILED",
+        }:
+            raise ValueError("content was not deleted by moderation")
+        content.is_deleted = False  # type: ignore[union-attr]
+        content.deletion_reason = None  # type: ignore[union-attr]
     await db.commit()
     return content

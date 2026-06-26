@@ -1,7 +1,7 @@
 """空间动态（SpacePost）业务服务模块，提供动态的创建、查询、列表、删除及点赞等功能。"""
 from echomemory_backend.core.exceptions.codes import ErrorCode
 
-from sqlalchemy import desc, func, select, update
+from sqlalchemy import desc, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -81,7 +81,8 @@ async def get_space_post_by_id(db: AsyncSession, post_id: int) -> SpacePost | No
 def can_view_space_post(viewer_id: int | None, post: SpacePost) -> bool:
     """判断 viewer 是否有权查看该空间动态。
 
-    已删除动态对任何人都不可见。
+    用户主动删除的动态对任何人都不可见。
+    审核删除的动态保留可见（前端渲染占位提示）。
     私密动态仅作者本人可见。
     公开动态对所有人可见。
 
@@ -92,7 +93,7 @@ def can_view_space_post(viewer_id: int | None, post: SpacePost) -> bool:
     Returns:
         有权查看返回 True，否则返回 False。
     """
-    if post.is_deleted:
+    if post.is_deleted and post.deletion_reason == "USER":
         return False
     if post.is_private and post.user_id != viewer_id:
         return False
@@ -118,9 +119,13 @@ async def list_space_posts(
     Returns:
         {"items": SpacePost 列表, "total": 总记录数}。
     """
+    # 仅过滤用户主动删除的动态；审核删除的动态保留（前端渲染占位提示）
     where_clause = [
         SpacePost.user_id == target_user_id,
-        SpacePost.is_deleted == False,
+        or_(
+            SpacePost.is_deleted == False,
+            SpacePost.deletion_reason != "USER",
+        ),
     ]
     if target_user_id != viewer_user_id:
         where_clause.append(SpacePost.is_private == False)

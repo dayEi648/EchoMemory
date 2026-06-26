@@ -57,7 +57,7 @@ class Notification(Base):
             "type >= 0 AND type <= 5", name="chk_notifications_type"
         ),
         CheckConstraint(
-            "target_type IN ('user', 'comment', 'space_post')",
+            "target_type IN ('user', 'comment', 'space_post', 'playlist', 'user_profile')",
             name="chk_notifications_target_type",
         ),
         CheckConstraint(

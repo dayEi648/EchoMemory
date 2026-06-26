@@ -148,18 +148,41 @@ async def update_user_profile(
             raise BusinessError("手机号已被注册", code=ErrorCode.USER_PHONE_EXISTS)
         current_user.phone = user_in.phone
 
+    profile_text_changed = False
     if user_in.nickname is not None:
         current_user.nickname = user_in.nickname
+        profile_text_changed = True
     if user_in.gender is not None:
         current_user.gender = user_in.gender
     if user_in.birth is not None:
         current_user.birth = user_in.birth
     if user_in.bio is not None:
         current_user.bio = user_in.bio
+        profile_text_changed = True
     if user_in.city is not None:
         current_user.city = user_in.city
     if avatar_url is not None:
         current_user.avatar_url = avatar_url
+
+    if profile_text_changed:
+        from echomemory_backend.services.content_moderation_service import (
+            enqueue_moderation,
+        )
+        import logging  # noqa: F811 - local import to avoid circular dependency
+
+        await db.flush()
+        try:
+            await enqueue_moderation(
+                db,
+                content_type="user_profile",
+                content_id=current_user.id,
+                force=True,
+            )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Failed to enqueue user profile moderation for user %s",
+                current_user.id,
+            )
 
     try:
         await db.commit()

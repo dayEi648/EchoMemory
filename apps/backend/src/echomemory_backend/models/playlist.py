@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     SmallInteger,
     String,
     Text,
@@ -46,6 +47,17 @@ class Playlist(Base):
     comment_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     is_like: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_recommended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # ---- 内容审核字段 ----
+    safety_score: Mapped[int | None] = mapped_column(Integer)
+    recommendation_score: Mapped[int | None] = mapped_column(Integer)
+    safety_level: Mapped[str | None] = mapped_column(String(16))
+    recommendation_level: Mapped[str | None] = mapped_column(String(16))
+    moderation_status: Mapped[str | None] = mapped_column(String(16))
+    moderation_reason: Mapped[str | None] = mapped_column(Text)
+    moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    moderation_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    deletion_reason: Mapped[str | None] = mapped_column(String(32))
+    # ---- 内容审核字段结束 ----
     cover_icon_url: Mapped[str | None] = mapped_column(String(500))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

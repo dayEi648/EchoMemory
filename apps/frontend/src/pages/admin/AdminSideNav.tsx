@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Music, BookOpen, Activity, Disc3, Image, Flame, ScrollText, Bot, MessageSquareText, PanelsTopLeft, Library } from "lucide-react";
+import { Users, Music, BookOpen, Activity, Disc3, Image, Flame, ScrollText, Bot, MessageSquareText, PanelsTopLeft, Library, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 const adminLinks = [
@@ -14,6 +14,7 @@ const adminLinks = [
   { to: "/admin/space-posts", icon: PanelsTopLeft, label: "说说管理" },
   { to: "/admin/logs", icon: ScrollText, label: "系统日志" },
   { to: "/admin/agent-monitor/ai-conversation", icon: Bot, label: "AI 对话监控" },
+  { to: "/admin/agent-monitor/content-moderation", icon: ShieldCheck, label: "内容审核监控" },
   { to: "/admin/music-knowledge", icon: Library, label: "音乐知识库" },
 ];
 
