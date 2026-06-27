@@ -69,7 +69,37 @@ const mockDiscoverApis = (user: UserMe, history: unknown[] = []) => {
       return jsonResponse(envelope({ items: history, total: history.length }));
     }
     if (url.includes("/users/admin/stats")) {
-      return jsonResponse(envelope({ users: 0, musics: 0, albums: 0, playlists: 0, comments: 0, space_posts: 0 }));
+      return jsonResponse(
+        envelope({
+          users: 0,
+          music: 0,
+          albums: 0,
+          playlists: 0,
+          comments: 0,
+          space_posts: 0,
+          user_status_distribution: [],
+          user_role_distribution: [],
+          content_trend: [],
+          music_style_distribution: [],
+          moderation_queue: {
+            pending_comments: 0,
+            pending_space_posts: 0,
+            pending_moderation_tasks: 0,
+          },
+          engagement_totals: {
+            total_plays: 0,
+            total_collections: 0,
+            total_forwards: 0,
+          },
+          top_hot_music: [],
+          agent_run_summary: {
+            total_24h: 0,
+            succeeded_24h: 0,
+            failed_24h: 0,
+            total_tokens_24h: 0,
+          },
+        }),
+      );
     }
     return jsonResponse(envelope({}));
   });
@@ -245,7 +275,35 @@ describe("App", () => {
       }
       if (url.includes("/users/admin/stats")) {
         return jsonResponse(
-          envelope({ users: 0, musics: 0, albums: 0, playlists: 0, comments: 0, space_posts: 0 }),
+          envelope({
+            users: 0,
+            music: 0,
+            albums: 0,
+            playlists: 0,
+            comments: 0,
+            space_posts: 0,
+            user_status_distribution: [],
+            user_role_distribution: [],
+            content_trend: [],
+            music_style_distribution: [],
+            moderation_queue: {
+              pending_comments: 0,
+              pending_space_posts: 0,
+              pending_moderation_tasks: 0,
+            },
+            engagement_totals: {
+              total_plays: 0,
+              total_collections: 0,
+              total_forwards: 0,
+            },
+            top_hot_music: [],
+            agent_run_summary: {
+              total_24h: 0,
+              succeeded_24h: 0,
+              failed_24h: 0,
+              total_tokens_24h: 0,
+            },
+          }),
         );
       }
       if (url.includes("/music/") || url.includes("/recommendations/") || url.includes("/albums/")) {

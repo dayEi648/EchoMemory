@@ -156,6 +156,59 @@ class UserPublicOut(UserOut):
     is_followed_by_me: bool = False
 
 
+class DistributionItemOut(BaseModel):
+    """分布统计项。"""
+
+    key: str
+    label: str
+    count: int
+
+
+class ContentTrendPointOut(BaseModel):
+    """内容增长趋势单点数据。"""
+
+    date: str
+    users: int
+    music: int
+    comments: int
+    space_posts: int
+
+
+class ModerationQueueOut(BaseModel):
+    """待审核队列统计。"""
+
+    pending_comments: int
+    pending_space_posts: int
+    pending_moderation_tasks: int
+
+
+class EngagementTotalsOut(BaseModel):
+    """全站互动总量统计。"""
+
+    total_plays: int
+    total_collections: int
+    total_forwards: int
+
+
+class TopHotMusicOut(BaseModel):
+    """热度最高的音乐条目。"""
+
+    id: int
+    title: str
+    authors: str
+    hot: int
+    play_count: int
+
+
+class AgentRunSummaryOut(BaseModel):
+    """最近 24 小时 Agent 运行汇总。"""
+
+    total_24h: int
+    succeeded_24h: int
+    failed_24h: int
+    total_tokens_24h: int
+
+
 class DashboardStatsOut(BaseModel):
     """管理仪表盘统计输出 Schema。"""
 
@@ -165,6 +218,14 @@ class DashboardStatsOut(BaseModel):
     playlists: int
     comments: int
     space_posts: int
+    user_status_distribution: list[DistributionItemOut]
+    user_role_distribution: list[DistributionItemOut]
+    content_trend: list[ContentTrendPointOut]
+    music_style_distribution: list[DistributionItemOut]
+    moderation_queue: ModerationQueueOut
+    engagement_totals: EngagementTotalsOut
+    top_hot_music: list[TopHotMusicOut]
+    agent_run_summary: AgentRunSummaryOut
 
 
 class FollowCreate(BaseModel):

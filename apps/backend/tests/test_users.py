@@ -645,14 +645,27 @@ class TestAdminDashboardStats:
         resp = client.get(self.ADMIN_STATS_URL, headers=_auth_header(admin))
         assert resp.status_code == 200
         data = api_data(resp)
-        assert "users" in data
-        assert "music" in data
-        assert "albums" in data
-        assert "playlists" in data
-        assert "comments" in data
-        assert "space_posts" in data
-        for v in data.values():
-            assert isinstance(v, int)
+        for key in (
+            "users",
+            "music",
+            "albums",
+            "playlists",
+            "comments",
+            "space_posts",
+            "user_status_distribution",
+            "user_role_distribution",
+            "content_trend",
+            "music_style_distribution",
+            "moderation_queue",
+            "engagement_totals",
+            "top_hot_music",
+            "agent_run_summary",
+        ):
+            assert key in data
+        assert isinstance(data["users"], int)
+        assert isinstance(data["content_trend"], list)
+        assert isinstance(data["moderation_queue"], dict)
+        assert isinstance(data["agent_run_summary"], dict)
 
     async def test_stats_as_normal_user_forbidden(self, client: TestClient, db_session: AsyncSession):
         """测试普通用户访问统计接口返回 403。"""

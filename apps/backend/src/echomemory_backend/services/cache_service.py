@@ -205,7 +205,7 @@ async def invalidate_user_public(user_id: int) -> None:
 _ADMIN_DASHBOARD_STATS_TTL = 5 * 60  # 5 分钟
 
 
-async def get_cached_dashboard_stats() -> dict[str, int] | None:
+async def get_cached_dashboard_stats() -> dict | None:
     """从缓存读取管理仪表盘统计数据。
 
     Returns:
@@ -217,7 +217,7 @@ async def get_cached_dashboard_stats() -> dict[str, int] | None:
     return cached
 
 
-async def set_cached_dashboard_stats(stats: dict[str, int]) -> None:
+async def set_cached_dashboard_stats(stats: dict) -> None:
     """将管理仪表盘统计数据写入缓存。
 
     Args:

@@ -140,6 +140,64 @@ export type PaginatedUsers = {
   total: number;
 };
 
+export type DashboardDistributionItem = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+export type DashboardContentTrendPoint = {
+  date: string;
+  users: number;
+  music: number;
+  comments: number;
+  space_posts: number;
+};
+
+export type DashboardModerationQueue = {
+  pending_comments: number;
+  pending_space_posts: number;
+  pending_moderation_tasks: number;
+};
+
+export type DashboardEngagementTotals = {
+  total_plays: number;
+  total_collections: number;
+  total_forwards: number;
+};
+
+export type DashboardTopHotMusic = {
+  id: number;
+  title: string;
+  authors: string;
+  hot: number;
+  play_count: number;
+};
+
+export type DashboardAgentRunSummary = {
+  total_24h: number;
+  succeeded_24h: number;
+  failed_24h: number;
+  total_tokens_24h: number;
+};
+
+export type DashboardStats = {
+  users: number;
+  music: number;
+  albums: number;
+  playlists: number;
+  comments: number;
+  space_posts: number;
+  user_status_distribution: DashboardDistributionItem[];
+  user_role_distribution: DashboardDistributionItem[];
+  content_trend: DashboardContentTrendPoint[];
+  music_style_distribution: DashboardDistributionItem[];
+  moderation_queue: DashboardModerationQueue;
+  engagement_totals: DashboardEngagementTotals;
+  top_hot_music: DashboardTopHotMusic[];
+  agent_run_summary: DashboardAgentRunSummary;
+};
+
 /* ==================== Music ==================== */
 
 export type Tag = { id: number; name: string };
