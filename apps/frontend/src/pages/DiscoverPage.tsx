@@ -106,7 +106,7 @@ const DAILY_CARDS = [
     subtitle: "随机发现更多惊喜",
     gradient: "linear-gradient(135deg, #b8a4ed, #d4c8f5)",
     iconAccent: "lavender" as const,
-    path: null,
+    path: "/personal-roam",
   },
 ] as const;
 

@@ -893,6 +893,32 @@ export type MusicKnowledgeDeleteResult = {
   deleted_chunks: number;
 };
 
+// ---------- Private Roam ----------
+
+export type RoamState = {
+  playlist: number[];
+  position: number;
+  current_song: MusicListItem;
+  pref_pool_summary: Record<string, string>;
+  dislike_pool_summary: Record<string, string>;
+  recommend_reason: string | null;
+};
+
+export type RoamReport = {
+  total_songs: number;
+  favorited_count: number;
+  disliked_count: number;
+  favorited_songs: MusicListItem[];
+  taste_summary: string;
+  recommendation: string | null;
+};
+
+export type RoamGuideResponse = {
+  parsed_intent: string;
+  adjustments: Record<string, number>;
+  new_state: RoamState;
+};
+
 // ---------- Content Appeal ----------
 
 export type ContentAppeal = {

@@ -9,6 +9,7 @@ import { AuthPage } from "./pages/AuthPage";
 import { DiscoverPage } from "./pages/DiscoverPage";
 import { DailyRecommendPage } from "./pages/DailyRecommendPage";
 import { RadarPage } from "./pages/RadarPage";
+import { RoamPage } from "./pages/RoamPage";
 import { PlaylistsPage } from "./pages/PlaylistsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { HistoryPage } from "./pages/HistoryPage";
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="/" element={<DiscoverPage />} />
           <Route path="/daily-recommend" element={<DailyRecommendPage />} />
           <Route path="/personal-radar" element={<RadarPage />} />
+          <Route path="/personal-roam" element={<RoamPage />} />
           <Route path="/playlists" element={<PlaylistsPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/history" element={<HistoryPage />} />

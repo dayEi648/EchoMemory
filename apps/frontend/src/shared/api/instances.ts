@@ -21,6 +21,7 @@ import { createAIConversationApi } from "./aiConversationApi";
 import { createAgentMonitorApi } from "./agentMonitorApi";
 import { createContentModerationApi } from "./contentModerationApi";
 import { createMusicKnowledgeApi } from "./musicKnowledgeApi";
+import { createRoamApi } from "./roamApi";
 import { createAppealApi } from "./appealApi";
 
 const isDev = import.meta.env.DEV;
@@ -56,6 +57,7 @@ export type ApiRegistry = {
   contentModerationApi: ReturnType<typeof createContentModerationApi>;
   musicKnowledgeApi: ReturnType<typeof createMusicKnowledgeApi>;
   appealApi: ReturnType<typeof createAppealApi>;
+  roamApi: ReturnType<typeof createRoamApi>;
 };
 
 function buildApis(tokenStore: TokenStore): ApiRegistry {
@@ -80,6 +82,7 @@ function buildApis(tokenStore: TokenStore): ApiRegistry {
     contentModerationApi: createContentModerationApi(options),
     musicKnowledgeApi: createMusicKnowledgeApi(options),
     appealApi: createAppealApi(options),
+    roamApi: createRoamApi(options),
   };
 }
 
@@ -114,6 +117,7 @@ export function replaceApiTokenStore(tokenStore: TokenStore): void {
   contentModerationApi = apis.contentModerationApi;
   musicKnowledgeApi = apis.musicKnowledgeApi;
   appealApi = apis.appealApi;
+  roamApi = apis.roamApi;
 }
 
 export let userApi = apis.userApi;
@@ -135,3 +139,4 @@ export let agentMonitorApi = apis.agentMonitorApi;
 export let contentModerationApi = apis.contentModerationApi;
 export let musicKnowledgeApi = apis.musicKnowledgeApi;
 export let appealApi = apis.appealApi;
+export let roamApi = apis.roamApi;

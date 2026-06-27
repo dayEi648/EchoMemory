@@ -21,6 +21,7 @@ from echomemory_backend.api.v1.endpoints import (
     play_history,
     playlist,
     recommendation,
+    roam,
     space_post,
     users,
     ws_inbox,
@@ -47,4 +48,5 @@ router.include_router(admin_content_moderation.router)
 router.include_router(admin_logs.router)
 router.include_router(admin_music_knowledge.router)
 router.include_router(appeal.router)
+router.include_router(roam.router)
 router.include_router(ws_inbox.router)
