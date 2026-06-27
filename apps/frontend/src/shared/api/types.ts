@@ -62,6 +62,16 @@ export type UserTag = {
   created_at: string;
 };
 
+export type UserEcho = {
+  profile: string;
+  emotion_tags: UserTag[];
+  interest_tags: UserTag[];
+  styles: UserTag[];
+  languages: UserTag[];
+  hourly_distribution: number[];
+  total_play_count: number;
+};
+
 export type LoginInput = {
   username: string;
   password: string;

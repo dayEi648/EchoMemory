@@ -8,7 +8,6 @@ import {
   CheckCheck,
   MessageCircle,
   ShieldAlert,
-  FileText,
   Bot,
   UserCheck,
 } from "lucide-react";

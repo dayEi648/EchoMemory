@@ -215,6 +215,15 @@
 .icon-accent-bg--mint { background: color-mix(in srgb, var(--color-brand-mint) 25%, transparent); color: #3a9a82; }
 .icon-accent-bg--coral { background: color-mix(in srgb, var(--color-brand-coral) 15%, transparent); color: var(--color-brand-coral); }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
 /* ========== Surface cards ========== */
 .surface-card {
   background: var(--color-surface-card);

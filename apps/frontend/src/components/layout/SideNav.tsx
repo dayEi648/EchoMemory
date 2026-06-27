@@ -16,7 +16,7 @@ const mainLinks = [
   { to: "/playlists", icon: LayoutList, label: "我的歌单" },
   { to: "/library", icon: Heart, label: "我的收藏" },
   { to: "/history", icon: Clock, label: "最近播放" },
-  { to: "/echo", icon: Sparkles, label: "AI 回声" },
+  { to: "/echo", icon: Sparkles, label: "个人回声" },
   { to: "/ai-assistant", icon: Bot, label: "AI 助手" },
 ];
 

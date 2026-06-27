@@ -24,12 +24,6 @@ const SUPPORTED_EXTENSIONS = [".docx", ".pdf", ".md", ".markdown"];
 const SUPPORTED_LABEL = SUPPORTED_EXTENSIONS.join(" / ");
 const MAX_FILE_SIZE_MB = 10;
 
-const fileSizeString = (file: File): string => {
-  if (file.size < 1024) return `${file.size} B`;
-  if (file.size < 1024 * 1024) return `${(file.size / 1024).toFixed(1)} KB`;
-  return `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 const fileIconByExtension = (filename: string) => {
   const lower = filename.toLowerCase();
   if (lower.endsWith(".pdf")) return "📄";

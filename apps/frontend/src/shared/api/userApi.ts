@@ -6,6 +6,7 @@ import type {
   UpdateMeInput,
   UserAdminUpdate,
   UserAdminCreateInput,
+  UserEcho,
   UserMe,
   UserPublic,
   PaginatedUserSearch,
@@ -85,6 +86,11 @@ export const createUserApi = ({ baseUrl, fetcher, tokenStore }: ApiOptions) => {
     getPublicUser: (userId: number) => request<UserPublic>(`/users/${userId}`, {}, false),
     getMyEmotionTags: () => request<UserTag[]>("/users/me/emotion-tags"),
     getMyInterestTags: () => request<UserTag[]>("/users/me/interest-tags"),
+    getMyStyles: () => request<UserTag[]>("/users/me/styles"),
+    getMyLanguages: () => request<UserTag[]>("/users/me/languages"),
+    getMyEcho: () => request<UserEcho>("/users/me/echo"),
+    recalculateMyTags: () =>
+      request<void>("/users/me/recalculate-tags", { method: "POST" }),
     follow: (followeeId: number) =>
       request<void>("/users/follow", {
         method: "POST",

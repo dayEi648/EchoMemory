@@ -268,3 +268,19 @@ class PaginatedUserAdminOut(BaseModel):
 
     items: list[UserMeOut]
     total: int
+
+
+class UserEchoOut(BaseModel):
+    """个人回声聚合数据输出 Schema。
+
+    包含 AI 画像摘要、情绪 / 兴趣 / 风格 / 语言偏好，
+    以及最近播放历史的 24 小时分布。
+    """
+
+    profile: str
+    emotion_tags: list[dict]
+    interest_tags: list[dict]
+    styles: list[dict]
+    languages: list[dict]
+    hourly_distribution: list[int]
+    total_play_count: int

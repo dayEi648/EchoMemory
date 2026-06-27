@@ -23,6 +23,7 @@ from echomemory_backend.schemas.user import (
     UserAdminCreate,
     UserAdminUpdate,
     UserBanAction,
+    UserEchoOut,
     UserMeOut,
     UserPublicOut,
     UserSearchOut,
@@ -123,6 +124,18 @@ async def get_my_languages(
 ) -> list[dict]:
     """获取当前用户的语言偏好列表。"""
     return await user_tag_service.list_user_languages(db, current_user.id)
+
+
+@router.get("/me/echo", response_model=UserEchoOut)
+async def get_my_echo(
+    db: SessionDep, current_user: ActiveUser
+) -> dict:
+    """获取当前用户的"个人回声"聚合数据。
+
+    包含 AI 画像摘要、情绪 / 兴趣 / 风格 / 语言偏好，
+    以及播放历史的 24 小时活跃分布。
+    """
+    return await user_service.get_user_echo(db, current_user.id)
 
 
 @router.post("/me/recalculate-tags", status_code=HttpStatus.NO_CONTENT)

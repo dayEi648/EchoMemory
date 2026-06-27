@@ -188,6 +188,45 @@ async def list_play_history(
     return {"items": page.items, "total": page.total}
 
 
+async def get_play_history_summary(
+    db: AsyncSession, user_id: int
+) -> dict[str, object]:
+    """获取用户播放历史统计摘要。
+
+    返回总播放次数（按 play_history.play_count 累计）与 24 小时播放分布。
+    分布按 played_at 所在小时统计，无播放的小时填 0。
+
+    Args:
+        db: SQLAlchemy AsyncSession。
+        user_id: 用户主键。
+
+    Returns:
+        {"total_play_count": int, "hourly_distribution": list[int]}。
+    """
+    stmt = select(
+        func.coalesce(func.sum(PlayHistory.play_count), 0).label("total_play_count")
+    ).where(PlayHistory.user_id == user_id)
+    total_play_count = (await db.execute(stmt)).scalar_one() or 0
+
+    hour_stmt = (
+        select(func.extract("hour", PlayHistory.played_at), func.sum(PlayHistory.play_count))
+        .where(PlayHistory.user_id == user_id, PlayHistory.played_at.is_not(None))
+        .group_by(func.extract("hour", PlayHistory.played_at))
+    )
+    hour_rows = list((await db.execute(hour_stmt)).all())
+
+    hourly_distribution = [0] * 24
+    for hour, count in hour_rows:
+        hour_index = int(hour)
+        if 0 <= hour_index < 24:
+            hourly_distribution[hour_index] = int(count or 0)
+
+    return {
+        "total_play_count": int(total_play_count),
+        "hourly_distribution": hourly_distribution,
+    }
+
+
 async def delete_play_history(
     db: AsyncSession, user_id: int, history_id: int
 ) -> None:

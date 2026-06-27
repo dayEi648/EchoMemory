@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { roamApi } from "../shared/api/instances";
-import type { MusicListItem, RoamState, RoamReport } from "../shared/api/types";
+import type { RoamState, RoamReport } from "../shared/api/types";
 import { formatAuthors } from "../shared/utils";
 import { usePlayMusic } from "../shared/usePlayMusic";
 import { FadeIn } from "../components/motion/FadeIn";

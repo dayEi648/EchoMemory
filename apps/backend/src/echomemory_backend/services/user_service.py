@@ -415,3 +415,42 @@ async def search_users(
     stmt = select(User).where(*where_clause).order_by(desc(User.exp))
     page = await paginate(db, stmt, where_clause, limit=limit, offset=offset)
     return {"items": page.items, "total": page.total}
+
+
+async def get_user_echo(db: AsyncSession, user_id: int) -> dict[str, object]:
+    """聚合当前用户的"个人回声"数据。
+
+    包含 AI 画像摘要、情绪 / 兴趣 / 风格 / 语言偏好，
+    以及播放历史的总次数与 24 小时分布。
+
+    Args:
+        db: SQLAlchemy AsyncSession。
+        user_id: 用户主键。
+
+    Returns:
+        符合 UserEchoOut 的字典。
+    """
+    from echomemory_backend.models.user_profile import UserProfile
+    from echomemory_backend.services import user_tag_service
+    from echomemory_backend.services import play_history_service
+
+    profile_result = await db.execute(
+        select(UserProfile.content).where(UserProfile.user_id == user_id)
+    )
+    profile_content = profile_result.scalar_one_or_none() or ""
+
+    emotion_tags = await user_tag_service.list_user_emotion_tags(db, user_id)
+    interest_tags = await user_tag_service.list_user_interest_tags(db, user_id)
+    styles = await user_tag_service.list_user_styles(db, user_id)
+    languages = await user_tag_service.list_user_languages(db, user_id)
+    play_summary = await play_history_service.get_play_history_summary(db, user_id)
+
+    return {
+        "profile": profile_content,
+        "emotion_tags": emotion_tags,
+        "interest_tags": interest_tags,
+        "styles": styles,
+        "languages": languages,
+        "hourly_distribution": play_summary["hourly_distribution"],
+        "total_play_count": play_summary["total_play_count"],
+    }
